@@ -1,6 +1,6 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
-import fastifyJwt from '@fastify/jwt';
+import jwt from 'jsonwebtoken';
 import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
@@ -61,10 +61,6 @@ async function buildServer(): Promise<FastifyInstance> {
   await app.register(cors, {
     origin: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  });
-
-  await app.register(fastifyJwt, {
-    secret: JWT_SECRET,
   });
 
   // Health check
@@ -128,7 +124,7 @@ async function buildServer(): Promise<FastifyInstance> {
       },
     });
 
-    const token = app.jwt.sign({ id: user.id, email: user.email, role: user.role });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     return reply.status(201).send({ user, token });
   });
 
@@ -149,7 +145,7 @@ async function buildServer(): Promise<FastifyInstance> {
       }
     }
 
-    const token = app.jwt.sign({ id: user.id, email: user.email, role: user.role });
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     return {
       user: {
         id: user.id,
