@@ -7,13 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum IssueStatus {
-  BACKLOG
-  TODO
-  IN_PROGRESS
-  IN_REVIEW
-  DONE
-  CANCELLED
+enum UserRole {
+  ADMIN
+  MEMBER
+  VIEWER
 }
 
 enum IssuePriority {
@@ -43,14 +40,45 @@ enum AgentRunStatus {
   FAILED
 }
 
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  avatarUrl String?
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  projects    Project[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("workspaces")
+}
+
 model Project {
-  id          String   @id @default(uuid())
-  key         String   @unique // e.g. "KAN"
+  id          String     @id @default(uuid())
+  key         String     @unique // e.g. "KAN"
   name        String
   description String?
+  
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  
+  columns     Json?      // Customizable status columns: [{ id: "BACKLOG", title: "Backlog", color: "..." }]
+  
   issues      Issue[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@map("projects")
 }
@@ -61,10 +89,11 @@ model Issue {
   number        Int
   title         String
   description   String?       @db.Text
-  status        IssueStatus   @default(TODO)
+  status        String        @default("TODO")
   priority      IssuePriority @default(MEDIUM)
   type          IssueType     @default(TASK)
   assigneeType  AssigneeType  @default(UNASSIGNED)
+  assigneeId    String?
   assigneeName  String?
   labels        String[]      @default([])
   agentMetadata Json?
@@ -77,6 +106,7 @@ model Issue {
   subIssues     Issue[]       @relation("SubIssues")
 
   comments      Comment[]
+  activities    ActivityLog[]
   agentRuns     AgentRun[]
 
   createdAt     DateTime      @default(now())
@@ -85,6 +115,20 @@ model Issue {
   @@index([projectId, status])
   @@index([identifier])
   @@map("issues")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actorType String   @default("HUMAN") // HUMAN, AGENT, SYSTEM
+  actorName String
+  action    String   // CREATED, STATUS_CHANGED, PRIORITY_CHANGED, ASSIGNED, UPDATED, COMMENTED
+  details   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([issueId])
+  @@map("activity_logs")
 }
 
 model Comment {

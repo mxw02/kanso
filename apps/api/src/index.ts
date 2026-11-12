@@ -1,6 +1,8 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
-import { PrismaClient, IssueStatus, IssuePriority, IssueType, AssigneeType, AgentRunStatus } from '@prisma/client';
+import fastifyJwt from '@fastify/jwt';
+import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import Redis from 'ioredis';
 
@@ -9,6 +11,7 @@ dotenv.config();
 const prisma = new PrismaClient();
 const PORT = parseInt(process.env.PORT || '4000', 10);
 const HOST = '0.0.0.0';
+const JWT_SECRET = process.env.JWT_SECRET || 'kanso-super-secret-jwt-key-change-in-production-2026';
 
 // Optional Redis for pub/sub event distribution
 let redisPub: Redis | null = null;
@@ -40,6 +43,14 @@ function broadcastEvent(type: string, payload: unknown) {
   }
 }
 
+const DEFAULT_COLUMNS = [
+  { id: 'BACKLOG', title: 'Backlog', color: 'border-zinc-700/60' },
+  { id: 'TODO', title: 'To Do', color: 'border-blue-500/40' },
+  { id: 'IN_PROGRESS', title: 'In Progress', color: 'border-amber-500/40' },
+  { id: 'IN_REVIEW', title: 'In Review', color: 'border-purple-500/40' },
+  { id: 'DONE', title: 'Done', color: 'border-emerald-500/40' },
+];
+
 async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: {
@@ -52,11 +63,16 @@ async function buildServer(): Promise<FastifyInstance> {
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
 
+  await app.register(fastifyJwt, {
+    secret: JWT_SECRET,
+  });
+
   // Health check
   app.get('/health', async () => {
     return {
       status: 'ok',
       service: 'kanso-api',
+      version: '1.0.0',
       timestamp: new Date().toISOString(),
       agentSupport: true,
       mcpEnabled: true,
@@ -78,22 +94,148 @@ async function buildServer(): Promise<FastifyInstance> {
     });
   });
 
-  // --- Projects ---
-  app.get('/api/projects', async () => {
-    return prisma.project.findMany({
+  // ==========================================
+  // AUTH & USERS (Rollen: ADMIN, MEMBER, VIEWER)
+  // ==========================================
+  app.post('/api/auth/register', async (request: FastifyRequest<{
+    Body: { email: string; name: string; password?: string; role?: UserRole };
+  }>, reply: FastifyReply) => {
+    const { email, name, password, role } = request.body;
+    if (!email || !name) {
+      return reply.status(400).send({ error: 'Email and Name are required.' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return reply.status(409).send({ error: 'User with this email already exists.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password || 'password123', 10);
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        password: passwordHash,
+        role: role || UserRole.MEMBER,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        createdAt: true,
+      },
+    });
+
+    const token = app.jwt.sign({ id: user.id, email: user.email, role: user.role });
+    return reply.status(201).send({ user, token });
+  });
+
+  app.post('/api/auth/login', async (request: FastifyRequest<{
+    Body: { email: string; password?: string };
+  }>, reply: FastifyReply) => {
+    const { email, password } = request.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      return reply.status(401).send({ error: 'Invalid credentials' });
+    }
+
+    if (password) {
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) {
+        return reply.status(401).send({ error: 'Invalid credentials' });
+      }
+    }
+
+    const token = app.jwt.sign({ id: user.id, email: user.email, role: user.role });
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+        createdAt: user.createdAt,
+      },
+      token,
+    };
+  });
+
+  app.get('/api/users', async () => {
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+  });
+
+  // ==========================================
+  // WORKSPACES & PROJEKTE
+  // ==========================================
+  app.get('/api/workspaces', async () => {
+    return prisma.workspace.findMany({
       include: {
+        projects: {
+          select: {
+            id: true,
+            key: true,
+            name: true,
+            _count: { select: { issues: true } },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+  });
+
+  app.post('/api/workspaces', async (request: FastifyRequest<{
+    Body: { name: string; slug?: string; description?: string };
+  }>, reply: FastifyReply) => {
+    const { name, slug, description } = request.body;
+    if (!name) return reply.status(400).send({ error: 'Workspace name is required.' });
+
+    const cleanSlug = (slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-|-$/g, '');
+    const workspace = await prisma.workspace.create({
+      data: {
+        name,
+        slug: cleanSlug,
+        description,
+      },
+    });
+
+    broadcastEvent('workspace_created', workspace);
+    return reply.status(201).send(workspace);
+  });
+
+  app.get('/api/projects', async (request: FastifyRequest<{
+    Querystring: { workspaceId?: string };
+  }>) => {
+    const where: any = {};
+    if (request.query.workspaceId) where.workspaceId = request.query.workspaceId;
+
+    return prisma.project.findMany({
+      where,
+      include: {
+        workspace: { select: { id: true, name: true, slug: true } },
         _count: {
           select: { issues: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'asc' },
     });
   });
 
   app.post('/api/projects', async (request: FastifyRequest<{
-    Body: { key: string; name: string; description?: string };
+    Body: { key: string; name: string; description?: string; workspaceId?: string; columns?: any[] };
   }>, reply: FastifyReply) => {
-    const { key, name, description } = request.body;
+    const { key, name, description, workspaceId, columns } = request.body;
     if (!key || !name) {
       return reply.status(400).send({ error: 'Key and Name are required.' });
     }
@@ -102,53 +244,90 @@ async function buildServer(): Promise<FastifyInstance> {
     if (existing) {
       return reply.status(409).send({ error: `Project key ${cleanKey} already exists.` });
     }
+
     const project = await prisma.project.create({
       data: {
         key: cleanKey,
         name,
         description,
+        workspaceId: workspaceId || null,
+        columns: columns || DEFAULT_COLUMNS,
+      },
+      include: {
+        workspace: true,
       },
     });
+
     broadcastEvent('project_created', project);
     return reply.status(201).send(project);
   });
 
-  // --- Issues ---
+  app.patch('/api/projects/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: { name?: string; description?: string; columns?: any[] };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const updated = await prisma.project.update({
+      where: { id },
+      data: request.body,
+    });
+    broadcastEvent('project_updated', updated);
+    return updated;
+  });
+
+  // ==========================================
+  // TICKET-MANAGEMENT (ISSUES), FILTER & SUCHE
+  // ==========================================
   app.get('/api/issues', async (request: FastifyRequest<{
     Querystring: {
       projectId?: string;
-      status?: IssueStatus;
+      status?: string;
       priority?: IssuePriority;
       assigneeType?: AssigneeType;
+      assigneeId?: string;
+      label?: string;
       search?: string;
+      sortField?: 'priority' | 'updatedAt' | 'createdAt' | 'identifier';
+      sortOrder?: 'asc' | 'desc';
     };
   }>) => {
-    const { projectId, status, priority, assigneeType, search } = request.query;
+    const { projectId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
     const where: any = {};
 
     if (projectId) where.projectId = projectId;
-    if (status) where.status = status;
-    if (priority) where.priority = priority;
-    if (assigneeType) where.assigneeType = assigneeType;
-    if (search) {
+    if (status && status !== 'ALL') where.status = status;
+    if (priority && (priority as any) !== 'ALL') where.priority = priority;
+    if (assigneeType && (assigneeType as any) !== 'ALL') where.assigneeType = assigneeType;
+    if (assigneeId) where.assigneeId = assigneeId;
+    if (label) where.labels = { has: label };
+
+    if (search && search.trim()) {
+      const term = search.trim();
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { identifier: { contains: search, mode: 'insensitive' } },
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+        { identifier: { contains: term, mode: 'insensitive' } },
+        { assigneeName: { contains: term, mode: 'insensitive' } },
       ];
+    }
+
+    const orderBy: any = [];
+    if (sortField) {
+      orderBy.push({ [sortField]: sortOrder || 'asc' });
+    } else {
+      orderBy.push({ priority: 'asc' });
+      orderBy.push({ updatedAt: 'desc' });
     }
 
     return prisma.issue.findMany({
       where,
       include: {
-        project: { select: { id: true, key: true, name: true } },
+        project: { select: { id: true, key: true, name: true, columns: true } },
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
+        activities: { orderBy: { createdAt: 'desc' }, take: 5 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
       },
-      orderBy: [
-        { priority: 'asc' },
-        { updatedAt: 'desc' },
-      ],
+      orderBy,
     });
   });
 
@@ -163,6 +342,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: true,
         comments: { orderBy: { createdAt: 'asc' } },
+        activities: { orderBy: { createdAt: 'desc' } },
         agentRuns: { orderBy: { startedAt: 'desc' } },
         subIssues: true,
         parent: true,
@@ -182,14 +362,17 @@ async function buildServer(): Promise<FastifyInstance> {
       projectKey?: string;
       title: string;
       description?: string;
-      status?: IssueStatus;
+      status?: string;
       priority?: IssuePriority;
       type?: IssueType;
       assigneeType?: AssigneeType;
+      assigneeId?: string;
       assigneeName?: string;
       labels?: string[];
       parentId?: string;
       agentMetadata?: any;
+      actorName?: string;
+      actorType?: string;
     };
   }>, reply: FastifyReply) => {
     const body = request.body;
@@ -200,7 +383,6 @@ async function buildServer(): Promise<FastifyInstance> {
     } else if (body.projectKey) {
       project = await prisma.project.findUnique({ where: { key: body.projectKey.toUpperCase() } });
     } else {
-      // Default to first project
       project = await prisma.project.findFirst();
     }
 
@@ -222,18 +404,30 @@ async function buildServer(): Promise<FastifyInstance> {
         number: nextNumber,
         title: body.title,
         description: body.description || '',
-        status: body.status || IssueStatus.TODO,
+        status: body.status || 'TODO',
         priority: body.priority || IssuePriority.MEDIUM,
         type: body.type || IssueType.TASK,
         assigneeType: body.assigneeType || AssigneeType.UNASSIGNED,
+        assigneeId: body.assigneeId || null,
         assigneeName: body.assigneeName || null,
         labels: body.labels || [],
         parentId: body.parentId || null,
         agentMetadata: body.agentMetadata || undefined,
         projectId: project.id,
+        activities: {
+          create: [
+            {
+              actorType: body.actorType || (body.assigneeType === 'AGENT' ? 'AGENT' : 'HUMAN'),
+              actorName: body.actorName || body.assigneeName || 'System',
+              action: 'CREATED',
+              details: `Created issue ${identifier} "${body.title}"`,
+            },
+          ],
+        },
       },
       include: {
         project: true,
+        activities: true,
       },
     });
 
@@ -246,13 +440,16 @@ async function buildServer(): Promise<FastifyInstance> {
     Body: {
       title?: string;
       description?: string;
-      status?: IssueStatus;
+      status?: string;
       priority?: IssuePriority;
       type?: IssueType;
       assigneeType?: AssigneeType;
+      assigneeId?: string;
       assigneeName?: string;
       labels?: string[];
       agentMetadata?: any;
+      actorName?: string;
+      actorType?: string;
     };
   }>, reply: FastifyReply) => {
     const { id } = request.params;
@@ -264,15 +461,55 @@ async function buildServer(): Promise<FastifyInstance> {
       return reply.status(404).send({ error: 'Issue not found' });
     }
 
+    const body = request.body;
+    const actorName = body.actorName || 'User';
+    const actorType = body.actorType || 'HUMAN';
+
+    // Track activity changes
+    const activityLogsToCreate: any[] = [];
+    if (body.status && body.status !== existing.status) {
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'STATUS_CHANGED',
+        details: `Changed status from ${existing.status} to ${body.status}`,
+      });
+    }
+    if (body.priority && body.priority !== existing.priority) {
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'PRIORITY_CHANGED',
+        details: `Changed priority from ${existing.priority} to ${body.priority}`,
+      });
+    }
+    if (body.assigneeName !== undefined && body.assigneeName !== existing.assigneeName) {
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'ASSIGNED',
+        details: body.assigneeName
+          ? `Assigned to ${body.assigneeType === 'AGENT' ? '🤖 ' : ''}${body.assigneeName}`
+          : 'Unassigned issue',
+      });
+    }
+
+    // Clean up update payload (exclude non-db fields)
+    const updateData: any = { ...body };
+    delete updateData.actorName;
+    delete updateData.actorType;
+    updateData.updatedAt = new Date();
+
     const updated = await prisma.issue.update({
       where: { id: existing.id },
       data: {
-        ...request.body,
-        updatedAt: new Date(),
+        ...updateData,
+        activities: activityLogsToCreate.length > 0 ? { create: activityLogsToCreate } : undefined,
       },
       include: {
         project: true,
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
+        activities: { orderBy: { createdAt: 'desc' }, take: 10 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
       },
     });
@@ -298,7 +535,25 @@ async function buildServer(): Promise<FastifyInstance> {
     return { success: true, identifier: existing.identifier };
   });
 
-  // --- Comments ---
+  // ==========================================
+  // KOMMENTARE & AKTIVITÄTS-LOG
+  // ==========================================
+  app.get('/api/issues/:id/activities', async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const existing = await prisma.issue.findFirst({
+      where: { OR: [{ id }, { identifier: id.toUpperCase() }] },
+    });
+
+    if (!existing) return reply.status(404).send({ error: 'Issue not found' });
+
+    return prisma.activityLog.findMany({
+      where: { issueId: existing.id },
+      orderBy: { createdAt: 'desc' },
+    });
+  });
+
   app.post('/api/issues/:id/comments', async (request: FastifyRequest<{
     Params: { id: string };
     Body: { authorType?: AssigneeType; authorName: string; content: string };
@@ -321,11 +576,24 @@ async function buildServer(): Promise<FastifyInstance> {
       },
     });
 
+    // Record activity log for comment
+    await prisma.activityLog.create({
+      data: {
+        issueId: existing.id,
+        actorType: request.body.authorType === AssigneeType.AGENT ? 'AGENT' : 'HUMAN',
+        actorName: request.body.authorName,
+        action: 'COMMENTED',
+        details: `Added a comment: "${request.body.content.slice(0, 60)}${request.body.content.length > 60 ? '...' : ''}"`,
+      },
+    });
+
     broadcastEvent('comment_added', { issueId: existing.id, identifier: existing.identifier, comment });
     return reply.status(201).send(comment);
   });
 
-  // --- Agent Runs (Agentic Execution tracking) ---
+  // ==========================================
+  // AGENT RUNS
+  // ==========================================
   app.post('/api/issues/:id/agent-runs', async (request: FastifyRequest<{
     Params: { id: string };
     Body: { agentName: string; agentModel?: string; prompt?: string };
@@ -349,13 +617,12 @@ async function buildServer(): Promise<FastifyInstance> {
       },
     });
 
-    // Automatically flag issue as assigned to AGENT if not already
     await prisma.issue.update({
       where: { id: existing.id },
       data: {
         assigneeType: AssigneeType.AGENT,
         assigneeName: request.body.agentName,
-        status: existing.status === IssueStatus.TODO ? IssueStatus.IN_PROGRESS : existing.status,
+        status: existing.status === 'TODO' ? 'IN_PROGRESS' : existing.status,
       },
     });
 
@@ -389,7 +656,7 @@ async function start() {
   const app = await buildServer();
   try {
     await app.listen({ port: PORT, host: HOST });
-    console.log(`🚀 Kanso API Server running at http://${HOST}:${PORT}`);
+    console.log(`🚀 Kanso API Server v1.0 running at http://${HOST}:${PORT}`);
     console.log(`📡 Realtime SSE stream available at http://${HOST}:${PORT}/api/events`);
   } catch (err) {
     app.log.error(err);

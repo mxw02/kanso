@@ -1,6 +1,6 @@
 <div align="center">
 
-# 簡素 KANSO
+# 簡素 KANSO (v1.0)
 
 ### The Lean, Agent-First & MCP-Native Open Source Jira Alternative
 
@@ -12,67 +12,99 @@
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-**Kanso (簡素)** is a Japanese aesthetic principle of simplicity, purity, and the elimination of clutter.  
-Kanso is built from the ground up for modern engineering teams where **autonomous AI agents** and **human engineers** work alongside each other in the same backlog and sprint.
+**Kanso (簡素)** ist das japanische Ästhetik-Prinzip der Einfachheit, Klarheit und Beseitigung von Überflüssigem.  
+Kanso ist von Grund auf für moderne Ingenieur- und Produktteams konzipiert, in denen **autonome KI-Agenten** und **menschliche Entwickler** Hand in Hand im selben Sprint arbeiten.
 
-[Quickstart](#-quickstart-mit-docker) • [Architecture](#-architecture--tech-stack) • [MCP Integration](#-model-context-protocol-mcp) • [Agentic Features](#-agentic-first-features) • [Docs](docs/architecture.md)
+[Quickstart](#-quickstart-mit-docker) • [Features v1.0](#-funktionsumfang-version-10) • [Architecture](#-architecture--tech-stack) • [MCP Integration](#-model-context-protocol-mcp) • [Tastaturkürzel](#-tastaturkrzel)
 
 </div>
 
 ---
 
-## 🎯 Warum Kanso? (The Jira Alternative)
+## 🎯 Funktionsumfang (Version 1.0)
 
-Traditionelle Issue-Tracker wie Jira wurden für eine Ära entwickelt, in der ausschließlich Menschen manuell Formulare ausfüllten und endlose Dropdowns durchklickten. Sie sind langsam, überladen, komplex zu konfigurieren und für KI-Agenten unzugänglich.
+### 1. 🎫 Ticket-Management (Issues)
+- **Erstellen & Bearbeiten**: Blitzschnelle Erstellung von Tickets mit Markdown-Beschreibungen (# Headers, Checklisten, Codeblöcke).
+- **Prioritäten & Typen**: `URGENT`, `HIGH`, `MEDIUM`, `LOW` sowie `TASK`, `BUG`, `STORY`, `EPIC`.
+- **Dual-Citizen Assignees**: Zuweisung an Teammitglieder (`HUMAN`) oder autonome KI-Agenten (`AGENT`).
+- **Aufgabenzerlegung**: Erstellung und Verfolgung verknüpfter Subtasks direkt im Ticket.
 
-**Kanso kehrt diesen Ansatz um:**
-- 🤖 **Agent-First Native**: Issues sind erstklassige Bürger für Menschen **und** autonome Agenten (`HUMAN` vs. `AGENT`).
-- 🔌 **MCP-Native**: Vollständige Unterstützung des **Model Context Protocol (MCP)**. Beliebige Agenten in Claude Desktop, Cursor, Antigravity oder Custom Swarms können Kanso steuern.
-- ⚡ **Radikal schnell & aufgeräumt**: Inspiriert von Linear und japanischer Zen-Ästhetik. Tastaturfokussiert, blitzschnell (<50ms Latenz), kein Bloat.
-- 📡 **Echtzeit Event-Stream**: Server-Sent Events (SSE) und Redis pub/sub synchronisieren Board und Agenten instant.
-- 🐳 **100% Dockerisiert**: Ein Befehl genügt, um die gesamte Suite (PostgreSQL, Redis, API, MCP Server, Frontend) zu starten.
+### 2. 📋 Kanban-Board & Listenansicht
+- **Interaktives Drag-and-Drop Board**: Flüssiges Verschieben von Tickets zwischen Status-Spalten mit sofortiger Persistenz.
+- **Frei definierbare Status-Spalten**: Backlog, To Do, In Progress, In Review, Done (projektbezogen anpassbar).
+- **Kompakte Listen-/Tabellenansicht**: Strukturierte Übersicht mit Inline-Statuswechsel, Prioritäts-Badges und Sortierung (`B` für Board, `L` für Liste).
+
+### 3. 🏢 Projekte & Workspaces
+- **Saubere Trennung**: Flexible Strukturierung nach Produkten, Teams oder Kundenprojekten.
+- **Schneller Projektwechsel**: Nahtloser Switch im Header mit Projekt-Keys (z. B. `KAN`, `OPS`).
+
+### 4. 🔍 Labels, Filter & Volltextsuche
+- **Live-Filterleiste**: Nach Status, Priorität, Assignee (Agent vs. Human), Tags und Freitext filtern.
+- **Globale Command Palette (`Cmd+K` / `Ctrl+K`)**: Universelle Suche über alle Tickets, Projekte und Schnellaktionen.
+- **Schnellfilter (`/`)**: Sofortiger Fokus auf das Suchfeld.
+
+### 5. 💬 Kommentare & Aktivitäts-Log
+- **Ticket-Diskussion**: Kommentare mit vollem Markdown-Support und sichtbarer Kennzeichnung (🤖 Agent vs. 👤 Mensch).
+- **Transparente Änderungshistorie**: Chronologischer Audit-Trail ("Wer hat wann welchen Status oder Assignee geändert?").
+
+### 6. 👥 Benutzerverwaltung & Rollen
+- **Drei Rollenebenen**:
+  - `ADMIN`: Voller Zugriff auf Workspaces, Projekte und Ticketverwaltung.
+  - `MEMBER`: Tickets erstellen, bearbeiten, kommentieren und Status per Drag-and-Drop ändern.
+  - `VIEWER`: Read-Only Ansicht mit Kommentarfunktion.
+- **Eingebauter Persona-Switcher**: Zum schnellen Testen verschiedener Benutzerrollen direkt im Header.
 
 ---
 
 ## 🚀 Quickstart mit Docker
 
-Das gesamte System lässt sich mit einem einzigen Befehl per **Docker Compose** starten:
+Starten Sie die komplette Kanso-Umgebung mit einem einzigen Befehl:
 
 ```bash
-# 1. Repository klonen
+# 1. Repository klonen & Verzeichnis betreten
 git clone https://github.com/mxw02/kanso.git
 cd kanso
 
-# 2. Umgebungskonfiguration kopieren
+# 2. Umgebungskonfiguration anlegen
 cp .env.example .env
 
-# 3. Alle Services via Docker starten
+# 3. Alle Services per Docker Compose starten
 make up
-# oder direkt: docker compose up -d
+# oder: docker compose up -d
 
-# 4. Datenbank mit Beispieldaten & Agenten-Workflows initialisieren
+# 4. Datenbank mit Beispieldaten (Admin, Member, Viewer, Tickets) initialisieren
 make seed
 ```
 
-### 🌐 Verfügbare Services
+### 🌐 Endpunkte
 
-| Service | URL / Port | Beschreibung |
+| Service | Adresse | Beschreibung |
 |---|---|---|
-| **Kanso Web UI** | [http://localhost:3000](http://localhost:3000) | Zen-fokussiertes Sprint-Board mit Live-Agentenstatus |
-| **Kanso API** | [http://localhost:4000](http://localhost:4000) | Fastify REST API, Health & SSE Event Stream |
-| **Kanso MCP Server** | [http://localhost:3001/sse](http://localhost:3001/sse) | Model Context Protocol SSE Endpoint für AI Agenten |
-| **PostgreSQL 16** | `localhost:5432` | Persistente Relationale Datenbank (Prisma ORM) |
-| **Redis 7** | `localhost:6379` | Message Bus & Realtime Event Broker |
+| **Kanso Web UI** | [http://localhost:3000](http://localhost:3000) | Zen-fokussiertes Dashboard & Board |
+| **Kanso API** | [http://localhost:4000](http://localhost:4000) | Fastify REST API & Realtime SSE Stream |
+| **Kanso MCP Server** | [http://localhost:3001/sse](http://localhost:3001/sse) | Model Context Protocol SSE Endpoint |
+| **PostgreSQL 16** | `localhost:5432` | Relationale Datenbank |
+| **Redis 7** | `localhost:6379` | Event-Broker & Cache |
+
+---
+
+## ⌨️ Tastaturkürzel
+
+| Tastenkombination | Aktion |
+|---|---|
+| <kbd>Cmd</kbd> + <kbd>K</kbd> / <kbd>Ctrl</kbd> + <kbd>K</kbd> | Command Palette & Globale Suche öffnen |
+| <kbd>/</kbd> | Filter-Suchleiste fokussieren |
+| <kbd>C</kbd> | Neues Ticket erstellen |
+| <kbd>B</kbd> | Zum Kanban-Board wechseln |
+| <kbd>L</kbd> | Zur kompakten Listenansicht wechseln |
+| <kbd>?</kbd> | Übersicht aller Tastenkürzel anzeigen |
+| <kbd>ESC</kbd> | Dialoge schließen oder Suche zurücksetzen |
 
 ---
 
 ## 🤖 Model Context Protocol (MCP)
 
-Kanso liefert einen produktionsreifen MCP-Server aus, der sowohl über **SSE (HTTP)** als auch über **Stdio (CLI)** angesprochen werden kann.
-
-### Einbindung in Claude Desktop & Cursor
-
-Füge Folgendes zu deiner MCP-Konfiguration (`claude_desktop_config.json` oder Cursor MCP Settings) hinzu:
+Jedes MCP-fähige Tool (Claude Desktop, Cursor, Antigravity, Custom Swarms) kann sich direkt mit Kanso verbinden:
 
 ```json
 {
@@ -84,93 +116,27 @@ Füge Folgendes zu deiner MCP-Konfiguration (`claude_desktop_config.json` oder C
 }
 ```
 
-### Bereitgestellte MCP Tools
-
-| Tool | Beschreibung |
-|---|---|
-| `kanso_list_projects` | Listet alle Projekte mit Key, Name und Ticket-Zahlen auf |
-| `kanso_list_issues` | Filtert Tickets nach Status, Priorität, Assignee (`HUMAN`/`AGENT`) und Freitext |
-| `kanso_get_issue` | Ruft das vollständige Issue inklusive Subtasks, Kommentare und AgentRuns ab |
-| `kanso_create_issue` | Erstellt ein neues Ticket oder zerlegt Stories in Subtasks mit Agentenkontext |
-| `kanso_update_issue` | Aktualisiert Status (`TODO`, `IN_PROGRESS`, `DONE` etc.), Prio und Zuweisung |
-| `kanso_add_comment` | Postet Fortschrittsberichte, PR-Links oder Zwischenstände (als Agent oder Mensch) |
-| `kanso_record_agent_run` | Protokolliert Agenten-Lebenszyklus, Model, Prompt und verbrauchte Token |
-
-*Ausführliche MCP-Spezifikation unter [`docs/mcp-spec.md`](docs/mcp-spec.md).*
-
----
-
-## 🧠 Agentic-First Features
-
-### 1. Dual-Citizen Assignees
-Ein Ticket kann menschlichen Entwicklern oder spezialisierten Subagenten zugewiesen werden:
-```typescript
-{
-  "identifier": "KAN-2",
-  "title": "Automate PR triage and task breakdown",
-  "assigneeType": "AGENT",
-  "assigneeName": "agent-triage-v1",
-  "status": "IN_PROGRESS"
-}
-```
-
-### 2. Task Decomposition (Story -> Subtasks)
-Ein Agent kann über das Tool `kanso_create_issue` mit gesetzter `parentId` komplexe Anforderungen selbstständig in überprüfbare Teilaufgaben zerlegen.
-
-### 3. Agent Execution Audit Log
-Jeder Agenten-Lauf wird transparent getrackt: Welches Model (`claude-3-7-sonnet`, `gemini-1.5-pro` etc.) wurde verwendet? Wie viele Tokens wurden verbraucht? Welcher Pull Request wurde erzeugt?
-
 ---
 
 ## 🏗️ Architecture & Tech Stack
 
 ```
 kanso/
-├── docker-compose.yml       # Production-ready Multi-Container Setup
-├── Makefile                 # Make-Befehle für schnelles Developer-Handling
+├── docker-compose.yml       # Multi-Container Setup (Postgres, Redis, API, MCP, Web)
+├── Makefile                 # Make-Befehle (up, down, seed, build, logs)
 ├── packages/
-│   └── shared/              # Shared TypeScript Typen & DTOs (@kanso/shared)
+│   └── shared/              # Shared TypeScript Typen & Interfaces
 ├── apps/
-│   ├── api/                 # Fastify REST/SSE Backend + Prisma ORM + PostgreSQL
-│   ├── mcp-server/          # Native MCP Server (@modelcontextprotocol/sdk)
-│   └── web/                 # Minimalistisches React + Vite + Tailwind CSS Web UI
+│   ├── api/                 # Fastify REST/SSE Backend + Prisma ORM
+│   ├── mcp-server/          # Native Model Context Protocol Server (Port 3001)
+│   └── web/                 # React 18, Vite 5, Tailwind CSS, Lucide Web UI
 └── docs/
-    ├── architecture.md      # Vertiefte Architektur-Dokumentation
-    └── mcp-spec.md          # MCP Tools, Resources & Prompts Spezifikation
-```
-
-### Tech Stack Details
-
-- **Backend**: Node.js 20+, Fastify 4 (Schema-basiert, <50ms Latenz), TypeScript
-- **ORM & DB**: Prisma ORM, PostgreSQL 16
-- **Events & Realtime**: Server-Sent Events (SSE), Redis 7
-- **AI / MCP**: `@modelcontextprotocol/sdk` (Transport: SSE & Stdio)
-- **Frontend**: React 18, Vite 5, Tailwind CSS, Lucide Icons, Dark-Zen Theme
-- **Containerization**: Docker Multi-Stage Builds, Nginx Alpine
-
----
-
-## 🛠️ Nützliche Make-Befehle
-
-```bash
-make up        # Startet alle Docker-Container im Hintergrund
-make down      # Stoppt alle Container
-make logs      # Zeigt Live-Logs der Container an
-make build     # Baut alle Docker-Images neu
-make seed      # Befüllt die Datenbank mit Demodaten & Agenten-Aufgaben
-make ps        # Zeigt den Status aller laufenden Services
-make clean     # Stoppt Container und löscht persistente Volumes
+    ├── architecture.md      # Architektur-Details
+    └── mcp-spec.md          # MCP Spezifikation
 ```
 
 ---
 
 ## 📄 Lizenz
 
-Dieses Projekt steht unter der **Apache-2.0 Lizenz**. Siehe [LICENSE](LICENSE) für Details.
-
----
-
-<div align="center">
-Entwickelt mit Fokus auf Einfachheit, Autonomie und Eleganz.  
-<strong>簡素 (Kanso)</strong> — Weniger Ballast, mehr Code.
-</div>
+Apache-2.0 Lizenz. Siehe [LICENSE](LICENSE) für weitere Details.
