@@ -135,24 +135,6 @@ export const GitIntegrationModal: React.FC<Props> = ({
     window.location.href = `${API_URL}/api/git/oauth/authorize/${prov}`;
   };
 
-  const handleInstantDevConnect = async (prov: 'github' | 'gitlab') => {
-    try {
-      setIsConnectingOAuth(true);
-      const res = await fetch(`${API_URL}/api/git/oauth/instant-connect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: prov }),
-      });
-      if (res.ok) {
-        await fetchData();
-      }
-    } catch (err) {
-      console.error('Failed instant connect', err);
-    } finally {
-      setIsConnectingOAuth(false);
-    }
-  };
-
   const handleSaveOAuthConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -388,40 +370,57 @@ export const GitIntegrationModal: React.FC<Props> = ({
                   </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 max-h-48 overflow-y-auto p-1">
-                  {repos.map((r) => {
-                    const isSelected = selectedRepo === r.fullName;
-                    return (
-                      <div
-                        key={r.fullName}
-                        onClick={() => handleSelectRepo(r)}
-                        className={`p-3 rounded-xl border text-left cursor-pointer transition flex flex-col justify-between ${
-                          isSelected
-                            ? 'border-indigo-500 bg-indigo-50/40 ring-1 ring-indigo-500'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-slate-900 truncate">{r.fullName}</span>
-                            {r.isPrivate ? (
-                              <Lock className="w-3 h-3 text-slate-400 shrink-0" />
-                            ) : (
-                              <Globe className="w-3 h-3 text-slate-400 shrink-0" />
-                            )}
+                {repos.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center space-y-2">
+                    <FolderGit2 className="w-8 h-8 text-slate-400 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-700">Kein Git-Account verbunden</p>
+                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                      Verbinde deinen GitHub- oder GitLab-Account im Tab „Verbundene Accounts“, um deine Repositories hier aufzulisten.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('accounts')}
+                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+                    >
+                      Jetzt Account verbinden →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5 max-h-48 overflow-y-auto p-1">
+                    {repos.map((r) => {
+                      const isSelected = selectedRepo === r.fullName;
+                      return (
+                        <div
+                          key={r.fullName}
+                          onClick={() => handleSelectRepo(r)}
+                          className={`p-3 rounded-xl border text-left cursor-pointer transition flex flex-col justify-between ${
+                            isSelected
+                              ? 'border-indigo-500 bg-indigo-50/40 ring-1 ring-indigo-500'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-bold text-slate-900 truncate">{r.fullName}</span>
+                              {r.isPrivate ? (
+                                <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                              ) : (
+                                <Globe className="w-3 h-3 text-slate-400 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 line-clamp-1 mt-1">{r.description}</p>
                           </div>
-                          <p className="text-[11px] text-slate-500 line-clamp-1 mt-1">{r.description}</p>
-                        </div>
 
-                        <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-400 font-mono">
-                          <span className="font-semibold text-slate-600">{r.language}</span>
-                          <span>·</span>
-                          <span>Branch: {r.defaultBranch}</span>
+                          <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-400 font-mono">
+                            <span className="font-semibold text-slate-600">{r.language}</span>
+                            <span>·</span>
+                            <span>Branch: {r.defaultBranch}</span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Board Configuration Form */}
@@ -692,24 +691,14 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div>
                           <button
                             type="button"
                             onClick={() => handleOAuthConnect('github')}
-                            className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
+                            className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
                           >
                             <FolderGit2 className="w-4 h-4" />
                             <span>Zu GitHub weiterleiten & autorisieren →</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isConnectingOAuth}
-                            onClick={() => handleInstantDevConnect('github')}
-                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition flex items-center justify-center gap-1.5"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                            <span>1-Klick Dev Login (@mxw02)</span>
                           </button>
                         </div>
                       )}
@@ -775,24 +764,14 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div>
                           <button
                             type="button"
                             onClick={() => handleOAuthConnect('gitlab')}
-                            className="w-full py-2 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
+                            className="w-full py-2.5 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
                           >
                             <GitBranch className="w-4 h-4" />
                             <span>Zu GitLab weiterleiten & autorisieren →</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={isConnectingOAuth}
-                            onClick={() => handleInstantDevConnect('gitlab')}
-                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition flex items-center justify-center gap-1.5"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-                            <span>1-Klick Dev Login (@mxw02_gitlab)</span>
                           </button>
                         </div>
                       )}

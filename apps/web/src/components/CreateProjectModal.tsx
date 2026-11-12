@@ -31,14 +31,14 @@ interface Props {
 
 export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate }) => {
   const [mode, setMode] = useState<'manual' | 'git'>('git');
-  const [key, setKey] = useState('KAN');
-  const [name, setName] = useState('Kanso');
-  const [description, setDescription] = useState('Repository Board verknüpft mit GitHub: mxw02/kanso');
+  const [key, setKey] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
 
   // Git state
   const [gitProvider, setGitProvider] = useState<'github' | 'gitlab'>('github');
-  const [gitRepo, setGitRepo] = useState('mxw02/kanso');
-  const [repos, setRepos] = useState<GitRepoItem[]>(DEFAULT_REPOS);
+  const [gitRepo, setGitRepo] = useState('');
+  const [repos, setRepos] = useState<GitRepoItem[]>([]);
   const [isCustomRepo, setIsCustomRepo] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,12 +55,21 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
         const res = await fetch(`${API_URL}/api/git/repos?provider=${gitProvider}`);
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setRepos(data);
+          const list = Array.isArray(data) ? data : [];
+          setRepos(list);
+          if (list.length > 0) {
+            setIsCustomRepo(false);
+            if (!gitRepo) handleSelectPresetRepo(list[0].fullName);
+          } else {
+            setIsCustomRepo(true);
           }
+        } else {
+          setRepos([]);
+          setIsCustomRepo(true);
         }
       } catch (err) {
-        // Fallback to DEFAULT_REPOS
+        setRepos([]);
+        setIsCustomRepo(true);
       } finally {
         setLoadingRepos(false);
       }
@@ -207,13 +216,17 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
                   }}
                   className="w-full appearance-none bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 pr-9 text-xs font-mono font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
                 >
-                  <option value="" disabled>-- Bitte Git-Projekt auswählen --</option>
+                  {repos.length === 0 ? (
+                    <option value="" disabled>-- Kein Git-Account verbunden (bitte manuell eingeben) --</option>
+                  ) : (
+                    <option value="" disabled>-- Bitte Git-Projekt auswählen --</option>
+                  )}
                   {repos.map((r) => (
                     <option key={r.fullName} value={r.fullName}>
                       {r.fullName} {r.language ? `(${r.language})` : ''} {r.description ? `— ${r.description.slice(0, 35)}...` : ''}
                     </option>
                   ))}
-                  <option value="__CUSTOM__">✏️ Anderes Repository manuell eingeben...</option>
+                  <option value="__CUSTOM__">✏️ {repos.length === 0 ? 'Repository manuell eingeben...' : 'Anderes Repository manuell eingeben...'}</option>
                 </select>
                 <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
               </div>
@@ -223,7 +236,7 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
             {isCustomRepo && (
               <div className="animate-in fade-in duration-150">
                 <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                  Eigenes Repository angeben (owner/repo)
+                  Eigenes Repository angeben (owner/repo) *
                 </label>
                 <input
                   type="text"
@@ -244,26 +257,28 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[10px] text-slate-500">Schnellauswahl:</span>
-              {repos.slice(0, 3).map((r) => (
-                <button
-                  key={r.fullName}
-                  type="button"
-                  onClick={() => {
-                    setIsCustomRepo(false);
-                    handleSelectPresetRepo(r.fullName);
-                  }}
-                  className={`px-2 py-0.5 rounded border text-[10px] font-mono transition ${
-                    gitRepo === r.fullName && !isCustomRepo
-                      ? 'bg-indigo-100/70 border-indigo-300 text-indigo-700 font-bold'
-                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-                  }`}
-                >
-                  {r.name}
-                </button>
-              ))}
-            </div>
+            {repos.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-500">Schnellauswahl:</span>
+                {repos.slice(0, 3).map((r) => (
+                  <button
+                    key={r.fullName}
+                    type="button"
+                    onClick={() => {
+                      setIsCustomRepo(false);
+                      handleSelectPresetRepo(r.fullName);
+                    }}
+                    className={`px-2 py-0.5 rounded border text-[10px] font-mono transition ${
+                      gitRepo === r.fullName && !isCustomRepo
+                        ? 'bg-indigo-100/70 border-indigo-300 text-indigo-700 font-bold'
+                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {r.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

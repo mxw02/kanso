@@ -107,15 +107,15 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
   // Step 1: Mode & Project Basics
   const [creationMode, setCreationMode] = useState<'git' | 'manual'>('git');
   const [gitProvider, setGitProvider] = useState<'GITHUB' | 'GITLAB'>('GITHUB');
-  const [gitRepo, setGitRepo] = useState('mxw02/kanso');
+  const [gitRepo, setGitRepo] = useState('');
   const [gitBranch, setGitBranch] = useState('main');
-  const [repos, setRepos] = useState<GitRepoItem[]>(DEFAULT_REPOS);
+  const [repos, setRepos] = useState<GitRepoItem[]>([]);
   const [isCustomRepo, setIsCustomRepo] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
 
-  const [projectName, setProjectName] = useState('Kanso Core');
-  const [projectKey, setProjectKey] = useState('KAN');
-  const [projectDescription, setProjectDescription] = useState('Autonomes Kanban & Git-Board für mxw02/kanso');
+  const [projectName, setProjectName] = useState('Core Platform');
+  const [projectKey, setProjectKey] = useState('CORE');
+  const [projectDescription, setProjectDescription] = useState('Zentrale Systemarchitektur mit MCP und Automation');
 
   const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -129,12 +129,21 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
         const res = await fetch(`${API_URL}/api/git/repos?provider=${gitProvider.toLowerCase()}`);
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            setRepos(data);
+          const list = Array.isArray(data) ? data : [];
+          setRepos(list);
+          if (list.length > 0) {
+            setIsCustomRepo(false);
+            if (!gitRepo) handleRepoChange(list[0].fullName);
+          } else {
+            setIsCustomRepo(true);
           }
+        } else {
+          setRepos([]);
+          setIsCustomRepo(true);
         }
       } catch (err) {
-        // Fallback
+        setRepos([]);
+        setIsCustomRepo(true);
       } finally {
         setLoadingRepos(false);
       }
@@ -394,13 +403,17 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
                         }}
                         className="w-full appearance-none bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 pr-9 text-xs font-mono font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
                       >
-                        <option value="" disabled>-- Bitte Git-Projekt auswählen --</option>
+                        {repos.length === 0 ? (
+                          <option value="" disabled>-- Kein Git-Account verbunden (bitte manuell eingeben) --</option>
+                        ) : (
+                          <option value="" disabled>-- Bitte Git-Projekt auswählen --</option>
+                        )}
                         {repos.map((r) => (
                           <option key={r.fullName} value={r.fullName}>
                             {r.fullName} {r.language ? `(${r.language})` : ''} {r.description ? `— ${r.description.slice(0, 35)}...` : ''}
                           </option>
                         ))}
-                        <option value="__CUSTOM__">✏️ Anderes Repository manuell eingeben...</option>
+                        <option value="__CUSTOM__">✏️ {repos.length === 0 ? 'Repository manuell eingeben...' : 'Anderes Repository manuell eingeben...'}</option>
                       </select>
                       <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
                     </div>
@@ -410,7 +423,7 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
                   {isCustomRepo && (
                     <div className="animate-in fade-in duration-150">
                       <label className="block text-[10px] font-semibold text-slate-500 mb-1">
-                        Eigenes Repository angeben (owner/repo)
+                        Eigenes Repository angeben (owner/repo) *
                       </label>
                       <input
                         type="text"
@@ -425,26 +438,28 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
                   )}
 
                   {/* Quick Select Presets */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[10px] text-slate-500 font-medium">Vorschläge:</span>
-                    {repos.slice(0, 3).map((r) => (
-                      <button
-                        key={r.fullName}
-                        type="button"
-                        onClick={() => {
-                          setIsCustomRepo(false);
-                          handleRepoChange(r.fullName);
-                        }}
-                        className={`text-[10px] px-2 py-0.5 rounded-md border font-mono transition ${
-                          gitRepo === r.fullName && !isCustomRepo
-                            ? 'bg-indigo-100/70 border-indigo-300 text-indigo-700 font-bold'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
-                      >
-                        {r.name}
-                      </button>
-                    ))}
-                  </div>
+                  {repos.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] text-slate-500 font-medium">Vorschläge:</span>
+                      {repos.slice(0, 3).map((r) => (
+                        <button
+                          key={r.fullName}
+                          type="button"
+                          onClick={() => {
+                            setIsCustomRepo(false);
+                            handleRepoChange(r.fullName);
+                          }}
+                          className={`text-[10px] px-2 py-0.5 rounded-md border font-mono transition ${
+                            gitRepo === r.fullName && !isCustomRepo
+                              ? 'bg-indigo-100/70 border-indigo-300 text-indigo-700 font-bold'
+                              : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   <div className="pt-2 border-t border-indigo-100/60 flex items-center justify-between text-[11px] text-slate-600">
                     <div className="flex items-center gap-1.5">

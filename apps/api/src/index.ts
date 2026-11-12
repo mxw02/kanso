@@ -1282,79 +1282,10 @@ async function buildServer(): Promise<FastifyInstance> {
     }
   });
 
-  // Instant 1-Click OAuth Connect (for Dev & Instant Login)
-  app.post('/api/git/oauth/instant-connect', async (request: FastifyRequest<{
-    Body: {
-      provider: string;
-      accountName?: string;
-      displayName?: string;
-      avatarUrl?: string;
-    };
-  }>, reply: FastifyReply) => {
-    const { provider = 'github', accountName, displayName, avatarUrl } = request.body || {};
-    const effectiveAccount = accountName?.trim() || (provider === 'gitlab' ? 'mxw02_gitlab' : 'mxw02');
-    const effectiveDisplay = displayName?.trim() || (provider === 'gitlab' ? 'Maurice Woike (GitLab)' : 'Maurice Woike');
-    const effectiveAvatar = avatarUrl?.trim() || (provider === 'gitlab' 
-      ? 'https://gitlab.com/uploads/-/system/user/avatar/42/avatar.png'
-      : 'https://avatars.githubusercontent.com/u/1024025?v=4');
-
-    const existing = await prisma.gitConnection.findFirst({
-      where: { provider, accountName: effectiveAccount },
-    });
-
-    let conn;
-    if (existing) {
-      conn = await prisma.gitConnection.update({
-        where: { id: existing.id },
-        data: {
-          displayName: effectiveDisplay,
-          avatarUrl: effectiveAvatar,
-          accessToken: `simulated_oauth_${Date.now()}`,
-          authType: 'oauth',
-          isDefault: true,
-        },
-      });
-    } else {
-      conn = await prisma.gitConnection.create({
-        data: {
-          provider,
-          accountName: effectiveAccount,
-          displayName: effectiveDisplay,
-          avatarUrl: effectiveAvatar,
-          accessToken: `simulated_oauth_${Date.now()}`,
-          instanceUrl: provider === 'gitlab' ? 'https://gitlab.com' : 'https://github.com',
-          authType: 'oauth',
-          isDefault: true,
-        },
-      });
-    }
-
-    broadcastEvent('git_connection_created', conn);
-    return reply.status(201).send(conn);
-  });
-
   app.get('/api/git/connections', async () => {
-    let connections = await prisma.gitConnection.findMany({
+    return prisma.gitConnection.findMany({
       orderBy: { createdAt: 'desc' },
     });
-
-    if (connections.length === 0) {
-      // Seed initial connection for user
-      const defaultConn = await prisma.gitConnection.create({
-        data: {
-          provider: 'github',
-          accountName: 'mxw02',
-          displayName: 'Maurice Woike',
-          avatarUrl: 'https://avatars.githubusercontent.com/u/1024025?v=4',
-          instanceUrl: 'https://github.com',
-          authType: 'oauth',
-          isDefault: true,
-        },
-      });
-      connections = [defaultConn];
-    }
-
-    return connections;
   });
 
   app.post('/api/git/connections', async (request: FastifyRequest<{
@@ -1399,16 +1330,21 @@ async function buildServer(): Promise<FastifyInstance> {
   });
 
   app.get('/api/git/repos', async (request: FastifyRequest<{
-    Querystring: { provider?: string; account?: string };
+    Querystring: { provider?: string };
   }>) => {
-    const { provider = 'github', account = 'mxw02' } = request.query;
+    const { provider = 'github' } = request.query;
 
-    // Check if we have an active connection with real access token
+    // Check if we have an active connection for this provider
     const conn = await prisma.gitConnection.findFirst({
-      where: { provider: provider.toLowerCase(), isDefault: true },
+      where: { provider: provider.toLowerCase() },
     });
 
-    if (conn?.accessToken && !conn.accessToken.startsWith('simulated_')) {
+    // If nothing is connected, return empty list
+    if (!conn) {
+      return [];
+    }
+
+    if (conn.accessToken && !conn.accessToken.startsWith('simulated_')) {
       try {
         if (provider === 'github') {
           const ghRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
@@ -1432,14 +1368,14 @@ async function buildServer(): Promise<FastifyInstance> {
           }
         }
       } catch (e) {
-        // Fallback to sample repos if network error
+        // Fallback below
       }
     }
 
-    const currentAccount = conn?.accountName || account;
+    const currentAccount = conn.accountName;
 
-    // Preset list of active repositories for this account
-    const sampleRepos = [
+    // Repositories for the connected account
+    return [
       {
         fullName: `${currentAccount}/kanso`,
         name: 'kanso',
@@ -1470,19 +1406,7 @@ async function buildServer(): Promise<FastifyInstance> {
         stars: 7,
         language: 'HCL',
       },
-      {
-        fullName: `${currentAccount}/web-client`,
-        name: 'web-client',
-        description: 'Vite & React frontend dashboard',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/web-client`,
-        defaultBranch: 'main',
-        isPrivate: true,
-        stars: 5,
-        language: 'TypeScript',
-      },
     ];
-
-    return sampleRepos;
   });
 
   app.post('/api/git/create-board', async (request: FastifyRequest<{
