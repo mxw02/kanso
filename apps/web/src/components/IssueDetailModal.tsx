@@ -8,10 +8,8 @@ import {
   Edit2,
   Check,
   X,
-  Radio,
   Send,
   Sparkles,
-  GitPullRequest,
   CheckSquare,
 } from 'lucide-react';
 import { MarkdownViewer } from './MarkdownViewer';
@@ -118,18 +116,21 @@ export const IssueDetailModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
+      onClick={onClose}
+    >
       <div
-        className="bg-[#121624] border border-zinc-700/80 rounded-2xl max-w-4xl w-full h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+        className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full h-[90vh] shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
-        <div className="px-6 py-4 border-b border-zinc-800 bg-[#141828] flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-bold text-indigo-400 bg-indigo-950/80 border border-indigo-700/60 px-2.5 py-0.5 rounded">
+            <span className="font-mono text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded">
               {issue.identifier}
             </span>
-            <span className="text-xs text-zinc-400 font-medium px-2 py-0.5 rounded bg-zinc-800">
+            <span className="text-xs text-slate-500 font-medium px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
               {issue.type}
             </span>
           </div>
@@ -143,7 +144,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   }
                 }}
                 title="Delete issue"
-                className="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition"
+                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -151,7 +152,7 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -161,7 +162,7 @@ export const IssueDetailModal: React.FC<Props> = ({
         {/* Content Body */}
         <div className="flex-1 flex overflow-hidden">
           {/* Main Content Area */}
-          <div className="flex-1 p-6 overflow-y-auto space-y-6 border-r border-zinc-800/80">
+          <div className="flex-1 p-6 overflow-y-auto space-y-6 border-r border-slate-200">
             {/* Title */}
             <div>
               {isEditingTitle && canEdit ? (
@@ -170,7 +171,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     type="text"
                     value={titleText}
                     onChange={(e) => setTitleText(e.target.value)}
-                    className="flex-1 bg-zinc-900 border border-indigo-500 rounded-lg px-3 py-1.5 text-base font-bold text-white focus:outline-none"
+                    className="flex-1 bg-white border border-indigo-500 rounded-lg px-3 py-1.5 text-base font-bold text-slate-900 focus:outline-none"
                   />
                   <button
                     onClick={handleSaveTitle}
@@ -183,18 +184,18 @@ export const IssueDetailModal: React.FC<Props> = ({
                       setTitleText(issue.title);
                       setIsEditingTitle(false);
                     }}
-                    className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg"
+                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="group flex items-start justify-between gap-3">
-                  <h1 className="text-xl font-bold text-white leading-snug">{issue.title}</h1>
+                  <h1 className="text-xl font-bold text-slate-900 leading-snug">{issue.title}</h1>
                   {canEdit && (
                     <button
                       onClick={() => setIsEditingTitle(true)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-white transition"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 transition"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -204,15 +205,15 @@ export const IssueDetailModal: React.FC<Props> = ({
             </div>
 
             {/* Description (Markdown) */}
-            <div className="bg-[#090b14] border border-zinc-800/90 rounded-xl p-4">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800/70">
-                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                  Description (Markdown)
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Description
                 </span>
                 {canEdit && !isEditingDesc && (
                   <button
                     onClick={() => setIsEditingDesc(true)}
-                    className="text-xs flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition"
+                    className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium transition"
                   >
                     <Edit2 className="w-3 h-3" />
                     <span>Edit</span>
@@ -227,7 +228,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     value={descText}
                     onChange={(e) => setDescText(e.target.value)}
                     placeholder="Write with markdown (# headers, - lists, `code`, **bold**)..."
-                    className="w-full bg-[#0d0f1a] border border-indigo-500 rounded-lg p-3 text-xs text-white focus:outline-none font-mono"
+                    className="w-full bg-white border border-indigo-500 rounded-lg p-3 text-xs text-slate-900 focus:outline-none font-mono"
                   />
                   <div className="flex justify-end gap-2">
                     <button
@@ -235,7 +236,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                         setDescText(issue.description || '');
                         setIsEditingDesc(false);
                       }}
-                      className="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded text-xs"
+                      className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-xs"
                     >
                       Cancel
                     </button>
@@ -250,17 +251,17 @@ export const IssueDetailModal: React.FC<Props> = ({
               ) : (
                 <MarkdownViewer
                   content={issue.description || '_No description provided._'}
-                  className="min-h-[60px]"
+                  className="min-h-[50px]"
                 />
               )}
             </div>
 
             {/* Sub-tasks Section */}
-            <div className="bg-[#090b14] border border-zinc-800/90 rounded-xl p-4 space-y-3">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4 text-indigo-400" />
-                  <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                  <CheckSquare className="w-4 h-4 text-indigo-600" />
+                  <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Sub-tasks ({issue.subIssues?.length || 0})
                   </span>
                 </div>
@@ -271,13 +272,13 @@ export const IssueDetailModal: React.FC<Props> = ({
                   {issue.subIssues.map((sub: any) => (
                     <div
                       key={sub.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/60 border border-zinc-800 text-xs"
+                      className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-indigo-400 text-[11px]">{sub.identifier}</span>
-                        <span className="text-zinc-200">{sub.title}</span>
+                        <span className="font-mono text-indigo-600 font-semibold text-[11px]">{sub.identifier}</span>
+                        <span className="text-slate-800 font-medium">{sub.title}</span>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
                         {sub.status}
                       </span>
                     </div>
@@ -291,14 +292,14 @@ export const IssueDetailModal: React.FC<Props> = ({
                     type="text"
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                    placeholder="Decompose task into sub-task..."
-                    className="flex-1 bg-[#0d0f1a] border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                    placeholder="Add sub-task..."
+                    className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs rounded-lg font-medium transition"
+                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs rounded-lg font-medium transition"
                   >
-                    Add Subtask
+                    Add
                   </button>
                 </form>
               )}
@@ -306,13 +307,13 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Tabs: Comments vs Activity Log */}
             <div>
-              <div className="flex items-center gap-4 border-b border-zinc-800 pb-2 mb-4">
+              <div className="flex items-center gap-4 border-b border-slate-200 pb-2 mb-4">
                 <button
                   onClick={() => setActiveTab('comments')}
                   className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
                     activeTab === 'comments'
-                      ? 'border-indigo-500 text-white'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
@@ -323,8 +324,8 @@ export const IssueDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab('activity')}
                   className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
                     activeTab === 'activity'
-                      ? 'border-indigo-500 text-white'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <History className="w-3.5 h-3.5" />
@@ -340,23 +341,23 @@ export const IssueDetailModal: React.FC<Props> = ({
                     {issue.comments?.map((comment: any) => (
                       <div
                         key={comment.id}
-                        className="p-3.5 rounded-xl bg-[#090b14] border border-zinc-800/80 space-y-1.5"
+                        className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5"
                       >
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
                             {comment.authorType === 'AGENT' ? (
-                              <div className="flex items-center gap-1 text-emerald-400 font-mono text-[11px] bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded">
-                                <Bot className="w-3 h-3 text-emerald-400" />
+                              <div className="flex items-center gap-1 text-emerald-700 font-mono text-[11px] font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                                <Bot className="w-3 h-3 text-emerald-600" />
                                 <span>{comment.authorName}</span>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1 text-blue-400 text-[11px] bg-blue-950/60 border border-blue-800/60 px-2 py-0.5 rounded">
-                                <User className="w-3 h-3 text-blue-400" />
+                              <div className="flex items-center gap-1 text-slate-700 text-[11px] font-semibold bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                <User className="w-3 h-3 text-slate-500" />
                                 <span>{comment.authorName}</span>
                               </div>
                             )}
                           </div>
-                          <span className="text-[10px] text-zinc-500 font-mono">
+                          <span className="text-[10px] text-slate-400 font-mono">
                             {new Date(comment.createdAt).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -368,7 +369,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     ))}
 
                     {(!issue.comments || issue.comments.length === 0) && (
-                      <div className="text-center py-6 text-xs text-zinc-600">
+                      <div className="text-center py-6 text-xs text-slate-400">
                         No discussion on this ticket yet.
                       </div>
                     )}
@@ -380,15 +381,15 @@ export const IssueDetailModal: React.FC<Props> = ({
                       rows={3}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder={`Comment as ${currentUser.name} (Markdown supported)...`}
-                      className="w-full bg-[#0d0f1a] border border-zinc-800 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                      placeholder={`Comment as ${currentUser.name}...`}
+                      className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                     />
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-zinc-500">Styling with markdown enabled</span>
+                      <span className="text-[10px] text-slate-400">Markdown supported</span>
                       <button
                         type="submit"
                         disabled={submittingComment || !newComment.trim()}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow transition"
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-xs transition"
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>Post Comment</span>
@@ -404,29 +405,29 @@ export const IssueDetailModal: React.FC<Props> = ({
                   {issue.activities?.map((act: any) => (
                     <div
                       key={act.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-[#090b14] border border-zinc-800/60 text-xs"
+                      className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs"
                     >
                       <div className="mt-0.5">
                         {act.actorType === 'AGENT' ? (
-                          <Bot className="w-4 h-4 text-emerald-400" />
+                          <Bot className="w-4 h-4 text-emerald-600" />
                         ) : (
-                          <User className="w-4 h-4 text-blue-400" />
+                          <User className="w-4 h-4 text-slate-500" />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-zinc-200">{act.actorName}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono">
+                          <span className="font-semibold text-slate-800">{act.actorName}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">
                             {new Date(act.createdAt).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-zinc-400 text-xs mt-0.5">{act.details}</p>
+                        <p className="text-slate-600 text-xs mt-0.5">{act.details}</p>
                       </div>
                     </div>
                   ))}
 
                   {(!issue.activities || issue.activities.length === 0) && (
-                    <div className="text-center py-6 text-xs text-zinc-600">
+                    <div className="text-center py-6 text-xs text-slate-400">
                       No activity recorded yet.
                     </div>
                   )}
@@ -436,17 +437,17 @@ export const IssueDetailModal: React.FC<Props> = ({
           </div>
 
           {/* Sidebar Properties */}
-          <div className="w-72 p-6 bg-[#0e111a] space-y-5 text-xs overflow-y-auto">
+          <div className="w-72 p-6 bg-slate-50 space-y-5 text-xs overflow-y-auto">
             {/* Status */}
             <div>
-              <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
                 Status
               </label>
               {canEdit ? (
                 <select
                   value={issue.status}
                   onChange={(e) => onUpdate(issue.id, { status: e.target.value })}
-                  className="w-full bg-[#161a28] border border-zinc-700 rounded-lg p-2 text-white font-medium focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
                 >
                   {columns.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -455,7 +456,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   ))}
                 </select>
               ) : (
-                <div className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300">
+                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
                   {columns.find((c) => c.id === issue.status)?.title || issue.status}
                 </div>
               )}
@@ -463,14 +464,14 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Priority */}
             <div>
-              <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
                 Priority
               </label>
               {canEdit ? (
                 <select
                   value={issue.priority}
                   onChange={(e: any) => onUpdate(issue.id, { priority: e.target.value })}
-                  className="w-full bg-[#161a28] border border-zinc-700 rounded-lg p-2 text-white font-medium focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
                 >
                   <option value="URGENT">Urgent</option>
                   <option value="HIGH">High</option>
@@ -478,7 +479,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   <option value="LOW">Low</option>
                 </select>
               ) : (
-                <div className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300">
+                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
                   {issue.priority}
                 </div>
               )}
@@ -486,7 +487,7 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Assignee Target */}
             <div>
-              <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
                 Assignee
               </label>
               {canEdit ? (
@@ -516,7 +517,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                         });
                       }
                     }}
-                    className="w-full bg-[#161a28] border border-zinc-700 rounded-lg p-2 text-white font-medium focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
                   >
                     <option value="UNASSIGNED">Unassigned</option>
                     <option value="AGENT">🤖 AI Agent (Autonomous)</option>
@@ -530,7 +531,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   </select>
                 </div>
               ) : (
-                <div className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300">
+                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800">
                   {issue.assigneeName || 'Unassigned'}
                 </div>
               )}
@@ -538,14 +539,14 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Labels */}
             <div>
-              <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
                 Labels
               </label>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {issue.labels?.map((label) => (
                   <span
                     key={label}
-                    className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700"
+                    className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 font-medium"
                   >
                     #{label}
                   </span>
@@ -555,19 +556,16 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Agent execution details if any */}
             {issue.agentRuns && issue.agentRuns.length > 0 && (
-              <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-1 text-[11px]">
-                <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Agent Execution Audit</span>
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-1 text-[11px]">
+                <div className="flex items-center gap-1.5 text-emerald-800 font-semibold">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Agent Execution</span>
                 </div>
-                <div className="text-zinc-300">
-                  Agent: <span className="font-mono text-white">{issue.agentRuns[0].agentName}</span>
+                <div className="text-slate-600">
+                  Agent: <span className="font-mono text-slate-900 font-medium">{issue.agentRuns[0].agentName}</span>
                 </div>
-                <div className="text-zinc-300">
-                  Model: <span className="font-mono text-white">{issue.agentRuns[0].agentModel || 'claude-3-7-sonnet'}</span>
-                </div>
-                <div className="text-zinc-300">
-                  Status: <span className="font-semibold text-emerald-400">{issue.agentRuns[0].status}</span>
+                <div className="text-slate-600">
+                  Status: <span className="font-semibold text-emerald-700">{issue.agentRuns[0].status}</span>
                 </div>
               </div>
             )}

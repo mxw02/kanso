@@ -36,24 +36,28 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
+      onClick={onClose}
+    >
       <form
         onSubmit={handleSubmit}
-        className="bg-[#121624] border border-zinc-700/80 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-100"
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4"
       >
-        <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-indigo-400" />
-            <h2 className="text-base font-bold text-white">Create Project</h2>
+            <Layers className="w-4 h-4 text-indigo-600" />
+            <h2 className="text-base font-bold text-slate-900">Create Project</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-white">
+          <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700 rounded-lg">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="space-y-3 text-xs">
           <div>
-            <label className="block text-zinc-300 font-medium mb-1">Project Key * (2-5 letters)</label>
+            <label className="block text-slate-700 font-semibold mb-1">Project Key * (2-5 uppercase letters)</label>
             <input
               type="text"
               required
@@ -61,46 +65,46 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
               placeholder="e.g. AI, DEV, API"
               value={key}
               onChange={(e) => setKey(e.target.value.toUpperCase())}
-              className="w-full bg-[#090b14] border border-zinc-700 rounded-lg px-3 py-2 text-white font-mono uppercase focus:outline-none focus:border-indigo-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-mono uppercase focus:outline-none focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-zinc-300 font-medium mb-1">Project Name *</label>
+            <label className="block text-slate-700 font-semibold mb-1">Project Name *</label>
             <input
               type="text"
               required
               placeholder="e.g. Customer Portal & Billing"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-[#090b14] border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500"
             />
           </div>
 
           <div>
-            <label className="block text-zinc-300 font-medium mb-1">Description</label>
+            <label className="block text-slate-700 font-semibold mb-1">Description</label>
             <textarea
               rows={3}
               placeholder="Brief description of purpose and scope..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-[#090b14] border border-zinc-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-indigo-500"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-3 border-t border-zinc-800">
+        <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-medium transition"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting || !key.trim() || !name.trim()}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-md shadow-indigo-600/30 transition"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-xs transition"
           >
             Create Project
           </button>
