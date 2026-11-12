@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum IssueStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum IssuePriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IssueType {
+  TASK
+  BUG
+  STORY
+  EPIC
+}
+
+enum AssigneeType {
+  HUMAN
+  AGENT
+  UNASSIGNED
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g. "KAN"
+  name        String
+  description String?
+  issues      Issue[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("projects")
+}
+
+model Issue {
+  id            String        @id @default(uuid())
+  identifier    String        @unique // e.g. "KAN-1"
+  number        Int
+  title         String
+  description   String?       @db.Text
+  status        IssueStatus   @default(TODO)
+  priority      IssuePriority @default(MEDIUM)
+  type          IssueType     @default(TASK)
+  assigneeType  AssigneeType  @default(UNASSIGNED)
+  assigneeName  String?
+  labels        String[]      @default([])
+  agentMetadata Json?
+  
+  projectId     String
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  parentId      String?
+  parent        Issue?        @relation("SubIssues", fields: [parentId], references: [id])
+  subIssues     Issue[]       @relation("SubIssues")
+
+  comments      Comment[]
+  agentRuns     AgentRun[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([projectId, status])
+  @@index([identifier])
+  @@map("issues")
+}
+
+model Comment {
+  id         String       @id @default(uuid())
+  issueId    String
+  issue      Issue        @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  authorType AssigneeType @default(HUMAN)
+  authorName String
+  content    String       @db.Text
+  createdAt  DateTime     @default(now())
+
+  @@index([issueId])
+  @@map("comments")
+}
+
+model AgentRun {
+  id            String         @id @default(uuid())
+  issueId       String
+  issue         Issue          @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  agentName     String         // e.g. "code-generator", "pr-reviewer", "triage-bot"
+  agentModel    String?        // e.g. "claude-3-5-sonnet", "gemini-1.5-pro"
+  status        AgentRunStatus @default(PENDING)
+  prompt        String?        @db.Text
+  resultSummary String?        @db.Text
+  tokensUsed    Int?
+  startedAt     DateTime       @default(now())
+  endedAt       DateTime?
+
+  @@index([issueId])
+  @@map("agent_runs")
+}
