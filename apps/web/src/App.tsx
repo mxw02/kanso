@@ -12,6 +12,7 @@ import {
   Settings,
   Calendar,
   GitBranch,
+  HelpCircle,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
@@ -552,74 +553,64 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* ======================================================== */}
-      {/* CLEAN MINIMALIST HEADER                                  */}
+      {/* REFINED ZEN HEADER                                       */}
       {/* ======================================================== */}
-      <header className="h-14 border-b border-slate-200 bg-white px-6 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-6">
+      <header className="h-14 border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        {/* Left: Brand Breadcrumb & Project Selector */}
+        <div className="flex items-center gap-3">
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-indigo-600 flex items-center justify-center font-bold text-white text-xs">
+          <div className="flex items-center gap-2 pr-1">
+            <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-xs">
               簡
             </div>
             <span className="font-bold tracking-tight text-slate-900 text-sm">Kanso</span>
           </div>
 
-          <div className="h-4 w-px bg-slate-200" />
+          <span className="text-slate-300 font-light select-none">/</span>
 
-          {/* Project Dropdown */}
+          {/* Project Breadcrumb with Styled Dropdown */}
           <div className="flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={activeProject?.id || ''}
-              onChange={(e) => {
-                const found = projects.find((p) => p.id === e.target.value);
-                if (found) setActiveProject(found);
-              }}
-              className="bg-transparent text-slate-800 font-semibold text-xs focus:outline-none cursor-pointer hover:text-indigo-600 transition"
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} [{p.key}]
-                </option>
-              ))}
-            </select>
+            <div className="relative flex items-center">
+              <select
+                value={activeProject?.id || ''}
+                onChange={(e) => {
+                  const found = projects.find((p) => p.id === e.target.value);
+                  if (found) setActiveProject(found);
+                }}
+                className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer transition shadow-2xs"
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} [{p.key}]
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 pointer-events-none" />
+            </div>
 
+            {/* Project Quick Actions (Settings, Setup Wizard, New Project) */}
             {canEdit && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setShowOnboarding(true)}
-                  title="Projekt Setup-Wizard (Onboarding)"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition"
-                >
-                  <Sparkles className="w-3 h-3 text-indigo-600" />
-                  <span>Setup Wizard</span>
-                </button>
-                {activeProject && (
-                  <button
-                    onClick={() => setShowSprintModal(true)}
-                    title="Sprint & Cycle Management (S)"
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 transition"
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{activeSprint ? activeSprint.name : 'Sprints'}</span>
-                    {activeSprint && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    )}
-                  </button>
-                )}
+              <div className="flex items-center gap-0.5 text-slate-400">
                 {activeProject && (
                   <button
                     onClick={() => setShowProjectSettings(true)}
                     title="Projekteinstellungen"
-                    className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+                    className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-700 transition"
                   >
                     <Settings className="w-3.5 h-3.5" />
                   </button>
                 )}
                 <button
+                  onClick={() => setShowOnboarding(true)}
+                  title="Projekt Setup-Wizard"
+                  className="p-1.5 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                </button>
+                <button
                   onClick={() => setShowCreateProject(true)}
-                  title="Create Project"
-                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+                  title="Neues Projekt erstellen"
+                  className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-700 transition"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -628,72 +619,65 @@ export default function App() {
           </div>
         </div>
 
-        {/* Center: Search Bar */}
-        <div className="relative w-72">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+        {/* Center: Search & Command Palette Bar */}
+        <div className="relative w-72 md:w-80">
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search tickets (press /)..."
+            placeholder="Search tickets or press ⌘K..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-100 hover:bg-slate-200/70 border border-slate-200 rounded-lg pl-8 pr-8 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition"
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                setShowCommandPalette(true);
+              }
+            }}
+            className="w-full bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg pl-8 pr-16 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-2xs"
           />
-          <kbd className="absolute right-2.5 top-2 text-[10px] text-slate-400 font-mono pointer-events-none">
-            /
-          </kbd>
+          <div className="absolute right-2 top-1.5 flex items-center gap-1 pointer-events-none">
+            <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-400 font-semibold shadow-2xs">
+              /
+            </kbd>
+            <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-400 font-semibold shadow-2xs">
+              ⌘K
+            </kbd>
+          </div>
         </div>
 
-        {/* Right: View Toggle, Persona & New Issue Button */}
-        <div className="flex items-center gap-3">
-          {/* Board vs List Segmented Control */}
-          <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200">
-            <button
-              onClick={() => setViewMode('board')}
-              title="Kanban Board (B)"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition ${
-                viewMode === 'board'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Board</span>
-            </button>
-
-            <button
-              onClick={() => setViewMode('list')}
-              title="Table View (L)"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition ${
-                viewMode === 'list'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <Table className="w-3.5 h-3.5" />
-              <span>List</span>
-            </button>
-          </div>
+        {/* Right: Shortcuts, User Persona & New Issue Button */}
+        <div className="flex items-center gap-2.5">
+          {/* Keyboard Shortcuts Trigger */}
+          <button
+            onClick={() => setShowShortcuts(true)}
+            title="Tastenkürzel anzeigen (?)"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
 
           <div className="h-4 w-px bg-slate-200" />
 
           {/* User Persona Switcher */}
           <div className="relative group">
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg hover:bg-slate-100 cursor-pointer transition border border-transparent hover:border-slate-200">
-              <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-semibold text-slate-700">
+            <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-100 cursor-pointer transition border border-transparent hover:border-slate-200">
+              <div className="w-6 h-6 rounded-full bg-indigo-100 border border-indigo-200/80 flex items-center justify-center text-[11px] font-bold text-indigo-700">
                 {currentUser.name.charAt(0)}
               </div>
-              <span className="text-xs font-medium text-slate-800">{currentUser.name}</span>
-              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-100 border border-slate-200 text-slate-600 uppercase">
-                {currentUser.role}
-              </span>
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-semibold text-slate-800 leading-none">{currentUser.name}</span>
+                <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wider mt-0.5">
+                  {currentUser.role}
+                </span>
+              </div>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </div>
 
             {/* Dropdown */}
-            <div className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 hidden group-hover:block z-40">
+            <div className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 hidden group-hover:block z-40 animate-in fade-in zoom-in-95 duration-100">
               <div className="text-[10px] font-semibold text-slate-400 px-2.5 py-1 uppercase tracking-wider">
-                Switch User
+                Benutzer wechseln
               </div>
               {users.map((u) => (
                 <button
@@ -717,103 +701,156 @@ export default function App() {
             </div>
           </div>
 
-          {/* New Issue Button */}
+          {/* New Issue Button (Primary CTA) */}
           {canEdit && (
             <button
               onClick={() => {
                 setCreateIssueDefaultStatus(undefined);
                 setShowCreateIssue(true);
               }}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New Issue</span>
+              <kbd className="hidden sm:inline-block ml-0.5 text-[9px] font-mono bg-indigo-500/80 px-1 py-0.2 rounded text-indigo-100">
+                C
+              </kbd>
             </button>
           )}
         </div>
       </header>
 
       {/* ======================================================== */}
-      {/* FILTER BAR                                               */}
+      {/* SECONDARY TOOLBAR & FILTER BAR                           */}
       {/* ======================================================== */}
-      <section className="px-6 py-2.5 border-b border-slate-200 bg-white/70 backdrop-blur flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
-        <div className="flex items-center gap-2.5">
-          {/* Status Filter */}
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50"
-          >
-            <option value="ALL">Status: All</option>
-            {activeColumns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-
-          {/* Priority Filter */}
-          <select
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
-            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50"
-          >
-            <option value="ALL">Priority: All</option>
-            <option value="URGENT">Urgent</option>
-            <option value="HIGH">High</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LOW">Low</option>
-          </select>
-
-          {/* Assignee Filter */}
-          <select
-            value={filterAssignee}
-            onChange={(e: any) => setFilterAssignee(e.target.value)}
-            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50"
-          >
-            <option value="ALL">Assignee: All</option>
-            <option value="AGENT">🤖 AI Agents</option>
-            <option value="HUMAN">👤 Team Members</option>
-            <option value="UNASSIGNED">Unassigned</option>
-          </select>
-
-          {/* Sprint Filter */}
-          <select
-            value={filterSprint}
-            onChange={(e) => setFilterSprint(e.target.value)}
-            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50"
-          >
-            <option value="ALL">Sprint: All</option>
-            <option value="ACTIVE">🏃 Aktiver Sprint</option>
-            <option value="BACKLOG">📁 Backlog (kein Sprint)</option>
-            {sprints.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.status})
-              </option>
-            ))}
-          </select>
-
-          {/* Reset Filters */}
-          {hasActiveFilters && (
+      <section className="px-6 py-2 border-b border-slate-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
+        <div className="flex items-center gap-3">
+          {/* View Toggle: Board vs List */}
+          <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
             <button
-              onClick={() => {
-                setSearchQuery('');
-                setFilterStatus('ALL');
-                setFilterPriority('ALL');
-                setFilterAssignee('ALL');
-                setFilterSprint('ALL');
-              }}
-              className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 px-2 py-1 rounded hover:bg-slate-100 transition"
+              onClick={() => setViewMode('board')}
+              title="Kanban Board (B)"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                viewMode === 'board'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
             >
-              <RotateCcw className="w-3 h-3" />
-              <span>Clear</span>
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Board</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('list')}
+              title="Table View (L)"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                viewMode === 'list'
+                  ? 'bg-white text-slate-900 shadow-2xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Table className="w-3.5 h-3.5" />
+              <span>List</span>
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-slate-200" />
+
+          {/* Sprints Manager Pill */}
+          {activeProject && (
+            <button
+              onClick={() => setShowSprintModal(true)}
+              title="Sprint & Cycle Management (S)"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition shadow-2xs"
+            >
+              <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{activeSprint ? activeSprint.name : 'Sprints'}</span>
+              {activeSprint && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              )}
             </button>
           )}
+
+          {/* Filter Group */}
+          <div className="flex items-center gap-1.5">
+            {/* Status Filter */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+            >
+              <option value="ALL">Status: All</option>
+              {activeColumns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.title}
+                </option>
+              ))}
+            </select>
+
+            {/* Priority Filter */}
+            <select
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+            >
+              <option value="ALL">Priority: All</option>
+              <option value="URGENT">Urgent</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
+            </select>
+
+            {/* Assignee Filter */}
+            <select
+              value={filterAssignee}
+              onChange={(e: any) => setFilterAssignee(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+            >
+              <option value="ALL">Assignee: All</option>
+              <option value="AGENT">🤖 AI Agents</option>
+              <option value="HUMAN">👤 Team Members</option>
+              <option value="UNASSIGNED">Unassigned</option>
+            </select>
+
+            {/* Sprint Filter */}
+            <select
+              value={filterSprint}
+              onChange={(e) => setFilterSprint(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+            >
+              <option value="ALL">Sprint: All</option>
+              <option value="ACTIVE">🏃 Aktiver Sprint</option>
+              <option value="BACKLOG">📁 Backlog (kein Sprint)</option>
+              {sprints.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.status})
+                </option>
+              ))}
+            </select>
+
+            {/* Reset Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterStatus('ALL');
+                  setFilterPriority('ALL');
+                  setFilterAssignee('ALL');
+                  setFilterSprint('ALL');
+                }}
+                className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 px-2 py-1 rounded hover:bg-slate-100 transition"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Right count */}
-        <div className="text-[11px] text-slate-400 font-mono">
-          {issues.length} {issues.length === 1 ? 'ticket' : 'tickets'}
+        {/* Right count with subtle dot */}
+        <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+          <span>{issues.length} {issues.length === 1 ? 'ticket' : 'tickets'}</span>
         </div>
       </section>
 
