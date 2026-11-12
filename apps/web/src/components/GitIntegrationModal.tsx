@@ -132,11 +132,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
   };
 
   const handleOAuthConnect = (prov: 'github' | 'gitlab') => {
-    if (oauthConfig?.[prov]?.configured) {
-      window.location.href = `${API_URL}/api/git/oauth/authorize/${prov}`;
-    } else {
-      setShowOAuthConfigModal(true);
-    }
+    window.location.href = `${API_URL}/api/git/oauth/authorize/${prov}`;
   };
 
   const handleInstantDevConnect = async (prov: 'github' | 'gitlab') => {
@@ -703,7 +699,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                             className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
                           >
                             <FolderGit2 className="w-4 h-4" />
-                            <span>Mit GitHub verbinden (OAuth)</span>
+                            <span>Zu GitHub weiterleiten & autorisieren →</span>
                           </button>
 
                           <button
@@ -786,7 +782,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                             className="w-full py-2 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
                           >
                             <GitBranch className="w-4 h-4" />
-                            <span>Mit GitLab verbinden (OAuth)</span>
+                            <span>Zu GitLab weiterleiten & autorisieren →</span>
                           </button>
 
                           <button

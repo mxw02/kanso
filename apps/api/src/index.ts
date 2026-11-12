@@ -1000,8 +1000,57 @@ async function buildServer(): Promise<FastifyInstance> {
         )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/github')}&scope=repo,read:user,user:email&state=kanso_${Date.now()}`;
         return reply.redirect(ghAuthUrl);
       } else {
-        // If OAuth credentials not yet configured, redirect with notice or instant dev connect
-        return reply.redirect('http://localhost:3000/?oauth_needs_config=github');
+        // Seamless 1-Click GitHub Manifest Flow:
+        // Automatically redirects to GitHub, prompts the user to create/authorize the Kanso App,
+        // and returns the OAuth credentials back to Kanso without manual copy-pasting!
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        const manifestObj = {
+          name: `Kanso-Local-${randomSuffix}`,
+          url: 'http://localhost:3000',
+          hook_attributes: {
+            url: 'http://localhost:4001/api/webhooks/git',
+          },
+          redirect_url: 'http://localhost:4001/api/git/oauth/manifest-callback',
+          callback_urls: ['http://localhost:4001/api/git/oauth/callback/github'],
+          public: false,
+          default_permissions: {
+            issues: 'write',
+            contents: 'read',
+            pull_requests: 'write',
+            metadata: 'read',
+          },
+          default_events: ['push', 'pull_request', 'issues'],
+        };
+        const manifestJson = JSON.stringify(manifestObj);
+
+        reply.type('text/html').send(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Weiterleitung zu GitHub...</title>
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; color: #0f172a;">
+    <div style="background: white; padding: 32px; border-radius: 16px; border: 1px solid #e2e8f0; text-align: center; max-width: 440px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+      <div style="width: 48px; height: 48px; background: #4f46e5; border-radius: 12px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 20px;">
+        簡
+      </div>
+      <h2 style="margin: 0 0 8px; font-size: 18px;">Weiterleitung zu GitHub...</h2>
+      <p style="margin: 0 0 20px; font-size: 13px; color: #64748b; line-height: 1.5;">
+        Kanso leitet dich jetzt direkt zu GitHub weiter, um die Autorisierung mit einem Klick zu bestätigen.
+      </p>
+      <form id="manifestForm" method="POST" action="https://github.com/settings/apps/new">
+        <input type="hidden" name="manifest" value='${manifestJson.replace(/'/g, '&#39;')}' />
+        <button type="submit" style="background: #0f172a; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%;">
+          Jetzt zu GitHub weiterleiten →
+        </button>
+      </form>
+      <script>
+        document.getElementById('manifestForm').submit();
+      </script>
+    </div>
+  </body>
+</html>`);
+        return;
       }
     }
 
@@ -1013,11 +1062,81 @@ async function buildServer(): Promise<FastifyInstance> {
         )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/gitlab')}&response_type=code&scope=api+read_user+read_repository&state=kanso_${Date.now()}`;
         return reply.redirect(glAuthUrl);
       } else {
-        return reply.redirect('http://localhost:3000/?oauth_needs_config=gitlab');
+        // Direct forward to GitLab Application creation with pre-filled redirect URI
+        const glAppUrl = `${base.replace(/\/$/, '')}/-/profile/applications?name=Kanso&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/gitlab')}&scopes=api,read_user,read_repository`;
+        return reply.redirect(glAppUrl);
       }
     }
 
     return reply.status(400).send({ error: 'Unbekannter Git Provider' });
+  });
+
+  // GitHub App Manifest Callback Handler
+  app.get('/api/git/oauth/manifest-callback', async (request: FastifyRequest<{
+    Querystring: { code?: string };
+  }>, reply: FastifyReply) => {
+    const { code } = request.query;
+    if (!code) {
+      return reply.redirect('http://localhost:3000/?oauth_error=Kein+Code+übergeben');
+    }
+
+    try {
+      const convertRes = await fetch(`https://api.github.com/app-manifests/${code}/conversions`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'Kanso-Issue-Tracker',
+        },
+      });
+
+      if (!convertRes.ok) {
+        const errText = await convertRes.text();
+        console.error('Manifest conversion failed:', errText);
+        return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent('GitHub App Registrierung fehlgeschlagen')}`);
+      }
+
+      const appData: any = await convertRes.json();
+      customOAuthConfig.githubClientId = appData.client_id;
+      customOAuthConfig.githubClientSecret = appData.client_secret;
+
+      const accountName = appData.owner?.login || 'mxw02';
+      const displayName = appData.owner?.name || accountName;
+      const avatarUrl = appData.owner?.avatar_url || 'https://avatars.githubusercontent.com/u/1024025?v=4';
+
+      const existing = await prisma.gitConnection.findFirst({
+        where: { provider: 'github', accountName },
+      });
+
+      if (existing) {
+        await prisma.gitConnection.update({
+          where: { id: existing.id },
+          data: {
+            displayName,
+            avatarUrl,
+            authType: 'oauth',
+            isDefault: true,
+          },
+        });
+      } else {
+        await prisma.gitConnection.create({
+          data: {
+            provider: 'github',
+            accountName,
+            displayName,
+            avatarUrl,
+            instanceUrl: 'https://github.com',
+            authType: 'oauth',
+            isDefault: true,
+          },
+        });
+      }
+
+      broadcastEvent('git_connection_created', { provider: 'github', accountName });
+      return reply.redirect(`http://localhost:3000/?git_connected=github&account=${encodeURIComponent(accountName)}`);
+    } catch (err: any) {
+      console.error('Manifest callback error:', err);
+      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(err.message || 'Manifest-Fehler')}`);
+    }
   });
 
   // OAuth Callback Handler (handles GitHub & GitLab code exchange)
