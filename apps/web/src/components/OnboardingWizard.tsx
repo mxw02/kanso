@@ -15,6 +15,8 @@ import {
   Code2,
   ShieldCheck,
   Kanban,
+  GitBranch,
+  FolderGit2,
 } from 'lucide-react';
 
 interface Props {
@@ -27,6 +29,9 @@ interface Props {
     columns: { id: string; title: string }[];
     seedSampleIssues: boolean;
     selectedAgents: string[];
+    gitProvider?: string;
+    gitRepo?: string;
+    gitBranch?: string;
   }) => Promise<void>;
 }
 
@@ -84,10 +89,15 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
 
-  // Step 1: Project Basics
-  const [projectName, setProjectName] = useState('Core Platform');
-  const [projectKey, setProjectKey] = useState('CORE');
-  const [projectDescription, setProjectDescription] = useState('Zentrale Systemarchitektur mit MCP und Agentic Automation');
+  // Step 1: Mode & Project Basics
+  const [creationMode, setCreationMode] = useState<'git' | 'manual'>('git');
+  const [gitProvider, setGitProvider] = useState<'GITHUB' | 'GITLAB'>('GITHUB');
+  const [gitRepo, setGitRepo] = useState('mxw02/kanso');
+  const [gitBranch, setGitBranch] = useState('main');
+
+  const [projectName, setProjectName] = useState('Kanso Core');
+  const [projectKey, setProjectKey] = useState('KAN');
+  const [projectDescription, setProjectDescription] = useState('Autonomes Kanban & Git-Board für mxw02/kanso');
 
   // Step 2: Workflow Template
   const [selectedWorkflowId, setSelectedWorkflowId] = useState('agentic');
@@ -109,6 +119,21 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleRepoChange = (repo: string, prov = gitProvider) => {
+    setGitRepo(repo);
+    const cleanRepo = repo.trim();
+    if (cleanRepo) {
+      const parts = cleanRepo.split('/');
+      const repoName = parts.length > 1 ? parts[1] : parts[0];
+      const formattedName = repoName.charAt(0).toUpperCase() + repoName.slice(1);
+      setProjectName(formattedName);
+      
+      const keyGen = repoName.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'GIT';
+      setProjectKey(keyGen);
+      setProjectDescription(`Git-Repository ${cleanRepo} (${prov === 'GITLAB' ? 'GitLab' : 'GitHub'}) mit automatischer Issue-Synchronisation`);
+    }
+  };
 
   // Auto-generate project key from name if untouched or standard
   const handleNameChange = (val: string) => {
@@ -161,6 +186,9 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
         columns,
         seedSampleIssues,
         selectedAgents,
+        gitProvider: creationMode === 'git' ? gitProvider : undefined,
+        gitRepo: creationMode === 'git' && gitRepo.trim() ? gitRepo.trim() : undefined,
+        gitBranch: creationMode === 'git' ? (gitBranch.trim() || 'main') : undefined,
       });
       localStorage.setItem('kanso_onboarding_completed', 'true');
       onClose();
@@ -216,24 +244,138 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
         {/* Step Content */}
         <div className="p-8 flex-1 overflow-y-auto max-h-[68vh]">
           {/* ======================================================== */}
-          {/* STEP 1: BASISDATEN & KÜRZEL                              */}
+          {/* STEP 1: BASISDATEN & KÜRZEL / GIT REPO                   */}
           {/* ======================================================== */}
           {currentStep === 1 && (
-            <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-5 animate-in fade-in duration-150">
               <div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">Wie soll dein Projekt heißen?</h3>
+                <h3 className="text-lg font-bold text-slate-900 mb-1">
+                  {creationMode === 'git' ? 'Aus Git-Repository starten' : 'Neues Projekt manuell anlegen'}
+                </h3>
                 <p className="text-xs text-slate-500">
-                  Definiere den Projektnamen und das Kürzel für deine Ticket-Identifikatoren (z. B. {projectKey || 'KAN'}-1).
+                  Verbinde ein GitHub / GitLab Repository für automatischen Issue- & Commit-Sync oder erstelle ein klassisches Board.
                 </p>
               </div>
 
+              {/* Mode Selector Tabs */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setCreationMode('git')}
+                  className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition ${
+                    creationMode === 'git'
+                      ? 'bg-white text-indigo-700 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FolderGit2 className="w-4 h-4 text-indigo-600" />
+                  <span>Aus Git-Repo (GitHub / GitLab)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCreationMode('manual')}
+                  className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition ${
+                    creationMode === 'manual'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4 text-slate-500" />
+                  <span>Manuelles Board</span>
+                </button>
+              </div>
+
+              {/* Git Config Box */}
+              {creationMode === 'git' && (
+                <div className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-slate-700 font-semibold text-xs">Git Provider & Repository *</label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGitProvider('GITHUB');
+                          handleRepoChange(gitRepo, 'GITHUB');
+                        }}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
+                          gitProvider === 'GITHUB'
+                            ? 'bg-indigo-600 text-white shadow-2xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        GitHub
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGitProvider('GITLAB');
+                          handleRepoChange(gitRepo, 'GITLAB');
+                        }}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
+                          gitProvider === 'GITLAB'
+                            ? 'bg-indigo-600 text-white shadow-2xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        GitLab
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <input
+                      type="text"
+                      required
+                      placeholder="owner/repo (z. B. mxw02/kanso)"
+                      value={gitRepo}
+                      onChange={(e) => handleRepoChange(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  {/* Quick Select Presets */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] text-slate-500 font-medium">Vorschläge:</span>
+                    {['mxw02/kanso', 'facebook/react', 'vercel/next.js'].map((repo) => (
+                      <button
+                        key={repo}
+                        type="button"
+                        onClick={() => handleRepoChange(repo)}
+                        className={`text-[10px] px-2 py-0.5 rounded-md border font-mono transition ${
+                          gitRepo === repo
+                            ? 'bg-indigo-100/70 border-indigo-300 text-indigo-700 font-bold'
+                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {repo}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-indigo-100/60 flex items-center justify-between text-[11px] text-slate-600">
+                    <div className="flex items-center gap-1.5">
+                      <GitBranch className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Default Branch:</span>
+                      <input
+                        type="text"
+                        value={gitBranch}
+                        onChange={(e) => setGitBranch(e.target.value)}
+                        className="bg-white border border-slate-200 rounded px-2 py-0.5 text-[11px] font-mono text-slate-800 w-20 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <span className="text-[10px] text-indigo-600 font-medium">
+                      Auto-Close: Fixes #{projectKey || 'KAN'}-42
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1.5">Projektname *</label>
+                  <label className="block text-slate-700 font-semibold mb-1.5">Projekt- / Board-Name *</label>
                   <input
                     type="text"
                     required
-                    autoFocus
                     placeholder="z. B. Customer Mobile App, AI Backend"
                     value={projectName}
                     onChange={(e) => handleNameChange(e.target.value)}
@@ -268,7 +410,7 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1.5">Beschreibung / Ziel</label>
                   <textarea
-                    rows={3}
+                    rows={2}
                     placeholder="Woran arbeitet das Team in diesem Projekt?"
                     value={projectDescription}
                     onChange={(e) => setProjectDescription(e.target.value)}

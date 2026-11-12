@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles, Settings, Calendar } from 'lucide-react';
+import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles, Settings, Calendar, FolderGit2 } from 'lucide-react';
 
 interface Issue {
   id: string;
@@ -25,6 +25,7 @@ interface Props {
   onOpenCreateIssue: () => void;
   onOpenCreateProject: () => void;
   onOpenOnboarding: () => void;
+  onOpenGitIntegration?: () => void;
   onOpenProjectSettings?: () => void;
   onOpenSprintManager?: () => void;
   onFilterSprint?: (sprintId: string) => void;
@@ -42,6 +43,7 @@ export const CommandPalette: React.FC<Props> = ({
   onOpenCreateIssue,
   onOpenCreateProject,
   onOpenOnboarding,
+  onOpenGitIntegration,
   onOpenProjectSettings,
   onOpenSprintManager,
   onFilterSprint,
@@ -133,6 +135,24 @@ export const CommandPalette: React.FC<Props> = ({
                   </div>
                   <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
                     Aktiv
+                  </span>
+                </button>
+              )}
+
+              {onOpenGitIntegration && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenGitIntegration();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FolderGit2 className="w-4 h-4 text-indigo-600" />
+                    <span className="font-medium">Git-Integration & Versionskontrolle (+)</span>
+                  </div>
+                  <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 font-semibold">
+                    Git
                   </span>
                 </button>
               )}

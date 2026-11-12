@@ -229,9 +229,18 @@ async function buildServer(): Promise<FastifyInstance> {
   });
 
   app.post('/api/projects', async (request: FastifyRequest<{
-    Body: { key: string; name: string; description?: string; workspaceId?: string; columns?: any[] };
+    Body: {
+      key: string;
+      name: string;
+      description?: string;
+      workspaceId?: string;
+      columns?: any[];
+      gitProvider?: string;
+      gitRepo?: string;
+      gitBranch?: string;
+    };
   }>, reply: FastifyReply) => {
-    const { key, name, description, workspaceId, columns } = request.body;
+    const { key, name, description, workspaceId, columns, gitProvider, gitRepo, gitBranch } = request.body;
     if (!key || !name) {
       return reply.status(400).send({ error: 'Key and Name are required.' });
     }
@@ -248,6 +257,9 @@ async function buildServer(): Promise<FastifyInstance> {
         description,
         workspaceId: workspaceId || null,
         columns: columns || DEFAULT_COLUMNS,
+        gitProvider: gitProvider || null,
+        gitRepo: gitRepo ? gitRepo.trim() : null,
+        gitBranch: gitBranch ? gitBranch.trim() : 'main',
       },
       include: {
         workspace: true,
@@ -260,15 +272,26 @@ async function buildServer(): Promise<FastifyInstance> {
 
   app.patch('/api/projects/:id', async (request: FastifyRequest<{
     Params: { id: string };
-    Body: { name?: string; key?: string; description?: string; columns?: any[] };
+    Body: {
+      name?: string;
+      key?: string;
+      description?: string;
+      columns?: any[];
+      gitProvider?: string | null;
+      gitRepo?: string | null;
+      gitBranch?: string | null;
+    };
   }>, reply: FastifyReply) => {
     const { id } = request.params;
-    const { name, key, description, columns } = request.body;
+    const { name, key, description, columns, gitProvider, gitRepo, gitBranch } = request.body;
     const updateData: any = {};
 
     if (name !== undefined) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description;
     if (columns !== undefined) updateData.columns = columns;
+    if (gitProvider !== undefined) updateData.gitProvider = gitProvider;
+    if (gitRepo !== undefined) updateData.gitRepo = gitRepo;
+    if (gitBranch !== undefined) updateData.gitBranch = gitBranch;
 
     if (key !== undefined) {
       const cleanKey = key.toUpperCase().trim();
@@ -901,6 +924,221 @@ async function buildServer(): Promise<FastifyInstance> {
     });
     broadcastEvent('relation_deleted', { id: relationId });
     return { success: true };
+  });
+
+  // ==========================================
+  // GIT INTEGRATION, CONNECTIONS & REPO BOARDS
+  // ==========================================
+  app.get('/api/git/connections', async () => {
+    let connections = await prisma.gitConnection.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (connections.length === 0) {
+      // Seed initial connection for user
+      const defaultConn = await prisma.gitConnection.create({
+        data: {
+          provider: 'github',
+          accountName: 'mxw02',
+          instanceUrl: 'https://github.com',
+          isDefault: true,
+        },
+      });
+      connections = [defaultConn];
+    }
+
+    return connections;
+  });
+
+  app.post('/api/git/connections', async (request: FastifyRequest<{
+    Body: {
+      provider: string;
+      accountName: string;
+      accessToken?: string;
+      instanceUrl?: string;
+    };
+  }>, reply: FastifyReply) => {
+    const { provider, accountName, accessToken, instanceUrl } = request.body;
+    if (!accountName) {
+      return reply.status(400).send({ error: 'Account- oder Organisationsname ist erforderlich.' });
+    }
+
+    const conn = await prisma.gitConnection.create({
+      data: {
+        provider: provider || 'github',
+        accountName: accountName.trim(),
+        accessToken: accessToken ? accessToken.trim() : null,
+        instanceUrl: instanceUrl ? instanceUrl.trim() : provider === 'gitlab' ? 'https://gitlab.com' : 'https://github.com',
+      },
+    });
+
+    broadcastEvent('git_connection_created', conn);
+    return reply.status(201).send(conn);
+  });
+
+  app.delete('/api/git/connections/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+  }>) => {
+    const { id } = request.params;
+    await prisma.gitConnection.delete({ where: { id } });
+    broadcastEvent('git_connection_deleted', { id });
+    return { success: true };
+  });
+
+  app.get('/api/git/repos', async (request: FastifyRequest<{
+    Querystring: { provider?: string; account?: string };
+  }>) => {
+    const { provider = 'github', account = 'mxw02' } = request.query;
+
+    // Preset list of active repositories for this account
+    const sampleRepos = [
+      {
+        fullName: `${account}/kanso`,
+        name: 'kanso',
+        description: 'Next-gen open source Jira alternative with Agentic MCP support',
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/kanso`,
+        defaultBranch: 'main',
+        isPrivate: false,
+        stars: 42,
+        language: 'TypeScript',
+      },
+      {
+        fullName: `${account}/kanso-mcp-agent`,
+        name: 'kanso-mcp-agent',
+        description: 'Autonomous Coding & Triage MCP Agent for Kanso workspaces',
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/kanso-mcp-agent`,
+        defaultBranch: 'main',
+        isPrivate: true,
+        stars: 18,
+        language: 'Python',
+      },
+      {
+        fullName: `${account}/kanso-infra`,
+        name: 'kanso-infra',
+        description: 'Docker Compose, Kubernetes Helm Charts & Cloud Deployments',
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/kanso-infra`,
+        defaultBranch: 'main',
+        isPrivate: false,
+        stars: 7,
+        language: 'HCL',
+      },
+      {
+        fullName: `${account}/web-client`,
+        name: 'web-client',
+        description: 'Vite & React frontend dashboard',
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/web-client`,
+        defaultBranch: 'main',
+        isPrivate: true,
+        stars: 5,
+        language: 'TypeScript',
+      },
+    ];
+
+    return sampleRepos;
+  });
+
+  app.post('/api/git/create-board', async (request: FastifyRequest<{
+    Body: {
+      provider?: string;
+      repo: string;
+      name?: string;
+      key?: string;
+      description?: string;
+      defaultBranch?: string;
+      seedIssues?: boolean;
+    };
+  }>, reply: FastifyReply) => {
+    const { provider = 'github', repo, name, key, description, defaultBranch = 'main', seedIssues = true } = request.body;
+    if (!repo) {
+      return reply.status(400).send({ error: 'Git Repository ist erforderlich.' });
+    }
+
+    const cleanRepo = repo.trim().replace(/^https?:\/\/(github\.com|gitlab\.com)\//, '');
+    const segments = cleanRepo.split('/');
+    const repoBase = segments[segments.length - 1] || cleanRepo;
+
+    const projName = name?.trim() || repoBase;
+    let projKey = key?.trim().toUpperCase();
+    if (!projKey) {
+      projKey = repoBase.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase();
+      if (projKey.length < 2) projKey = 'GIT';
+    }
+
+    let finalKey = projKey;
+    let counter = 1;
+    while (await prisma.project.findUnique({ where: { key: finalKey } })) {
+      finalKey = `${projKey.slice(0, 3)}${counter++}`;
+    }
+
+    const project = await prisma.project.create({
+      data: {
+        key: finalKey,
+        name: projName,
+        description: description?.trim() || `Repository Board verknüpft mit ${provider === 'gitlab' ? 'GitLab' : 'GitHub'}: ${cleanRepo}`,
+        gitProvider: provider,
+        gitRepo: cleanRepo,
+        gitBranch: defaultBranch,
+        columns: DEFAULT_COLUMNS,
+      },
+      include: {
+        workspace: true,
+      },
+    });
+
+    if (seedIssues) {
+      const initialTickets = [
+        {
+          title: `CI/CD & GitHub Actions Workflow für ${cleanRepo} einrichten`,
+          description: `### Aufgaben\n- [ ] Automatisierte Tests bei Pull Requests ausführen\n- [ ] Linter & Typechecks validieren\n- [ ] Kanso Webhook verknüpfen (\`Fixes #${finalKey}-1\`)`,
+          status: 'BACKLOG',
+          priority: IssuePriority.HIGH,
+          labels: ['ci-cd', 'devops'],
+        },
+        {
+          title: `Branch Protection & PR Merging Rules auf '${defaultBranch}' festlegen`,
+          description: `### Richtlinien\n- Jeder PR schließt verknüpfte Kanso-Tickets automatisch bei Merge.\n- Code Reviews und CI-Checks sind Pflicht vor dem Merge.`,
+          status: 'TODO',
+          priority: IssuePriority.MEDIUM,
+          labels: ['git', 'workflow'],
+        },
+        {
+          title: `MCP Autonomous Agent & Tool Server anbinden`,
+          description: `### Agentic Automation\n- [ ] Kanso MCP Server für das Repository registrieren\n- [ ] Autonome Code-Generierung und Triage testen`,
+          status: 'IN_PROGRESS',
+          priority: IssuePriority.URGENT,
+          labels: ['agentic', 'mcp'],
+        },
+      ];
+
+      for (let i = 0; i < initialTickets.length; i++) {
+        const t = initialTickets[i];
+        await prisma.issue.create({
+          data: {
+            identifier: `${finalKey}-${i + 1}`,
+            number: i + 1,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+            labels: t.labels,
+            projectId: project.id,
+            activities: {
+              create: [
+                {
+                  actorType: 'SYSTEM',
+                  actorName: `${provider === 'gitlab' ? 'GitLab' : 'GitHub'} Integration`,
+                  action: 'CREATED',
+                  details: `Initiales Repository-Ticket für ${cleanRepo} erstellt`,
+                },
+              ],
+            },
+          },
+        });
+      }
+    }
+
+    broadcastEvent('project_created', project);
+    return reply.status(201).send(project);
   });
 
   // ==========================================

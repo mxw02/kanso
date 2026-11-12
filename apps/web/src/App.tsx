@@ -13,6 +13,7 @@ import {
   Calendar,
   GitBranch,
   HelpCircle,
+  FolderGit2,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
@@ -24,6 +25,7 @@ import { ShortcutsModal } from './components/ShortcutsModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { SprintModal } from './components/SprintModal';
+import { GitIntegrationModal } from './components/GitIntegrationModal';
 
 interface StatusColumn {
   id: string;
@@ -37,6 +39,10 @@ interface Project {
   name: string;
   description?: string;
   columns?: StatusColumn[];
+  gitProvider?: string;
+  gitRepo?: string;
+  gitBranch?: string;
+  gitWebhookSecret?: string;
   workspace?: {
     id: string;
     name: string;
@@ -81,6 +87,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
+  const [showGitModal, setShowGitModal] = useState(false);
   const [sprints, setSprints] = useState<any[]>([]);
   const [focusedIssueIndex, setFocusedIssueIndex] = useState<number>(-1);
   const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
@@ -459,6 +466,9 @@ export default function App() {
     columns: { id: string; title: string }[];
     seedSampleIssues: boolean;
     selectedAgents: string[];
+    gitProvider?: string;
+    gitRepo?: string;
+    gitBranch?: string;
   }) => {
     try {
       const res = await fetch(`${API_URL}/api/projects`, {
@@ -469,6 +479,9 @@ export default function App() {
           key: projectData.key,
           description: projectData.description,
           columns: projectData.columns,
+          gitProvider: projectData.gitProvider,
+          gitRepo: projectData.gitRepo,
+          gitBranch: projectData.gitBranch,
         }),
       });
 
@@ -588,7 +601,7 @@ export default function App() {
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 pointer-events-none" />
             </div>
 
-            {/* Project Quick Actions (Settings, Setup Wizard, New Project) */}
+            {/* Project Quick Actions (Settings, Setup Wizard, Git, New Project) */}
             {canEdit && (
               <div className="flex items-center gap-0.5 text-slate-400">
                 {activeProject && (
@@ -600,6 +613,13 @@ export default function App() {
                     <Settings className="w-3.5 h-3.5" />
                   </button>
                 )}
+                <button
+                  onClick={() => setShowGitModal(true)}
+                  title="Git-Integration & Versionskontrolle"
+                  className="p-1.5 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition"
+                >
+                  <FolderGit2 className="w-3.5 h-3.5 text-indigo-600" />
+                </button>
                 <button
                   onClick={() => setShowOnboarding(true)}
                   title="Projekt Setup-Wizard"
@@ -771,6 +791,25 @@ export default function App() {
             </button>
           )}
 
+          {/* Git Integration Pill / Quick Action */}
+          <button
+            onClick={() => setShowGitModal(true)}
+            title={activeProject?.gitRepo ? `Verbunden mit ${activeProject.gitRepo} (${activeProject.gitBranch || 'main'}) - Klicken für Details & Webhook` : 'Git-Repository verbinden'}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs border ${
+              activeProject?.gitRepo
+                ? 'bg-indigo-50/70 border-indigo-200 text-indigo-700 hover:bg-indigo-100/70'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <FolderGit2 className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{activeProject?.gitRepo ? activeProject.gitRepo : '+ Versionskontrolle'}</span>
+            {activeProject?.gitBranch && (
+              <span className="text-[10px] font-mono text-indigo-500 font-normal">
+                :{activeProject.gitBranch}
+              </span>
+            )}
+          </button>
+
           {/* Filter Group */}
           <div className="flex items-center gap-1.5">
             {/* Status Filter */}
@@ -910,6 +949,7 @@ export default function App() {
         }}
         onOpenCreateProject={() => setShowCreateProject(true)}
         onOpenOnboarding={() => setShowOnboarding(true)}
+        onOpenGitIntegration={() => setShowGitModal(true)}
         onOpenProjectSettings={() => setShowProjectSettings(true)}
         onOpenSprintManager={() => setShowSprintModal(true)}
         onFilterSprint={(sId) => setFilterSprint(sId)}
@@ -987,6 +1027,18 @@ export default function App() {
         isOpen={showCreateProject}
         onClose={() => setShowCreateProject(false)}
         onCreate={handleCreateProject}
+      />
+
+      {/* Git Integration & Dedicated Repo Boards Modal */}
+      <GitIntegrationModal
+        isOpen={showGitModal}
+        onClose={() => setShowGitModal(false)}
+        canEdit={canEdit}
+        onProjectCreated={(newProject) => {
+          setProjects((prev) => [...prev, newProject]);
+          setActiveProject(newProject);
+          fetchIssues();
+        }}
       />
     </div>
   );
