@@ -24,6 +24,7 @@ interface Issue {
 interface Props {
   columns: Column[];
   issues: Issue[];
+  users?: { id: string; name: string; avatarUrl?: string }[];
   onSelectIssue: (issue: Issue) => void;
   onUpdateStatus: (issueId: string, newStatus: string) => void;
   canEdit: boolean;
@@ -32,6 +33,7 @@ interface Props {
 export const ListView: React.FC<Props> = ({
   columns,
   issues,
+  users,
   onSelectIssue,
   onUpdateStatus,
   canEdit,
@@ -127,10 +129,25 @@ export const ListView: React.FC<Props> = ({
                       <span className="truncate">{issue.assigneeName}</span>
                     </div>
                   ) : issue.assigneeType === 'HUMAN' ? (
-                    <div className="flex items-center gap-1.5 text-slate-700 text-[11px] font-medium">
-                      <User className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <span className="truncate">{issue.assigneeName || 'Assigned'}</span>
-                    </div>
+                    (() => {
+                      const assignedUser = users?.find((u) => u.name === issue.assigneeName);
+                      return (
+                        <div className="flex items-center gap-2 text-slate-700 text-[11px] font-medium">
+                          {assignedUser?.avatarUrl ? (
+                            <img
+                              src={assignedUser.avatarUrl}
+                              alt=""
+                              className="w-4 h-4 rounded-full object-cover shrink-0"
+                            />
+                          ) : (
+                            <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                              {(issue.assigneeName || 'U').charAt(0)}
+                            </div>
+                          )}
+                          <span className="truncate">{issue.assigneeName || 'Assigned'}</span>
+                        </div>
+                      );
+                    })()
                   ) : (
                     <span className="text-slate-400 text-[11px]">Unassigned</span>
                   )}

@@ -22,6 +22,7 @@ import {
   Plus,
   Calendar,
   Layers,
+  ChevronDown,
 } from 'lucide-react';
 import { MarkdownViewer } from './MarkdownViewer';
 
@@ -54,6 +55,9 @@ interface UserItem {
   id: string;
   name: string;
   role: string;
+  email?: string;
+  avatarUrl?: string;
+  gitUsername?: string;
 }
 
 interface SprintItem {
@@ -115,6 +119,7 @@ export const IssueDetailModal: React.FC<Props> = ({
   const [relationTargetId, setRelationTargetId] = useState('');
   const [relationType, setRelationType] = useState<'BLOCKS' | 'IS_BLOCKED_BY' | 'RELATES_TO' | 'DUPLICATES'>('IS_BLOCKED_BY');
   const [submittingRelation, setSubmittingRelation] = useState(false);
+  const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false);
 
   // Git simulation form state
   const [showSimulateGit, setShowSimulateGit] = useState(false);
@@ -131,6 +136,7 @@ export const IssueDetailModal: React.FC<Props> = ({
       setIsEditingTitle(false);
       setShowAddRelation(false);
       setShowSimulateGit(false);
+      setAssigneeDropdownOpen(false);
       setGitMsg(`Fixes #${issue.identifier}: resolve implementation requirements`);
     }
   }, [issue]);
@@ -1067,52 +1073,212 @@ export const IssueDetailModal: React.FC<Props> = ({
             </div>
 
             {/* Assignee Target */}
-            <div>
+            <div className="relative">
               <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
                 Assignee
               </label>
               {canEdit ? (
-                <div className="space-y-2">
-                  <select
-                    value={issue.assigneeType === 'AGENT' ? 'AGENT' : issue.assigneeId || 'UNASSIGNED'}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === 'AGENT') {
-                        onUpdate(issue.id, {
-                          assigneeType: 'AGENT',
-                          assigneeName: 'agent-coder-v1',
-                          assigneeId: null,
-                        });
-                      } else if (val === 'UNASSIGNED') {
-                        onUpdate(issue.id, {
-                          assigneeType: 'UNASSIGNED',
-                          assigneeName: null,
-                          assigneeId: null,
-                        });
-                      } else {
-                        const user = users.find((u) => u.id === val);
-                        onUpdate(issue.id, {
-                          assigneeType: 'HUMAN',
-                          assigneeName: user?.name || 'User',
-                          assigneeId: user?.id || null,
-                        });
-                      }
-                    }}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setAssigneeDropdownOpen(!assigneeDropdownOpen)}
+                    className="w-full bg-white border border-slate-300 hover:border-slate-400 rounded-xl px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500 flex items-center justify-between text-xs transition cursor-pointer shadow-2xs"
                   >
-                    <option value="UNASSIGNED">Unassigned</option>
-                    <option value="AGENT">🤖 AI Agent (Autonomous)</option>
-                    <optgroup label="Team Members">
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          👤 {u.name} ({u.role})
-                        </option>
+                    {issue.assigneeType === 'AGENT' ? (
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-5 h-5 rounded-md bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
+                          <Bot className="w-3.5 h-3.5 text-emerald-700" />
+                        </div>
+                        <span className="font-mono text-emerald-800 font-semibold truncate">
+                          {issue.assigneeName || 'agent-triage-v1'}
+                        </span>
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          AGENT
+                        </span>
+                      </div>
+                    ) : issue.assigneeType === 'HUMAN' ? (
+                      (() => {
+                        const assignedUser = users.find((u) => u.id === issue.assigneeId || u.name === issue.assigneeName);
+                        return (
+                          <div className="flex items-center gap-2 min-w-0">
+                            {assignedUser?.avatarUrl ? (
+                              <img
+                                src={assignedUser.avatarUrl}
+                                alt={issue.assigneeName || ''}
+                                className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px] shrink-0 border border-indigo-200">
+                                {(issue.assigneeName || 'U').charAt(0)}
+                              </div>
+                            )}
+                            <span className="font-semibold text-slate-800 truncate">
+                              {issue.assigneeName}
+                            </span>
+                            {assignedUser?.role && (
+                              <span
+                                className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded shrink-0 ${
+                                  assignedUser.role === 'ADMIN'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : assignedUser.role === 'MEMBER'
+                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                {assignedUser.role}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                          <User className="w-3 h-3" />
+                        </div>
+                        <span className="text-slate-500">Unassigned</span>
+                      </div>
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5" />
+                  </button>
+
+                  {/* Dropdown Popover */}
+                  {assigneeDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-72 overflow-y-auto">
+                      {/* Unassigned Option */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdate(issue.id, {
+                            assigneeType: 'UNASSIGNED',
+                            assigneeName: null,
+                            assigneeId: null,
+                          });
+                          setAssigneeDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${
+                          issue.assigneeType === 'UNASSIGNED'
+                            ? 'bg-slate-100 text-slate-900 font-semibold'
+                            : 'hover:bg-slate-50 text-slate-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                            <User className="w-3 h-3" />
+                          </div>
+                          <span>Unassigned</span>
+                        </div>
+                        {issue.assigneeType === 'UNASSIGNED' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                      </button>
+
+                      <div className="my-1.5 border-t border-slate-100" />
+
+                      {/* Autonomous AI Agents */}
+                      <div className="text-[10px] font-semibold text-slate-400 px-2.5 py-1 uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-emerald-600" />
+                        <span>Autonomous AI Agents</span>
+                      </div>
+                      {[
+                        { id: 'agent-triage-v1', desc: 'Auto-triage, backlog & task breakdown' },
+                        { id: 'agent-coder-v1', desc: 'Autonomous coding & test runner' },
+                        { id: 'agent-reviewer-v1', desc: 'PR verification & quality gates' },
+                      ].map((agent) => (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          onClick={() => {
+                            onUpdate(issue.id, {
+                              assigneeType: 'AGENT',
+                              assigneeName: agent.id,
+                              assigneeId: null,
+                            });
+                            setAssigneeDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer text-left ${
+                            issue.assigneeType === 'AGENT' && issue.assigneeName === agent.id
+                              ? 'bg-emerald-50 text-emerald-900 font-semibold'
+                              : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-5 h-5 rounded-md bg-emerald-100 border border-emerald-200 flex items-center justify-center shrink-0">
+                              <Bot className="w-3.5 h-3.5 text-emerald-700" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-mono text-[11px] truncate">{agent.id}</div>
+                              <div className="text-[10px] text-slate-400 truncate">{agent.desc}</div>
+                            </div>
+                          </div>
+                          {issue.assigneeType === 'AGENT' && issue.assigneeName === agent.id && (
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 ml-1" />
+                          )}
+                        </button>
                       ))}
-                    </optgroup>
-                  </select>
+
+                      <div className="my-1.5 border-t border-slate-100" />
+
+                      {/* Team Members */}
+                      <div className="text-[10px] font-semibold text-slate-400 px-2.5 py-1 uppercase tracking-wider">
+                        Team Members ({users.length})
+                      </div>
+                      {users.map((u) => {
+                        const isSelected =
+                          issue.assigneeType === 'HUMAN' && (issue.assigneeId === u.id || issue.assigneeName === u.name);
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => {
+                              onUpdate(issue.id, {
+                                assigneeType: 'HUMAN',
+                                assigneeName: u.name,
+                                assigneeId: u.id,
+                              });
+                              setAssigneeDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
+                                : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-indigo-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] text-indigo-700">
+                                {u.avatarUrl ? (
+                                  <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  u.name.charAt(0)
+                                )}
+                              </div>
+                              <div className="text-left min-w-0">
+                                <div className="truncate font-medium">{u.name}</div>
+                                <div className="text-[10px] text-slate-400 font-mono truncate">
+                                  {u.gitUsername ? `@${u.gitUsername}` : u.email}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono ${
+                                  u.role === 'ADMIN'
+                                    ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                    : u.role === 'MEMBER'
+                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                }`}
+                              >
+                                {u.role}
+                              </span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800">
+                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-2 text-xs">
                   {issue.assigneeName || 'Unassigned'}
                 </div>
               )}

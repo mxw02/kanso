@@ -21,6 +21,9 @@ interface UserItem {
   id: string;
   name: string;
   role: string;
+  email?: string;
+  avatarUrl?: string;
+  gitUsername?: string;
 }
 
 interface Props {
@@ -347,7 +350,14 @@ export const CreateIssueModal: React.FC<Props> = ({
               {selectedAssignee.type === 'AGENT' ? (
                 <Bot className="w-3.5 h-3.5 text-emerald-600" />
               ) : selectedAssignee.type === 'HUMAN' ? (
-                <User className="w-3.5 h-3.5 text-slate-600" />
+                (() => {
+                  const assignedUser = users.find((usr) => usr.id === selectedAssignee.id || usr.name === selectedAssignee.name);
+                  return assignedUser?.avatarUrl ? (
+                    <img src={assignedUser.avatarUrl} alt="" className="w-4 h-4 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <User className="w-3.5 h-3.5 text-slate-600" />
+                  );
+                })()
               ) : (
                 <User className="w-3.5 h-3.5 text-slate-400" />
               )}
@@ -407,11 +417,30 @@ export const CreateIssueModal: React.FC<Props> = ({
                         : 'hover:bg-slate-50 text-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{u.name}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt={u.name} className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0" />
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px] shrink-0 border border-indigo-200">
+                          {u.name.charAt(0)}
+                        </div>
+                      )}
+                      <div className="text-left min-w-0">
+                        <span className="font-medium text-slate-800 truncate block">{u.name}</span>
+                        {u.gitUsername && (
+                          <span className="text-[10px] text-slate-400 font-mono truncate block">@{u.gitUsername}</span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-[10px] text-slate-400 uppercase">{u.role}</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono shrink-0 ml-1 ${
+                      u.role === 'ADMIN'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : u.role === 'MEMBER'
+                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                        : 'bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}>
+                      {u.role}
+                    </span>
                   </button>
                 ))}
 

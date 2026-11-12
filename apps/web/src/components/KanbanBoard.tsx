@@ -26,6 +26,7 @@ interface Issue {
 interface Props {
   columns: Column[];
   issues: Issue[];
+  users?: { id: string; name: string; avatarUrl?: string }[];
   onSelectIssue: (issue: Issue) => void;
   onUpdateStatus: (issueId: string, newStatus: string) => void;
   onOpenCreateInColumn: (status: string) => void;
@@ -35,6 +36,7 @@ interface Props {
 export const KanbanBoard: React.FC<Props> = ({
   columns,
   issues,
+  users,
   onSelectIssue,
   onUpdateStatus,
   onOpenCreateInColumn,
@@ -183,13 +185,28 @@ export const KanbanBoard: React.FC<Props> = ({
                           <span className="max-w-[75px] truncate">{issue.assigneeName}</span>
                         </div>
                       ) : issue.assigneeType === 'HUMAN' ? (
-                        <div
-                          title={`Assigned to: ${issue.assigneeName}`}
-                          className="flex items-center gap-1 text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-medium"
-                        >
-                          <User className="w-3 h-3 text-slate-500" />
-                          <span className="max-w-[75px] truncate">{issue.assigneeName}</span>
-                        </div>
+                        (() => {
+                          const assignedUser = users?.find((u) => u.name === issue.assigneeName);
+                          return (
+                            <div
+                              title={`Assigned to: ${issue.assigneeName}`}
+                              className="flex items-center gap-1.5 text-slate-700 bg-slate-100/90 border border-slate-200 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                            >
+                              {assignedUser?.avatarUrl ? (
+                                <img
+                                  src={assignedUser.avatarUrl}
+                                  alt=""
+                                  className="w-3.5 h-3.5 rounded-full object-cover shrink-0"
+                                />
+                              ) : (
+                                <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[8px] font-bold shrink-0">
+                                  {(issue.assigneeName || 'U').charAt(0)}
+                                </div>
+                              )}
+                              <span className="max-w-[75px] truncate">{issue.assigneeName}</span>
+                            </div>
+                          );
+                        })()
                       ) : (
                         <span className="text-slate-400 font-mono text-[10px]">--</span>
                       )}

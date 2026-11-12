@@ -1091,6 +1091,7 @@ export default function App() {
           <KanbanBoard
             columns={activeColumns}
             issues={issues}
+            users={users}
             canEdit={canEdit}
             onSelectIssue={async (issue) => {
               const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
@@ -1107,6 +1108,7 @@ export default function App() {
           <ListView
             columns={activeColumns}
             issues={issues}
+            users={users}
             canEdit={canEdit}
             onSelectIssue={async (issue) => {
               const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
