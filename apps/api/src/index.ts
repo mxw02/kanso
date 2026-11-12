@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole } from '@prisma/client';
+import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole, SprintStatus, IssueRelationType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import Redis from 'ioredis';
@@ -316,6 +316,7 @@ async function buildServer(): Promise<FastifyInstance> {
   app.get('/api/issues', async (request: FastifyRequest<{
     Querystring: {
       projectId?: string;
+      sprintId?: string;
       status?: string;
       priority?: IssuePriority;
       assigneeType?: AssigneeType;
@@ -326,10 +327,31 @@ async function buildServer(): Promise<FastifyInstance> {
       sortOrder?: 'asc' | 'desc';
     };
   }>) => {
-    const { projectId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
+    const { projectId, sprintId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
     const where: any = {};
 
     if (projectId) where.projectId = projectId;
+
+    if (sprintId) {
+      if (sprintId === 'ACTIVE') {
+        const activeSprint = await prisma.sprint.findFirst({
+          where: {
+            ...(projectId ? { projectId } : {}),
+            status: SprintStatus.ACTIVE,
+          },
+        });
+        if (activeSprint) {
+          where.sprintId = activeSprint.id;
+        } else {
+          where.sprintId = 'none-active-filter';
+        }
+      } else if (sprintId === 'BACKLOG' || sprintId === 'NONE') {
+        where.sprintId = null;
+      } else if (sprintId !== 'ALL') {
+        where.sprintId = sprintId;
+      }
+    }
+
     if (status && status !== 'ALL') where.status = status;
     if (priority && (priority as any) !== 'ALL') where.priority = priority;
     if (assigneeType && (assigneeType as any) !== 'ALL') where.assigneeType = assigneeType;
@@ -358,9 +380,22 @@ async function buildServer(): Promise<FastifyInstance> {
       where,
       include: {
         project: { select: { id: true, key: true, name: true, columns: true } },
+        sprint: { select: { id: true, name: true, status: true } },
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 5 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
+        gitLinks: true,
+        subIssues: { select: { id: true, identifier: true, title: true, status: true } },
+        outgoingRelations: {
+          include: {
+            targetIssue: { select: { id: true, identifier: true, title: true, status: true, priority: true } },
+          },
+        },
+        incomingRelations: {
+          include: {
+            sourceIssue: { select: { id: true, identifier: true, title: true, status: true, priority: true } },
+          },
+        },
       },
       orderBy,
     });
@@ -376,11 +411,23 @@ async function buildServer(): Promise<FastifyInstance> {
       },
       include: {
         project: true,
+        sprint: true,
         comments: { orderBy: { createdAt: 'asc' } },
         activities: { orderBy: { createdAt: 'desc' } },
         agentRuns: { orderBy: { startedAt: 'desc' } },
-        subIssues: true,
+        gitLinks: { orderBy: { createdAt: 'desc' } },
+        subIssues: { orderBy: { number: 'asc' } },
         parent: true,
+        outgoingRelations: {
+          include: {
+            targetIssue: { select: { id: true, identifier: true, title: true, status: true, priority: true } },
+          },
+        },
+        incomingRelations: {
+          include: {
+            sourceIssue: { select: { id: true, identifier: true, title: true, status: true, priority: true } },
+          },
+        },
       },
     });
 
@@ -395,6 +442,7 @@ async function buildServer(): Promise<FastifyInstance> {
     Body: {
       projectId?: string;
       projectKey?: string;
+      sprintId?: string;
       title: string;
       description?: string;
       status?: string;
@@ -447,6 +495,7 @@ async function buildServer(): Promise<FastifyInstance> {
         assigneeName: body.assigneeName || null,
         labels: body.labels || [],
         parentId: body.parentId || null,
+        sprintId: body.sprintId || null,
         agentMetadata: body.agentMetadata || undefined,
         projectId: project.id,
         activities: {
@@ -462,6 +511,7 @@ async function buildServer(): Promise<FastifyInstance> {
       },
       include: {
         project: true,
+        sprint: true,
         activities: true,
       },
     });
@@ -482,6 +532,7 @@ async function buildServer(): Promise<FastifyInstance> {
       assigneeId?: string;
       assigneeName?: string;
       labels?: string[];
+      sprintId?: string | null;
       agentMetadata?: any;
       actorName?: string;
       actorType?: string;
@@ -528,6 +579,14 @@ async function buildServer(): Promise<FastifyInstance> {
           : 'Unassigned issue',
       });
     }
+    if (body.sprintId !== undefined && body.sprintId !== existing.sprintId) {
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'UPDATED',
+        details: body.sprintId ? 'Moved to Sprint' : 'Removed from Sprint (moved to Backlog)',
+      });
+    }
 
     // Clean up update payload (exclude non-db fields)
     const updateData: any = { ...body };
@@ -543,9 +602,22 @@ async function buildServer(): Promise<FastifyInstance> {
       },
       include: {
         project: true,
+        sprint: true,
+        gitLinks: true,
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 10 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
+        subIssues: true,
+        outgoingRelations: {
+          include: {
+            targetIssue: true,
+          },
+        },
+        incomingRelations: {
+          include: {
+            sourceIssue: true,
+          },
+        },
       },
     });
 
@@ -568,6 +640,505 @@ async function buildServer(): Promise<FastifyInstance> {
     await prisma.issue.delete({ where: { id: existing.id } });
     broadcastEvent('issue_deleted', { id: existing.id, identifier: existing.identifier });
     return { success: true, identifier: existing.identifier };
+  });
+
+  // ==========================================
+  // SPRINTS / CYCLES
+  // ==========================================
+  app.get('/api/sprints', async (request: FastifyRequest<{
+    Querystring: { projectId?: string };
+  }>) => {
+    const { projectId } = request.query;
+    const where: any = {};
+    if (projectId) where.projectId = projectId;
+
+    return prisma.sprint.findMany({
+      where,
+      include: {
+        _count: { select: { issues: true } },
+        issues: {
+          select: { id: true, identifier: true, title: true, status: true, priority: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  });
+
+  app.post('/api/sprints', async (request: FastifyRequest<{
+    Body: {
+      projectId: string;
+      name: string;
+      goal?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+  }>, reply: FastifyReply) => {
+    const { projectId, name, goal, startDate, endDate } = request.body;
+    if (!projectId || !name) {
+      return reply.status(400).send({ error: 'Projekt und Sprint-Name sind erforderlich.' });
+    }
+
+    const sprint = await prisma.sprint.create({
+      data: {
+        projectId,
+        name: name.trim(),
+        goal: goal?.trim() || null,
+        status: SprintStatus.PLANNED,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
+      },
+      include: {
+        _count: { select: { issues: true } },
+        issues: true,
+      },
+    });
+
+    broadcastEvent('sprint_created', sprint);
+    return reply.status(201).send(sprint);
+  });
+
+  app.patch('/api/sprints/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: {
+      name?: string;
+      goal?: string;
+      status?: SprintStatus;
+      startDate?: string;
+      endDate?: string;
+    };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { name, goal, status, startDate, endDate } = request.body;
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (goal !== undefined) updateData.goal = goal?.trim() || null;
+    if (status !== undefined) updateData.status = status;
+    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
+    if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
+
+    const updated = await prisma.sprint.update({
+      where: { id },
+      data: updateData,
+      include: {
+        _count: { select: { issues: true } },
+        issues: true,
+      },
+    });
+
+    broadcastEvent('sprint_updated', updated);
+    return updated;
+  });
+
+  app.post('/api/sprints/:id/start', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body?: { durationDays?: number };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const existing = await prisma.sprint.findUnique({ where: { id } });
+    if (!existing) return reply.status(404).send({ error: 'Sprint nicht gefunden.' });
+
+    const startDate = new Date();
+    const duration = request.body?.durationDays || 14;
+    const endDate = new Date(startDate.getTime() + duration * 24 * 60 * 60 * 1000);
+
+    const updated = await prisma.sprint.update({
+      where: { id },
+      data: {
+        status: SprintStatus.ACTIVE,
+        startDate,
+        endDate,
+      },
+      include: {
+        _count: { select: { issues: true } },
+        issues: true,
+      },
+    });
+
+    broadcastEvent('sprint_started', updated);
+    return updated;
+  });
+
+  app.post('/api/sprints/:id/complete', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body?: { rolloverToSprintId?: string };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { rolloverToSprintId } = request.body || {};
+
+    const sprint = await prisma.sprint.findUnique({
+      where: { id },
+      include: {
+        issues: true,
+        project: true,
+      },
+    });
+    if (!sprint) return reply.status(404).send({ error: 'Sprint nicht gefunden.' });
+
+    // Determine unfinished issues (status not 'DONE')
+    const unfinished = sprint.issues.filter((i) => i.status !== 'DONE');
+
+    if (unfinished.length > 0) {
+      const targetSprintId = rolloverToSprintId || null;
+      await prisma.issue.updateMany({
+        where: {
+          id: { in: unfinished.map((i) => i.id) },
+        },
+        data: {
+          sprintId: targetSprintId,
+        },
+      });
+    }
+
+    const completed = await prisma.sprint.update({
+      where: { id },
+      data: {
+        status: SprintStatus.COMPLETED,
+      },
+      include: {
+        _count: { select: { issues: true } },
+        issues: true,
+      },
+    });
+
+    broadcastEvent('sprint_completed', {
+      sprint: completed,
+      rolloverCount: unfinished.length,
+      rolloverTo: rolloverToSprintId || 'BACKLOG',
+    });
+
+    return reply.send({
+      success: true,
+      completed,
+      rolledOverCount: unfinished.length,
+      rolledOverTo: rolloverToSprintId || 'BACKLOG',
+    });
+  });
+
+  app.delete('/api/sprints/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    // Release issues from sprint
+    await prisma.issue.updateMany({
+      where: { sprintId: id },
+      data: { sprintId: null },
+    });
+
+    await prisma.sprint.delete({ where: { id } });
+    broadcastEvent('sprint_deleted', { id });
+    return { success: true, id };
+  });
+
+  // ==========================================
+  // TICKET RELATIONS & BLOCKERS
+  // ==========================================
+  app.post('/api/issues/:id/relations', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: {
+      targetIssueId: string;
+      type?: IssueRelationType;
+    };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { targetIssueId, type } = request.body;
+
+    const source = await prisma.issue.findFirst({
+      where: { OR: [{ id }, { identifier: id.toUpperCase() }] },
+    });
+    if (!source) return reply.status(404).send({ error: 'Source issue not found' });
+
+    const target = await prisma.issue.findFirst({
+      where: { OR: [{ id: targetIssueId }, { identifier: targetIssueId.toUpperCase() }] },
+    });
+    if (!target) return reply.status(404).send({ error: 'Target issue not found' });
+
+    if (source.id === target.id) {
+      return reply.status(400).send({ error: 'Ein Ticket kann nicht mit sich selbst verknüpft werden.' });
+    }
+
+    const relType = type || IssueRelationType.RELATES_TO;
+
+    const relation = await prisma.issueRelation.upsert({
+      where: {
+        sourceIssueId_targetIssueId_type: {
+          sourceIssueId: source.id,
+          targetIssueId: target.id,
+          type: relType,
+        },
+      },
+      update: {},
+      create: {
+        sourceIssueId: source.id,
+        targetIssueId: target.id,
+        type: relType,
+      },
+      include: {
+        targetIssue: true,
+        sourceIssue: true,
+      },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        issueId: source.id,
+        actorType: 'HUMAN',
+        actorName: 'User',
+        action: 'UPDATED',
+        details: `Verknüpfung hinzugefügt: ${relType} ${target.identifier} ("${target.title}")`,
+      },
+    });
+
+    broadcastEvent('relation_created', relation);
+    return reply.status(201).send(relation);
+  });
+
+  app.delete('/api/issues/:id/relations/:relationId', async (request: FastifyRequest<{
+    Params: { id: string; relationId: string };
+  }>, reply: FastifyReply) => {
+    const { relationId } = request.params;
+    await prisma.issueRelation.delete({
+      where: { id: relationId },
+    });
+    broadcastEvent('relation_deleted', { id: relationId });
+    return { success: true };
+  });
+
+  // ==========================================
+  // GIT INTEGRATION & WEBHOOKS
+  // ==========================================
+  app.post('/api/webhooks/git', async (request: FastifyRequest<{
+    Body: any;
+    Headers: any;
+  }>, reply: FastifyReply) => {
+    const payload: any = request.body || {};
+    const eventsProcessed: any[] = [];
+
+    const linkGitToIssue = async (
+      identifier: string,
+      linkData: {
+        provider: string;
+        type: string;
+        reference: string;
+        title?: string;
+        url?: string;
+        authorName?: string;
+        authorUrl?: string;
+        branch?: string;
+        status?: string;
+        action?: 'close' | 'review' | 'ref';
+      }
+    ) => {
+      const issue = await prisma.issue.findFirst({
+        where: { identifier: identifier.toUpperCase() },
+        include: { project: true },
+      });
+      if (!issue) return null;
+
+      const gitLink = await prisma.gitLink.create({
+        data: {
+          issueId: issue.id,
+          provider: linkData.provider,
+          type: linkData.type,
+          reference: linkData.reference,
+          title: linkData.title,
+          url: linkData.url,
+          authorName: linkData.authorName,
+          authorUrl: linkData.authorUrl,
+          branch: linkData.branch,
+          status: linkData.status,
+        },
+      });
+
+      if (linkData.action === 'close') {
+        const updated = await prisma.issue.update({
+          where: { id: issue.id },
+          data: {
+            status: 'DONE',
+            activities: {
+              create: [
+                {
+                  actorType: 'SYSTEM',
+                  actorName: `${linkData.provider.toUpperCase()} Integration`,
+                  action: 'STATUS_CHANGED',
+                  details: `Ticket automatisch geschlossen via Git (${linkData.type} ${linkData.reference}): "${linkData.title || ''}"`,
+                },
+              ],
+            },
+          },
+        });
+        broadcastEvent('issue_updated', updated);
+      } else if (linkData.action === 'review' && issue.status === 'TODO') {
+        const updated = await prisma.issue.update({
+          where: { id: issue.id },
+          data: {
+            status: 'IN_REVIEW',
+            activities: {
+              create: [
+                {
+                  actorType: 'SYSTEM',
+                  actorName: `${linkData.provider.toUpperCase()} Integration`,
+                  action: 'STATUS_CHANGED',
+                  details: `Status auf In Review gesetzt via Pull Request #${linkData.reference}: "${linkData.title || ''}"`,
+                },
+              ],
+            },
+          },
+        });
+        broadcastEvent('issue_updated', updated);
+      } else {
+        await prisma.activityLog.create({
+          data: {
+            issueId: issue.id,
+            actorType: 'SYSTEM',
+            actorName: `${linkData.provider.toUpperCase()} Integration`,
+            action: 'UPDATED',
+            details: `Git-Referenz verknüpft: ${linkData.type} ${linkData.reference}`,
+          },
+        });
+      }
+
+      broadcastEvent('git_link_added', { issueId: issue.id, identifier: issue.identifier, gitLink });
+      return { issue: issue.identifier, gitLink };
+    };
+
+    // 1. Commits list (e.g. GitHub/GitLab push event)
+    if (Array.isArray(payload.commits)) {
+      const branch = (payload.ref || '').replace('refs/heads/', '');
+      for (const commit of payload.commits) {
+        const msg = commit.message || '';
+        const fixRegex = /(?:fixes|closes|resolves)\s*#?([A-Z0-9]+-\d+)/gi;
+        const refRegex = /(?:refs|see)?\s*#?([A-Z0-9]+-\d+)/gi;
+
+        let fixMatch;
+        const matchedClosed = new Set<string>();
+        while ((fixMatch = fixRegex.exec(msg)) !== null) {
+          const key = fixMatch[1].toUpperCase();
+          matchedClosed.add(key);
+          const res = await linkGitToIssue(key, {
+            provider: 'github',
+            type: 'commit',
+            reference: (commit.id || '').substring(0, 7),
+            title: msg.split('\n')[0],
+            url: commit.url,
+            authorName: commit.author?.name,
+            branch,
+            status: 'committed',
+            action: branch === 'main' || branch === 'master' ? 'close' : 'ref',
+          });
+          if (res) eventsProcessed.push(res);
+        }
+
+        let refMatch;
+        while ((refMatch = refRegex.exec(msg)) !== null) {
+          const key = refMatch[1].toUpperCase();
+          if (!matchedClosed.has(key)) {
+            const res = await linkGitToIssue(key, {
+              provider: 'github',
+              type: 'commit',
+              reference: (commit.id || '').substring(0, 7),
+              title: msg.split('\n')[0],
+              url: commit.url,
+              authorName: commit.author?.name,
+              branch,
+              status: 'committed',
+              action: 'ref',
+            });
+            if (res) eventsProcessed.push(res);
+          }
+        }
+      }
+    }
+
+    // 2. Pull Request event (GitHub / GitLab)
+    const pr = payload.pull_request;
+    if (pr) {
+      const textToSearch = `${pr.title || ''} ${pr.body || ''} ${pr.head?.ref || ''}`;
+      const idRegex = /#?([A-Z0-9]+-\d+)/gi;
+      const isMerge = pr.merged === true || (payload.action === 'closed' && pr.merged);
+      const isOpened = payload.action === 'opened' || payload.action === 'reopened';
+
+      let m;
+      const seen = new Set<string>();
+      while ((m = idRegex.exec(textToSearch)) !== null) {
+        const key = m[1].toUpperCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const res = await linkGitToIssue(key, {
+          provider: 'github',
+          type: 'pull_request',
+          reference: `#${pr.number}`,
+          title: pr.title,
+          url: pr.html_url,
+          authorName: pr.user?.login,
+          branch: pr.head?.ref,
+          status: isMerge ? 'merged' : pr.state,
+          action: isMerge ? 'close' : isOpened ? 'review' : 'ref',
+        });
+        if (res) eventsProcessed.push(res);
+      }
+    }
+
+    return reply.send({ success: true, processed: eventsProcessed.length, events: eventsProcessed });
+  });
+
+  // Manual Git link endpoint
+  app.post('/api/issues/:id/git-links', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: {
+      provider?: string;
+      type: string;
+      reference: string;
+      title?: string;
+      url?: string;
+      authorName?: string;
+      branch?: string;
+      status?: string;
+      autoClose?: boolean;
+    };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const existing = await prisma.issue.findFirst({
+      where: { OR: [{ id }, { identifier: id.toUpperCase() }] },
+    });
+    if (!existing) return reply.status(404).send({ error: 'Issue not found' });
+
+    const body = request.body;
+    const gitLink = await prisma.gitLink.create({
+      data: {
+        issueId: existing.id,
+        provider: body.provider || 'github',
+        type: body.type,
+        reference: body.reference,
+        title: body.title,
+        url: body.url,
+        authorName: body.authorName,
+        branch: body.branch,
+        status: body.status || 'open',
+      },
+    });
+
+    if (body.autoClose || body.status === 'merged') {
+      await prisma.issue.update({
+        where: { id: existing.id },
+        data: {
+          status: 'DONE',
+          activities: {
+            create: [
+              {
+                actorType: 'SYSTEM',
+                actorName: 'Git Integration',
+                action: 'STATUS_CHANGED',
+                details: `Closed via ${body.type} ${body.reference} (${body.status || 'merged'})`,
+              },
+            ],
+          },
+        },
+      });
+    }
+
+    broadcastEvent('git_link_added', { issueId: existing.id, identifier: existing.identifier, gitLink });
+    return reply.status(201).send(gitLink);
   });
 
   // ==========================================

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles, Settings } from 'lucide-react';
+import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles, Settings, Calendar } from 'lucide-react';
 
 interface Issue {
   id: string;
@@ -26,6 +26,8 @@ interface Props {
   onOpenCreateProject: () => void;
   onOpenOnboarding: () => void;
   onOpenProjectSettings?: () => void;
+  onOpenSprintManager?: () => void;
+  onFilterSprint?: (sprintId: string) => void;
   onSetView: (view: 'board' | 'list') => void;
   onOpenShortcuts: () => void;
 }
@@ -41,6 +43,8 @@ export const CommandPalette: React.FC<Props> = ({
   onOpenCreateProject,
   onOpenOnboarding,
   onOpenProjectSettings,
+  onOpenSprintManager,
+  onFilterSprint,
   onSetView,
   onOpenShortcuts,
 }) => {
@@ -99,6 +103,40 @@ export const CommandPalette: React.FC<Props> = ({
               Actions
             </div>
             <div className="space-y-0.5">
+              {onOpenSprintManager && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenSprintManager();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Calendar className="w-4 h-4 text-emerald-600" />
+                    <span className="font-medium">Sprint & Cycle Management öffnen</span>
+                  </div>
+                  <kbd className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono border border-slate-200">S</kbd>
+                </button>
+              )}
+
+              {onFilterSprint && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onFilterSprint('ACTIVE');
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Calendar className="w-4 h-4 text-indigo-600" />
+                    <span className="font-medium">Filter: Nur aktiver Sprint</span>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
+                    Aktiv
+                  </span>
+                </button>
+              )}
+
               {onOpenProjectSettings && (
                 <button
                   onClick={() => {

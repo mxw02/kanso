@@ -41,6 +41,19 @@ enum AgentRunStatus {
   FAILED
 }
 
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+enum IssueRelationType {
+  BLOCKS
+  IS_BLOCKED_BY
+  RELATES_TO
+  DUPLICATES
+}
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -78,6 +91,7 @@ model Project {
   columns     Json?      // Customizable status columns: [{ id: "BACKLOG", title: "Backlog", color: "..." }]
   
   issues      Issue[]
+  sprints     Sprint[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -101,11 +115,18 @@ model Issue {
   
   projectId     String
   project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sprintId      String?
+  sprint        Sprint?       @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   
   parentId      String?
   parent        Issue?        @relation("SubIssues", fields: [parentId], references: [id])
   subIssues     Issue[]       @relation("SubIssues")
 
+  outgoingRelations IssueRelation[] @relation("SourceRelations")
+  incomingRelations IssueRelation[] @relation("TargetRelations")
+
+  gitLinks      GitLink[]
   comments      Comment[]
   activities    ActivityLog[]
   agentRuns     AgentRun[]
@@ -115,6 +136,7 @@ model Issue {
 
   @@index([projectId, status])
   @@index([identifier])
+  @@index([sprintId])
   @@map("issues")
 }
 
@@ -160,4 +182,61 @@ model AgentRun {
 
   @@index([issueId])
   @@map("agent_runs")
+}
+
+model Sprint {
+  id          String       @id @default(uuid())
+  name        String
+  goal        String?      @db.Text
+  status      SprintStatus @default(PLANNED)
+  startDate   DateTime?
+  endDate     DateTime?
+
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  issues      Issue[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([projectId, status])
+  @@map("sprints")
+}
+
+model IssueRelation {
+  id              String            @id @default(uuid())
+  sourceIssueId   String
+  sourceIssue     Issue             @relation("SourceRelations", fields: [sourceIssueId], references: [id], onDelete: Cascade)
+  targetIssueId   String
+  targetIssue     Issue             @relation("TargetRelations", fields: [targetIssueId], references: [id], onDelete: Cascade)
+  type            IssueRelationType @default(RELATES_TO)
+
+  createdAt       DateTime          @default(now())
+
+  @@unique([sourceIssueId, targetIssueId, type])
+  @@index([sourceIssueId])
+  @@index([targetIssueId])
+  @@map("issue_relations")
+}
+
+model GitLink {
+  id          String   @id @default(uuid())
+  issueId     String
+  issue       Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  provider    String   @default("github") // github, gitlab
+  type        String   // commit, pull_request, branch
+  reference   String   // commit hash, PR #42, or branch name
+  title       String?  // Commit message or PR title
+  url         String?  // External web link
+  authorName  String?
+  authorUrl   String?
+  branch      String?
+  status      String?  // merged, open, closed
+
+  createdAt   DateTime @default(now())
+
+  @@index([issueId])
+  @@map("git_links")
 }

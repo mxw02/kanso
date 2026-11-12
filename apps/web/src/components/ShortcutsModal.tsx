@@ -13,8 +13,11 @@ export const ShortcutsModal: React.FC<Props> = ({ isOpen, onClose }) => {
     { key: 'Cmd + K / Ctrl + K', desc: 'Open Command Palette & Global Search' },
     { key: '/', desc: 'Quick focus search filter' },
     { key: 'C', desc: 'Create new issue' },
+    { key: 'S', desc: 'Open Sprint & Cycle Management' },
     { key: 'B', desc: 'Switch to Kanban Board View' },
     { key: 'L', desc: 'Switch to Table List View' },
+    { key: 'J / K', desc: 'Navigate between issues' },
+    { key: 'Enter', desc: 'Open selected issue details' },
     { key: '?', desc: 'Show this shortcuts reference' },
     { key: 'ESC', desc: 'Close dialogs or clear selection' },
   ];

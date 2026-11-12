@@ -10,6 +10,8 @@ import {
   ChevronDown,
   Sparkles,
   Settings,
+  Calendar,
+  GitBranch,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
@@ -20,6 +22,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
+import { SprintModal } from './components/SprintModal';
 
 interface StatusColumn {
   id: string;
@@ -76,6 +79,9 @@ export default function App() {
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showSprintModal, setShowSprintModal] = useState(false);
+  const [sprints, setSprints] = useState<any[]>([]);
+  const [focusedIssueIndex, setFocusedIssueIndex] = useState<number>(-1);
   const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
 
   // Filters & Search
@@ -83,6 +89,7 @@ export default function App() {
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterAssignee, setFilterAssignee] = useState<'ALL' | 'AGENT' | 'HUMAN' | 'UNASSIGNED'>('ALL');
+  const [filterSprint, setFilterSprint] = useState('ALL');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const API_URL = import.meta.env.VITE_API_URL || '';
@@ -120,6 +127,18 @@ export default function App() {
     }
   };
 
+  const fetchSprints = async () => {
+    if (!activeProject?.id) return;
+    try {
+      const res = await fetch(`${API_URL}/api/sprints?projectId=${activeProject.id}`);
+      if (res.ok) {
+        setSprints(await res.json());
+      }
+    } catch (err) {
+      console.error('Failed to fetch sprints:', err);
+    }
+  };
+
   // Fetch Issues with active filters
   const fetchIssues = async () => {
     try {
@@ -128,6 +147,7 @@ export default function App() {
       if (filterStatus !== 'ALL') params.set('status', filterStatus);
       if (filterPriority !== 'ALL') params.set('priority', filterPriority);
       if (filterAssignee !== 'ALL') params.set('assigneeType', filterAssignee);
+      if (filterSprint !== 'ALL') params.set('sprintId', filterSprint);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
       const res = await fetch(`${API_URL}/api/issues?${params.toString()}`);
@@ -157,7 +177,8 @@ export default function App() {
 
   useEffect(() => {
     fetchIssues();
-  }, [activeProject, filterStatus, filterPriority, filterAssignee, searchQuery]);
+    fetchSprints();
+  }, [activeProject, filterStatus, filterPriority, filterAssignee, filterSprint, searchQuery]);
 
   // Realtime SSE Event Stream
   useEffect(() => {
@@ -174,9 +195,18 @@ export default function App() {
             'agent_run_started',
             'agent_run_updated',
             'project_created',
+            'sprint_created',
+            'sprint_updated',
+            'sprint_started',
+            'sprint_completed',
+            'sprint_deleted',
+            'relation_created',
+            'relation_deleted',
+            'git_link_added',
           ].includes(data.type)
         ) {
           fetchIssues();
+          fetchSprints();
           if (data.type === 'project_created') {
             fetchData();
           }
@@ -191,7 +221,7 @@ export default function App() {
     };
   }, [activeProject, selectedIssue?.id]);
 
-  // Keyboard Shortcuts Listener
+  // Keyboard Shortcuts Listener (Command Palette, Sprints, J/K Navigation)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
@@ -211,25 +241,44 @@ export default function App() {
         e.preventDefault();
         setCreateIssueDefaultStatus(undefined);
         setShowCreateIssue(true);
+      } else if (e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        setShowSprintModal(true);
       } else if (e.key.toLowerCase() === 'b') {
         e.preventDefault();
         setViewMode('board');
       } else if (e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setViewMode('list');
+      } else if (e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        setFocusedIssueIndex((prev) => Math.min(prev + 1, issues.length - 1));
+      } else if (e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setFocusedIssueIndex((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter') {
+        if (focusedIssueIndex >= 0 && issues[focusedIssueIndex]) {
+          e.preventDefault();
+          const target = issues[focusedIssueIndex];
+          fetch(`${API_URL}/api/issues/${target.id}`)
+            .then((res) => (res.ok ? res.json() : target))
+            .then((data) => setSelectedIssue(data));
+        }
       } else if (e.key === '?') {
         e.preventDefault();
         setShowShortcuts(true);
       } else if (e.key === 'Escape') {
         setShowCommandPalette(false);
         setShowShortcuts(false);
+        setShowSprintModal(false);
+        setShowProjectSettings(false);
         setSelectedIssue(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canEdit]);
+  }, [canEdit, issues, focusedIssueIndex]);
 
   // Issue Actions
   const handleUpdateIssueStatus = async (issueId: string, newStatus: string) => {
@@ -497,7 +546,8 @@ export default function App() {
     ? activeProject.columns
     : DEFAULT_COLUMNS;
 
-  const hasActiveFilters = searchQuery || filterStatus !== 'ALL' || filterPriority !== 'ALL' || filterAssignee !== 'ALL';
+  const activeSprint = sprints.find((s) => s.status === 'ACTIVE');
+  const hasActiveFilters = searchQuery || filterStatus !== 'ALL' || filterPriority !== 'ALL' || filterAssignee !== 'ALL' || filterSprint !== 'ALL';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -544,6 +594,19 @@ export default function App() {
                   <Sparkles className="w-3 h-3 text-indigo-600" />
                   <span>Setup Wizard</span>
                 </button>
+                {activeProject && (
+                  <button
+                    onClick={() => setShowSprintModal(true)}
+                    title="Sprint & Cycle Management (S)"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 transition"
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{activeSprint ? activeSprint.name : 'Sprints'}</span>
+                    {activeSprint && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    )}
+                  </button>
+                )}
                 {activeProject && (
                   <button
                     onClick={() => setShowProjectSettings(true)}
@@ -714,6 +777,22 @@ export default function App() {
             <option value="UNASSIGNED">Unassigned</option>
           </select>
 
+          {/* Sprint Filter */}
+          <select
+            value={filterSprint}
+            onChange={(e) => setFilterSprint(e.target.value)}
+            className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50"
+          >
+            <option value="ALL">Sprint: All</option>
+            <option value="ACTIVE">🏃 Aktiver Sprint</option>
+            <option value="BACKLOG">📁 Backlog (kein Sprint)</option>
+            {sprints.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.status})
+              </option>
+            ))}
+          </select>
+
           {/* Reset Filters */}
           {hasActiveFilters && (
             <button
@@ -722,6 +801,7 @@ export default function App() {
                 setFilterStatus('ALL');
                 setFilterPriority('ALL');
                 setFilterAssignee('ALL');
+                setFilterSprint('ALL');
               }}
               className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 px-2 py-1 rounded hover:bg-slate-100 transition"
             >
@@ -794,6 +874,8 @@ export default function App() {
         onOpenCreateProject={() => setShowCreateProject(true)}
         onOpenOnboarding={() => setShowOnboarding(true)}
         onOpenProjectSettings={() => setShowProjectSettings(true)}
+        onOpenSprintManager={() => setShowSprintModal(true)}
+        onFilterSprint={(sId) => setFilterSprint(sId)}
         onSetView={(v) => setViewMode(v)}
         onOpenShortcuts={() => setShowShortcuts(true)}
       />
@@ -819,18 +901,37 @@ export default function App() {
         canAdmin={canAdmin}
       />
 
+      {/* Sprint Modal */}
+      <SprintModal
+        isOpen={showSprintModal}
+        onClose={() => setShowSprintModal(false)}
+        projectId={activeProject?.id || ''}
+        projectKey={activeProject?.key || ''}
+        canEdit={canEdit}
+        onSprintUpdated={() => {
+          fetchSprints();
+          fetchIssues();
+        }}
+      />
+
       {/* Issue Detail Modal */}
       <IssueDetailModal
         issue={selectedIssue}
         columns={activeColumns}
         users={users}
         currentUser={currentUser}
+        allIssues={issues}
+        sprints={sprints}
         canEdit={canEdit}
         onClose={() => setSelectedIssue(null)}
         onUpdate={handleUpdateIssue}
         onDelete={handleDeleteIssue}
         onAddComment={handleAddComment}
         onCreateSubIssue={handleCreateSubIssue}
+        onSelectIssue={async (issueId) => {
+          const res = await fetch(`${API_URL}/api/issues/${issueId}`);
+          if (res.ok) setSelectedIssue(await res.json());
+        }}
       />
 
       {/* Create Issue Modal */}

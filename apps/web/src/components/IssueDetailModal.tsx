@@ -11,6 +11,17 @@ import {
   Send,
   Sparkles,
   CheckSquare,
+  Square,
+  Link2,
+  AlertTriangle,
+  GitBranch,
+  GitPullRequest,
+  GitCommit,
+  Copy,
+  ExternalLink,
+  Plus,
+  Calendar,
+  Layers,
 } from 'lucide-react';
 import { MarkdownViewer } from './MarkdownViewer';
 
@@ -26,9 +37,14 @@ interface Issue {
   assigneeId?: string | null;
   assigneeName?: string | null;
   labels: string[];
+  sprintId?: string | null;
+  sprint?: { id: string; name: string; status: string } | null;
   comments?: any[];
   activities?: any[];
   subIssues?: any[];
+  outgoingRelations?: any[];
+  incomingRelations?: any[];
+  gitLinks?: any[];
   agentRuns?: any[];
   createdAt: string;
   updatedAt: string;
@@ -40,17 +56,33 @@ interface UserItem {
   role: string;
 }
 
+interface SprintItem {
+  id: string;
+  name: string;
+  status: string;
+}
+
+interface OtherIssue {
+  id: string;
+  identifier: string;
+  title: string;
+  status: string;
+}
+
 interface Props {
   issue: Issue | null;
   columns: { id: string; title: string }[];
   users: UserItem[];
   currentUser: { name: string; role: string };
+  allIssues?: OtherIssue[];
+  sprints?: SprintItem[];
   canEdit: boolean;
   onClose: () => void;
   onUpdate: (issueId: string, payload: any) => Promise<void>;
   onDelete: (issueId: string) => Promise<void>;
   onAddComment: (issueId: string, content: string) => Promise<void>;
   onCreateSubIssue: (parentId: string, title: string) => Promise<void>;
+  onSelectIssue?: (issueId: string) => void;
 }
 
 export const IssueDetailModal: React.FC<Props> = ({
@@ -58,14 +90,17 @@ export const IssueDetailModal: React.FC<Props> = ({
   columns,
   users,
   currentUser,
+  allIssues = [],
+  sprints = [],
   canEdit,
   onClose,
   onUpdate,
   onDelete,
   onAddComment,
   onCreateSubIssue,
+  onSelectIssue,
 }) => {
-  const [activeTab, setActiveTab] = useState<'comments' | 'activity'>('comments');
+  const [activeTab, setActiveTab] = useState<'comments' | 'activity' | 'git'>('comments');
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [descText, setDescText] = useState('');
   const [titleText, setTitleText] = useState('');
@@ -73,6 +108,20 @@ export const IssueDetailModal: React.FC<Props> = ({
   const [newComment, setNewComment] = useState('');
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [copiedBranch, setCopiedBranch] = useState(false);
+
+  // Issue relations form state
+  const [showAddRelation, setShowAddRelation] = useState(false);
+  const [relationTargetId, setRelationTargetId] = useState('');
+  const [relationType, setRelationType] = useState<'BLOCKS' | 'IS_BLOCKED_BY' | 'RELATES_TO' | 'DUPLICATES'>('IS_BLOCKED_BY');
+  const [submittingRelation, setSubmittingRelation] = useState(false);
+
+  // Git simulation form state
+  const [showSimulateGit, setShowSimulateGit] = useState(false);
+  const [gitMsg, setGitMsg] = useState('');
+  const [gitType, setGitType] = useState<'commit' | 'pull_request'>('commit');
+
+  const API_URL = import.meta.env.VITE_API_URL || '';
 
   useEffect(() => {
     if (issue) {
@@ -80,10 +129,44 @@ export const IssueDetailModal: React.FC<Props> = ({
       setTitleText(issue.title || '');
       setIsEditingDesc(false);
       setIsEditingTitle(false);
+      setShowAddRelation(false);
+      setShowSimulateGit(false);
+      setGitMsg(`Fixes #${issue.identifier}: resolve implementation requirements`);
     }
   }, [issue]);
 
   if (!issue) return null;
+
+  // Blocker determination
+  // 1. Outgoing relation where this issue IS_BLOCKED_BY target
+  // 2. Incoming relation where source issue BLOCKS this issue
+  const blockers: any[] = [];
+  if (issue.outgoingRelations) {
+    for (const r of issue.outgoingRelations) {
+      if (r.type === 'IS_BLOCKED_BY' && r.targetIssue?.status !== 'DONE') {
+        blockers.push({ id: r.targetIssue.id, identifier: r.targetIssue.identifier, title: r.targetIssue.title, status: r.targetIssue.status, relationId: r.id });
+      }
+    }
+  }
+  if (issue.incomingRelations) {
+    for (const r of issue.incomingRelations) {
+      if (r.type === 'BLOCKS' && r.sourceIssue?.status !== 'DONE') {
+        blockers.push({ id: r.sourceIssue.id, identifier: r.sourceIssue.identifier, title: r.sourceIssue.title, status: r.sourceIssue.status, relationId: r.id });
+      }
+    }
+  }
+
+  const branchName = `${issue.identifier.toLowerCase()}-${issue.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 36)}`;
+
+  const handleCopyBranch = () => {
+    navigator.clipboard.writeText(`git checkout -b ${branchName}`);
+    setCopiedBranch(true);
+    setTimeout(() => setCopiedBranch(false), 2000);
+  };
 
   const handleSaveDescription = async () => {
     await onUpdate(issue.id, { description: descText });
@@ -115,6 +198,112 @@ export const IssueDetailModal: React.FC<Props> = ({
     setNewSubtaskTitle('');
   };
 
+  const handleToggleSubtaskStatus = async (sub: any) => {
+    if (!canEdit) return;
+    const nextStatus = sub.status === 'DONE' ? 'TODO' : 'DONE';
+    try {
+      await fetch(`${API_URL}/api/issues/${sub.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus, actorName: currentUser.name }),
+      });
+      // Refresh current issue
+      await onUpdate(issue.id, {});
+    } catch (err) {
+      console.error('Failed to toggle subtask', err);
+    }
+  };
+
+  // Add Relation
+  const handleAddRelation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!relationTargetId) return;
+    try {
+      setSubmittingRelation(true);
+      const res = await fetch(`${API_URL}/api/issues/${issue.id}/relations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetIssueId: relationTargetId,
+          type: relationType,
+        }),
+      });
+      if (res.ok) {
+        setShowAddRelation(false);
+        setRelationTargetId('');
+        await onUpdate(issue.id, {});
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Fehler beim Verknüpfen');
+      }
+    } catch (err) {
+      console.error('Failed to add relation', err);
+    } finally {
+      setSubmittingRelation(false);
+    }
+  };
+
+  // Delete Relation
+  const handleDeleteRelation = async (relationId: string) => {
+    if (!canEdit) return;
+    try {
+      await fetch(`${API_URL}/api/issues/${issue.id}/relations/${relationId}`, {
+        method: 'DELETE',
+      });
+      await onUpdate(issue.id, {});
+    } catch (err) {
+      console.error('Failed to delete relation', err);
+    }
+  };
+
+  // Simulate Git Hook
+  const handleSimulateGit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gitMsg.trim()) return;
+
+    try {
+      const commitHash = Math.random().toString(16).substring(2, 9);
+      if (gitType === 'commit') {
+        await fetch(`${API_URL}/api/webhooks/git`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ref: 'refs/heads/main',
+            commits: [
+              {
+                id: commitHash,
+                message: gitMsg,
+                url: `https://github.com/mxw02/kanso/commit/${commitHash}`,
+                author: { name: currentUser.name },
+              },
+            ],
+          }),
+        });
+      } else {
+        const prNumber = Math.floor(Math.random() * 80) + 10;
+        await fetch(`${API_URL}/api/webhooks/git`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'closed',
+            pull_request: {
+              number: prNumber,
+              title: gitMsg,
+              html_url: `https://github.com/mxw02/kanso/pull/${prNumber}`,
+              merged: true,
+              user: { login: currentUser.name.toLowerCase().replace(/\s+/g, '') },
+              head: { ref: branchName },
+            },
+          }),
+        });
+      }
+      setShowSimulateGit(false);
+      await onUpdate(issue.id, {});
+    } catch (err) {
+      console.error('Failed to simulate git', err);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
@@ -133,6 +322,13 @@ export const IssueDetailModal: React.FC<Props> = ({
             <span className="text-xs text-slate-500 font-medium px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
               {issue.type}
             </span>
+
+            {issue.sprint && (
+              <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span>{issue.sprint.name}</span>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -162,7 +358,32 @@ export const IssueDetailModal: React.FC<Props> = ({
         {/* Content Body */}
         <div className="flex-1 flex overflow-hidden">
           {/* Main Content Area */}
-          <div className="flex-1 p-6 overflow-y-auto space-y-6 border-r border-slate-200">
+          <div className="flex-1 p-6 overflow-y-auto space-y-5 border-r border-slate-200">
+            {/* Blocker Alert Banner */}
+            {blockers.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Dieses Ticket wird durch unerledigte Abhängigkeiten blockiert:</span>
+                </div>
+                <div className="space-y-1 pl-6">
+                  {blockers.map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => onSelectIssue && onSelectIssue(b.id)}
+                      className="flex items-center gap-2 hover:underline cursor-pointer font-medium"
+                    >
+                      <span className="font-mono font-bold text-amber-800">{b.identifier}</span>
+                      <span>{b.title}</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 uppercase font-semibold">
+                        {b.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Title */}
             <div>
               {isEditingTitle && canEdit ? (
@@ -269,20 +490,45 @@ export const IssueDetailModal: React.FC<Props> = ({
 
               {issue.subIssues && issue.subIssues.length > 0 && (
                 <div className="space-y-1.5">
-                  {issue.subIssues.map((sub: any) => (
-                    <div
-                      key={sub.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-indigo-600 font-semibold text-[11px]">{sub.identifier}</span>
-                        <span className="text-slate-800 font-medium">{sub.title}</span>
+                  {issue.subIssues.map((sub: any) => {
+                    const isDone = sub.status === 'DONE';
+                    return (
+                      <div
+                        key={sub.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs hover:border-slate-300 transition"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            onClick={() => handleToggleSubtaskStatus(sub)}
+                            disabled={!canEdit}
+                            className="text-slate-400 hover:text-indigo-600"
+                          >
+                            {isDone ? (
+                              <CheckSquare className="w-4 h-4 text-emerald-600" />
+                            ) : (
+                              <Square className="w-4 h-4" />
+                            )}
+                          </button>
+                          <span
+                            onClick={() => onSelectIssue && onSelectIssue(sub.id)}
+                            className="font-mono text-indigo-600 font-semibold text-[11px] hover:underline cursor-pointer"
+                          >
+                            {sub.identifier}
+                          </span>
+                          <span className={`font-medium ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                            {sub.title}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                            isDone ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {sub.status}
+                        </span>
                       </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
-                        {sub.status}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -292,7 +538,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     type="text"
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                    placeholder="Add sub-task..."
+                    placeholder="Add sub-task (press Enter)..."
                     className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                   />
                   <button
@@ -305,7 +551,174 @@ export const IssueDetailModal: React.FC<Props> = ({
               )}
             </div>
 
-            {/* Tabs: Comments vs Activity Log */}
+            {/* Ticket-Verknüpfungen (Relations & Blockers) */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-indigo-600" />
+                  <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Verknüpfungen & Blocker ({(issue.outgoingRelations?.length || 0) + (issue.incomingRelations?.length || 0)})
+                  </span>
+                </div>
+                {canEdit && !showAddRelation && (
+                  <button
+                    onClick={() => setShowAddRelation(true)}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Verknüpfung</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Add Relation Inline Form */}
+              {showAddRelation && (
+                <form
+                  onSubmit={handleAddRelation}
+                  className="p-3 rounded-lg border border-indigo-200 bg-white space-y-2.5 animate-in fade-in duration-100"
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Typ</label>
+                      <select
+                        value={relationType}
+                        onChange={(e: any) => setRelationType(e.target.value)}
+                        className="w-full px-2.5 py-1 text-xs rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="IS_BLOCKED_BY">wird blockiert durch</option>
+                        <option value="BLOCKS">blockiert</option>
+                        <option value="RELATES_TO">bezieht sich auf</option>
+                        <option value="DUPLICATES">dupliziert</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Ziel-Ticket</label>
+                      <select
+                        value={relationTargetId}
+                        onChange={(e) => setRelationTargetId(e.target.value)}
+                        className="w-full px-2.5 py-1 text-xs rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="">Ticket auswählen...</option>
+                        {allIssues
+                          .filter((i) => i.id !== issue.id)
+                          .map((i) => (
+                            <option key={i.id} value={i.id}>
+                              {i.identifier}: {i.title.slice(0, 30)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddRelation(false)}
+                      className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-800"
+                    >
+                      Abbrechen
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!relationTargetId || submittingRelation}
+                      className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded text-xs font-semibold"
+                    >
+                      {submittingRelation ? 'Verknüpfe...' : 'Verknüpfen'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Relations List */}
+              <div className="space-y-1.5">
+                {issue.outgoingRelations?.map((rel: any) => (
+                  <div
+                    key={rel.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                        {rel.type === 'IS_BLOCKED_BY'
+                          ? 'wird blockiert durch'
+                          : rel.type === 'BLOCKS'
+                          ? 'blockiert'
+                          : rel.type === 'DUPLICATES'
+                          ? 'dupliziert'
+                          : 'bezieht sich auf'}
+                      </span>
+                      <span
+                        onClick={() => onSelectIssue && onSelectIssue(rel.targetIssue.id)}
+                        className="font-mono text-indigo-600 font-semibold hover:underline cursor-pointer"
+                      >
+                        {rel.targetIssue?.identifier}
+                      </span>
+                      <span className="text-slate-800 truncate max-w-xs">{rel.targetIssue?.title}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500">
+                        {rel.targetIssue?.status}
+                      </span>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleDeleteRelation(rel.id)}
+                          className="text-slate-400 hover:text-red-600 p-0.5"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {issue.incomingRelations?.map((rel: any) => (
+                  <div
+                    key={rel.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                        {rel.type === 'BLOCKS'
+                          ? 'wird blockiert durch'
+                          : rel.type === 'IS_BLOCKED_BY'
+                          ? 'blockiert'
+                          : 'verknüpft von'}
+                      </span>
+                      <span
+                        onClick={() => onSelectIssue && onSelectIssue(rel.sourceIssue.id)}
+                        className="font-mono text-indigo-600 font-semibold hover:underline cursor-pointer"
+                      >
+                        {rel.sourceIssue?.identifier}
+                      </span>
+                      <span className="text-slate-800 truncate max-w-xs">{rel.sourceIssue?.title}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500">
+                        {rel.sourceIssue?.status}
+                      </span>
+                      {canEdit && (
+                        <button
+                          onClick={() => handleDeleteRelation(rel.id)}
+                          className="text-slate-400 hover:text-red-600 p-0.5"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {(!issue.outgoingRelations || issue.outgoingRelations.length === 0) &&
+                  (!issue.incomingRelations || issue.incomingRelations.length === 0) &&
+                  !showAddRelation && (
+                    <div className="text-xs text-slate-400 italic py-1">Keine Verknüpfungen vorhanden.</div>
+                  )}
+              </div>
+            </div>
+
+            {/* Tabs: Comments vs Activity Log vs Git */}
             <div>
               <div className="flex items-center gap-4 border-b border-slate-200 pb-2 mb-4">
                 <button
@@ -331,12 +744,23 @@ export const IssueDetailModal: React.FC<Props> = ({
                   <History className="w-3.5 h-3.5" />
                   <span>Aktivitäts-Log ({issue.activities?.length || 0})</span>
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('git')}
+                  className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
+                    activeTab === 'git'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <GitBranch className="w-3.5 h-3.5" />
+                  <span>Git & Commits ({issue.gitLinks?.length || 0})</span>
+                </button>
               </div>
 
               {/* Comments Tab */}
               {activeTab === 'comments' && (
                 <div className="space-y-4">
-                  {/* Comments list */}
                   <div className="space-y-3">
                     {issue.comments?.map((comment: any) => (
                       <div
@@ -375,7 +799,6 @@ export const IssueDetailModal: React.FC<Props> = ({
                     )}
                   </div>
 
-                  {/* Add comment input */}
                   <form onSubmit={handleCommentSubmit} className="space-y-2">
                     <textarea
                       rows={3}
@@ -433,11 +856,141 @@ export const IssueDetailModal: React.FC<Props> = ({
                   )}
                 </div>
               )}
+
+              {/* Git & Commits Tab */}
+              {activeTab === 'git' && (
+                <div className="space-y-4">
+                  {/* Branch helper banner */}
+                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2.5">
+                      <GitBranch className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div>
+                        <div className="text-xs font-semibold text-slate-800">Feature Branch erstellen</div>
+                        <code className="text-[11px] font-mono text-slate-500">git checkout -b {branchName}</code>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleCopyBranch}
+                      className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 hover:border-slate-300 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition"
+                    >
+                      {copiedBranch ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedBranch ? 'Kopiert' : 'Kopieren'}</span>
+                    </button>
+                  </div>
+
+                  {/* Simulate Git Hook Trigger */}
+                  {showSimulateGit ? (
+                    <form onSubmit={handleSimulateGit} className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-3">
+                      <div className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                        <GitCommit className="w-4 h-4 text-indigo-600" />
+                        <span>Git Push / PR Hook simulieren</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <select
+                          value={gitType}
+                          onChange={(e: any) => setGitType(e.target.value)}
+                          className="px-2.5 py-1 text-xs rounded border border-slate-200 bg-white"
+                        >
+                          <option value="commit">Commit auf main</option>
+                          <option value="pull_request">Merged PR</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={gitMsg}
+                          onChange={(e) => setGitMsg(e.target.value)}
+                          placeholder="Commit-Message mit 'Fixes #...'"
+                          className="col-span-2 px-2.5 py-1 text-xs rounded border border-slate-200 bg-white"
+                        />
+                      </div>
+
+                      <p className="text-[11px] text-slate-500">
+                        Keyword <code className="font-mono text-indigo-600 font-bold">Fixes #{issue.identifier}</code> schließt das Ticket automatisch auf Status DONE.
+                      </p>
+
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowSimulateGit(false)}
+                          className="px-2.5 py-1 text-xs text-slate-500"
+                        >
+                          Abbrechen
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold"
+                        >
+                          Ausführen & Ticket aktualisieren
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setShowSimulateGit(true)}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Git Commit / PR Hook testen</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Linked commits & PRs */}
+                  <div className="space-y-2">
+                    {issue.gitLinks?.map((git: any) => (
+                      <div
+                        key={git.id}
+                        className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
+                            {git.type === 'pull_request' ? <GitPullRequest className="w-4 h-4 text-purple-600" /> : <GitCommit className="w-4 h-4 text-indigo-600" />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-slate-900">{git.reference}</span>
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-0.2 rounded uppercase ${
+                                  git.status === 'merged'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'bg-emerald-50 text-emerald-700'
+                                }`}
+                              >
+                                {git.status || 'COMMITTED'}
+                              </span>
+                            </div>
+                            <p className="text-slate-600 text-xs mt-0.5">{git.title}</p>
+                          </div>
+                        </div>
+
+                        {git.url && (
+                          <a
+                            href={git.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 text-slate-400 hover:text-indigo-600"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+
+                    {(!issue.gitLinks || issue.gitLinks.length === 0) && (
+                      <div className="text-center py-6 text-xs text-slate-400">
+                        Noch keine Commits oder Pull Requests mit diesem Ticket verknüpft.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Sidebar Properties */}
-          <div className="w-72 p-6 bg-slate-50 space-y-5 text-xs overflow-y-auto">
+          <div className="w-72 p-6 bg-slate-50 space-y-5 text-xs overflow-y-auto shrink-0">
             {/* Status */}
             <div>
               <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
@@ -458,6 +1011,34 @@ export const IssueDetailModal: React.FC<Props> = ({
               ) : (
                 <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
                   {columns.find((c) => c.id === issue.status)?.title || issue.status}
+                </div>
+              )}
+            </div>
+
+            {/* Sprint Assignment */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                Sprint / Cycle
+              </label>
+              {canEdit ? (
+                <select
+                  value={issue.sprintId || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onUpdate(issue.id, { sprintId: val ? val : null });
+                  }}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">📁 Product Backlog (kein Sprint)</option>
+                  {sprints.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.status === 'ACTIVE' ? '🏃 ' : ''}{s.name} ({s.status})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800">
+                  {issue.sprint?.name || 'Product Backlog'}
                 </div>
               )}
             </div>
