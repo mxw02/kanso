@@ -260,15 +260,54 @@ async function buildServer(): Promise<FastifyInstance> {
 
   app.patch('/api/projects/:id', async (request: FastifyRequest<{
     Params: { id: string };
-    Body: { name?: string; description?: string; columns?: any[] };
+    Body: { name?: string; key?: string; description?: string; columns?: any[] };
   }>, reply: FastifyReply) => {
     const { id } = request.params;
+    const { name, key, description, columns } = request.body;
+    const updateData: any = {};
+
+    if (name !== undefined) updateData.name = name.trim();
+    if (description !== undefined) updateData.description = description;
+    if (columns !== undefined) updateData.columns = columns;
+
+    if (key !== undefined) {
+      const cleanKey = key.toUpperCase().trim();
+      const existing = await prisma.project.findFirst({
+        where: { key: cleanKey, NOT: { id } },
+      });
+      if (existing) {
+        return reply.status(409).send({ error: `Projekt-Kürzel '${cleanKey}' wird bereits verwendet.` });
+      }
+      updateData.key = cleanKey;
+    }
+
     const updated = await prisma.project.update({
       where: { id },
-      data: request.body,
+      data: updateData,
+      include: {
+        workspace: true,
+        _count: { select: { issues: true } },
+      },
     });
+
     broadcastEvent('project_updated', updated);
     return updated;
+  });
+
+  app.delete('/api/projects/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+
+    // Check project exists
+    const existing = await prisma.project.findUnique({ where: { id } });
+    if (!existing) {
+      return reply.status(404).send({ error: 'Projekt nicht gefunden.' });
+    }
+
+    await prisma.project.delete({ where: { id } });
+    broadcastEvent('project_deleted', { id, key: existing.key });
+    return { success: true, id, key: existing.key };
   });
 
   // ==========================================

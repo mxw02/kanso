@@ -9,6 +9,7 @@ import {
   User,
   ChevronDown,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
@@ -18,6 +19,7 @@ import { CreateProjectModal } from './components/CreateProjectModal';
 import { CommandPalette } from './components/CommandPalette';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
+import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 
 interface StatusColumn {
   id: string;
@@ -73,6 +75,7 @@ export default function App() {
   const [createIssueDefaultStatus, setCreateIssueDefaultStatus] = useState<string | undefined>(undefined);
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
 
   // Filters & Search
@@ -360,6 +363,45 @@ export default function App() {
     }
   };
 
+  const handleUpdateProject = async (
+    projectId: string,
+    payload: { name?: string; key?: string; description?: string; columns?: any[] }
+  ) => {
+    if (!canEdit) return;
+    const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Fehler beim Aktualisieren des Projekts');
+    }
+    const updated = await res.json();
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...updated } : p)));
+    if (activeProject?.id === projectId) {
+      setActiveProject((prev) => (prev ? { ...prev, ...updated } : updated));
+    }
+    fetchIssues();
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (!canAdmin) return;
+    const res = await fetch(`${API_URL}/api/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Fehler beim Löschen des Projekts');
+    }
+    const remaining = projects.filter((p) => p.id !== projectId);
+    setProjects(remaining);
+    if (activeProject?.id === projectId) {
+      setActiveProject(remaining.length > 0 ? remaining[0] : null);
+    }
+    fetchIssues();
+  };
+
   const handleOnboardingComplete = async (projectData: {
     name: string;
     key: string;
@@ -502,6 +544,15 @@ export default function App() {
                   <Sparkles className="w-3 h-3 text-indigo-600" />
                   <span>Setup Wizard</span>
                 </button>
+                {activeProject && (
+                  <button
+                    onClick={() => setShowProjectSettings(true)}
+                    title="Projekteinstellungen"
+                    className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   onClick={() => setShowCreateProject(true)}
                   title="Create Project"
@@ -742,6 +793,7 @@ export default function App() {
         }}
         onOpenCreateProject={() => setShowCreateProject(true)}
         onOpenOnboarding={() => setShowOnboarding(true)}
+        onOpenProjectSettings={() => setShowProjectSettings(true)}
         onSetView={(v) => setViewMode(v)}
         onOpenShortcuts={() => setShowShortcuts(true)}
       />
@@ -754,6 +806,17 @@ export default function App() {
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         onComplete={handleOnboardingComplete}
+      />
+
+      {/* Project Settings Modal */}
+      <ProjectSettingsModal
+        isOpen={showProjectSettings}
+        onClose={() => setShowProjectSettings(false)}
+        project={activeProject}
+        onUpdateProject={handleUpdateProject}
+        onDeleteProject={handleDeleteProject}
+        canEdit={canEdit}
+        canAdmin={canAdmin}
       />
 
       {/* Issue Detail Modal */}

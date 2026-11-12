@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles } from 'lucide-react';
+import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles, Settings } from 'lucide-react';
 
 interface Issue {
   id: string;
@@ -25,6 +25,7 @@ interface Props {
   onOpenCreateIssue: () => void;
   onOpenCreateProject: () => void;
   onOpenOnboarding: () => void;
+  onOpenProjectSettings?: () => void;
   onSetView: (view: 'board' | 'list') => void;
   onOpenShortcuts: () => void;
 }
@@ -39,6 +40,7 @@ export const CommandPalette: React.FC<Props> = ({
   onOpenCreateIssue,
   onOpenCreateProject,
   onOpenOnboarding,
+  onOpenProjectSettings,
   onSetView,
   onOpenShortcuts,
 }) => {
@@ -97,6 +99,24 @@ export const CommandPalette: React.FC<Props> = ({
               Actions
             </div>
             <div className="space-y-0.5">
+              {onOpenProjectSettings && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenProjectSettings();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Settings className="w-4 h-4 text-slate-500" />
+                    <span className="font-medium">Projekteinstellungen öffnen</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    Settings
+                  </span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   onClose();
