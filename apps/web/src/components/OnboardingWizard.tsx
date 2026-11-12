@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   Layers,
@@ -17,7 +17,22 @@ import {
   Kanban,
   GitBranch,
   FolderGit2,
+  ChevronDown,
 } from 'lucide-react';
+
+interface GitRepoItem {
+  fullName: string;
+  name: string;
+  description?: string;
+  language?: string;
+}
+
+const DEFAULT_REPOS: GitRepoItem[] = [
+  { fullName: 'mxw02/kanso', name: 'kanso', description: 'Next-gen open source Jira alternative with MCP', language: 'TypeScript' },
+  { fullName: 'mxw02/kanso-mcp-agent', name: 'kanso-mcp-agent', description: 'Autonomous Coding & Triage MCP Agent', language: 'Python' },
+  { fullName: 'mxw02/kanso-infra', name: 'kanso-infra', description: 'Docker Compose, Kubernetes & Deployments', language: 'HCL' },
+  { fullName: 'mxw02/web-client', name: 'web-client', description: 'Vite & React frontend dashboard', language: 'TypeScript' },
+];
 
 interface Props {
   isOpen: boolean;
@@ -94,10 +109,39 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
   const [gitProvider, setGitProvider] = useState<'GITHUB' | 'GITLAB'>('GITHUB');
   const [gitRepo, setGitRepo] = useState('mxw02/kanso');
   const [gitBranch, setGitBranch] = useState('main');
+  const [repos, setRepos] = useState<GitRepoItem[]>(DEFAULT_REPOS);
+  const [isCustomRepo, setIsCustomRepo] = useState(false);
+  const [loadingRepos, setLoadingRepos] = useState(false);
 
   const [projectName, setProjectName] = useState('Kanso Core');
   const [projectKey, setProjectKey] = useState('KAN');
   const [projectDescription, setProjectDescription] = useState('Autonomes Kanban & Git-Board für mxw02/kanso');
+
+  const API_URL = import.meta.env.VITE_API_URL || '';
+
+  // Fetch Repositories on provider change
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadRepos = async () => {
+      try {
+        setLoadingRepos(true);
+        const res = await fetch(`${API_URL}/api/git/repos?provider=${gitProvider.toLowerCase()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setRepos(data);
+          }
+        }
+      } catch (err) {
+        // Fallback
+      } finally {
+        setLoadingRepos(false);
+      }
+    };
+
+    loadRepos();
+  }, [isOpen, gitProvider]);
 
   // Step 2: Workflow Template
   const [selectedWorkflowId, setSelectedWorkflowId] = useState('agentic');
@@ -322,32 +366,82 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
                     </div>
                   </div>
 
+                  {/* Git Repository Dropdown */}
                   <div>
-                    <input
-                      type="text"
-                      required
-                      placeholder="owner/repo (z. B. mxw02/kanso)"
-                      value={gitRepo}
-                      onChange={(e) => handleRepoChange(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[11px] font-semibold text-slate-700">
+                        Git-Projekt / Repository auswählen *
+                      </label>
+                      {loadingRepos && (
+                        <span className="text-[10px] text-indigo-600 font-medium animate-pulse">
+                          Lade Repositories...
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <select
+                        value={isCustomRepo ? '__CUSTOM__' : gitRepo}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '__CUSTOM__') {
+                            setIsCustomRepo(true);
+                            setGitRepo('');
+                          } else {
+                            setIsCustomRepo(false);
+                            handleRepoChange(val);
+                          }
+                        }}
+                        className="w-full appearance-none bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 pr-9 text-xs font-mono font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
+                      >
+                        <option value="" disabled>-- Bitte Git-Projekt auswählen --</option>
+                        {repos.map((r) => (
+                          <option key={r.fullName} value={r.fullName}>
+                            {r.fullName} {r.language ? `(${r.language})` : ''} {r.description ? `— ${r.description.slice(0, 35)}...` : ''}
+                          </option>
+                        ))}
+                        <option value="__CUSTOM__">✏️ Anderes Repository manuell eingeben...</option>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+                    </div>
                   </div>
+
+                  {/* Custom Input fallback */}
+                  {isCustomRepo && (
+                    <div className="animate-in fade-in duration-150">
+                      <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                        Eigenes Repository angeben (owner/repo)
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        placeholder="z. B. mxw02/mein-repo"
+                        value={gitRepo}
+                        onChange={(e) => handleRepoChange(e.target.value)}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-4 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  )}
 
                   {/* Quick Select Presets */}
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] text-slate-500 font-medium">Vorschläge:</span>
-                    {['mxw02/kanso', 'facebook/react', 'vercel/next.js'].map((repo) => (
+                    {repos.slice(0, 3).map((r) => (
                       <button
-                        key={repo}
+                        key={r.fullName}
                         type="button"
-                        onClick={() => handleRepoChange(repo)}
+                        onClick={() => {
+                          setIsCustomRepo(false);
+                          handleRepoChange(r.fullName);
+                        }}
                         className={`text-[10px] px-2 py-0.5 rounded-md border font-mono transition ${
-                          gitRepo === repo
+                          gitRepo === r.fullName && !isCustomRepo
                             ? 'bg-indigo-100/70 border-indigo-300 text-indigo-700 font-bold'
                             : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
                         }`}
                       >
-                        {repo}
+                        {r.name}
                       </button>
                     ))}
                   </div>

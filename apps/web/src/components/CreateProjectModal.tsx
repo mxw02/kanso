@@ -1,5 +1,20 @@
-import React, { useState } from 'react';
-import { Layers, X, GitBranch, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Layers, X, GitBranch, Sparkles, ChevronDown, FolderGit2 } from 'lucide-react';
+
+interface GitRepoItem {
+  fullName: string;
+  name: string;
+  description?: string;
+  language?: string;
+  stars?: number;
+}
+
+const DEFAULT_REPOS: GitRepoItem[] = [
+  { fullName: 'mxw02/kanso', name: 'kanso', description: 'Next-gen open source Jira alternative with MCP', language: 'TypeScript' },
+  { fullName: 'mxw02/kanso-mcp-agent', name: 'kanso-mcp-agent', description: 'Autonomous Coding & Triage MCP Agent', language: 'Python' },
+  { fullName: 'mxw02/kanso-infra', name: 'kanso-infra', description: 'Docker Compose, Kubernetes & Deployments', language: 'HCL' },
+  { fullName: 'mxw02/web-client', name: 'web-client', description: 'Vite & React frontend dashboard', language: 'TypeScript' },
+];
 
 interface Props {
   isOpen: boolean;
@@ -16,21 +31,51 @@ interface Props {
 
 export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate }) => {
   const [mode, setMode] = useState<'manual' | 'git'>('git');
-  const [key, setKey] = useState('');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [key, setKey] = useState('KAN');
+  const [name, setName] = useState('Kanso');
+  const [description, setDescription] = useState('Repository Board verknüpft mit GitHub: mxw02/kanso');
 
   // Git state
   const [gitProvider, setGitProvider] = useState<'github' | 'gitlab'>('github');
   const [gitRepo, setGitRepo] = useState('mxw02/kanso');
+  const [repos, setRepos] = useState<GitRepoItem[]>(DEFAULT_REPOS);
+  const [isCustomRepo, setIsCustomRepo] = useState(false);
+  const [loadingRepos, setLoadingRepos] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const API_URL = import.meta.env.VITE_API_URL || '';
+
+  // Fetch Repositories from Git Provider
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const loadRepos = async () => {
+      try {
+        setLoadingRepos(true);
+        const res = await fetch(`${API_URL}/api/git/repos?provider=${gitProvider}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setRepos(data);
+          }
+        }
+      } catch (err) {
+        // Fallback to DEFAULT_REPOS
+      } finally {
+        setLoadingRepos(false);
+      }
+    };
+
+    loadRepos();
+  }, [isOpen, gitProvider]);
 
   if (!isOpen) return null;
 
   const handleSelectPresetRepo = (repoStr: string) => {
     setGitRepo(repoStr);
     const base = repoStr.split('/')[1] || repoStr;
-    setName(base);
+    const formattedName = base.charAt(0).toUpperCase() + base.slice(1);
+    setName(formattedName);
     const genKey = base.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'GIT';
     setKey(genKey);
     setDescription(`Repository Board verknüpft mit ${gitProvider === 'gitlab' ? 'GitLab' : 'GitHub'}: ${repoStr}`);
@@ -134,37 +179,88 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
               </div>
             </div>
 
+            {/* Git Repository Dropdown */}
             <div>
-              <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                Repository (owner/repo) *
-              </label>
-              <input
-                type="text"
-                required
-                value={gitRepo}
-                onChange={(e) => {
-                  setGitRepo(e.target.value);
-                  const base = e.target.value.split('/')[1] || e.target.value;
-                  if (base) {
-                    setName(base);
-                    setKey(base.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'GIT');
-                  }
-                }}
-                placeholder="z. B. mxw02/kanso"
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-semibold text-slate-700">
+                  Git-Projekt / Repository auswählen *
+                </label>
+                {loadingRepos && (
+                  <span className="text-[10px] text-indigo-600 font-medium animate-pulse">
+                    Lade Repositories...
+                  </span>
+                )}
+              </div>
+
+              <div className="relative">
+                <select
+                  value={isCustomRepo ? '__CUSTOM__' : gitRepo}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '__CUSTOM__') {
+                      setIsCustomRepo(true);
+                      setGitRepo('');
+                    } else {
+                      setIsCustomRepo(false);
+                      handleSelectPresetRepo(val);
+                    }
+                  }}
+                  className="w-full appearance-none bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 pr-9 text-xs font-mono font-medium text-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
+                >
+                  <option value="" disabled>-- Bitte Git-Projekt auswählen --</option>
+                  {repos.map((r) => (
+                    <option key={r.fullName} value={r.fullName}>
+                      {r.fullName} {r.language ? `(${r.language})` : ''} {r.description ? `— ${r.description.slice(0, 35)}...` : ''}
+                    </option>
+                  ))}
+                  <option value="__CUSTOM__">✏️ Anderes Repository manuell eingeben...</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
+              </div>
             </div>
+
+            {/* Custom Input fallback */}
+            {isCustomRepo && (
+              <div className="animate-in fade-in duration-150">
+                <label className="block text-[10px] font-semibold text-slate-500 mb-1">
+                  Eigenes Repository angeben (owner/repo)
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={gitRepo}
+                  onChange={(e) => {
+                    setGitRepo(e.target.value);
+                    const base = e.target.value.split('/')[1] || e.target.value;
+                    if (base) {
+                      setName(base.charAt(0).toUpperCase() + base.slice(1));
+                      setKey(base.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'GIT');
+                    }
+                  }}
+                  placeholder="z. B. mxw02/neues-projekt"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-900 font-mono text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            )}
 
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[10px] text-slate-500">Schnellauswahl:</span>
-              {['mxw02/kanso', 'mxw02/kanso-mcp-agent', 'acme/backend-api'].map((p) => (
+              {repos.slice(0, 3).map((r) => (
                 <button
-                  key={p}
+                  key={r.fullName}
                   type="button"
-                  onClick={() => handleSelectPresetRepo(p)}
-                  className="px-2 py-0.5 rounded bg-white hover:bg-indigo-50 border border-slate-200 text-[10px] font-mono text-slate-700 hover:text-indigo-700"
+                  onClick={() => {
+                    setIsCustomRepo(false);
+                    handleSelectPresetRepo(r.fullName);
+                  }}
+                  className={`px-2 py-0.5 rounded border text-[10px] font-mono transition ${
+                    gitRepo === r.fullName && !isCustomRepo
+                      ? 'bg-indigo-100/70 border-indigo-300 text-indigo-700 font-bold'
+                      : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
                 >
-                  {p}
+                  {r.name}
                 </button>
               ))}
             </div>
