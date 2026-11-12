@@ -14,6 +14,9 @@ import {
   GitBranch,
   HelpCircle,
   FolderGit2,
+  Users,
+  LogOut,
+  KeyRound,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
@@ -26,6 +29,8 @@ import { OnboardingWizard } from './components/OnboardingWizard';
 import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { SprintModal } from './components/SprintModal';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
+import { UserManagementModal } from './components/UserManagementModal';
+import { AuthScreen } from './components/AuthScreen';
 
 interface StatusColumn {
   id: string;
@@ -55,6 +60,9 @@ interface UserItem {
   email: string;
   role: 'ADMIN' | 'MEMBER' | 'VIEWER';
   avatarUrl?: string;
+  gitProvider?: string;
+  gitUsername?: string;
+  createdAt?: string;
 }
 
 const DEFAULT_COLUMNS: StatusColumn[] = [
@@ -70,11 +78,16 @@ export default function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
-  const [currentUser, setCurrentUser] = useState<UserItem>({
-    id: '1',
-    name: 'Alex Rivera',
-    email: 'alex.admin@kanso.local',
-    role: 'ADMIN',
+  const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
+    try {
+      const stored = localStorage.getItem('kanso_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return localStorage.getItem('kanso_auth_token');
   });
 
   // Views & Modals
@@ -88,6 +101,7 @@ export default function App() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
   const [oauthToast, setOauthToast] = useState<string | null>(null);
   const [sprints, setSprints] = useState<any[]>([]);
   const [focusedIssueIndex, setFocusedIssueIndex] = useState<number>(-1);
@@ -103,8 +117,42 @@ export default function App() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const API_URL = import.meta.env.VITE_API_URL || '';
 
-  const canEdit = currentUser.role === 'ADMIN' || currentUser.role === 'MEMBER';
-  const canAdmin = currentUser.role === 'ADMIN';
+  const canEdit = currentUser ? currentUser.role === 'ADMIN' || currentUser.role === 'MEMBER' : false;
+  const canAdmin = currentUser ? currentUser.role === 'ADMIN' : false;
+
+  const handleLogout = () => {
+    localStorage.removeItem('kanso_user');
+    localStorage.removeItem('kanso_auth_token');
+    setCurrentUser(null);
+    setAuthToken(null);
+  };
+
+  // Check URL params for OAuth redirect on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('auth_token');
+    const userParam = params.get('auth_user');
+
+    if (token) {
+      localStorage.setItem('kanso_auth_token', token);
+      setAuthToken(token);
+    }
+    if (userParam) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(userParam));
+        localStorage.setItem('kanso_user', JSON.stringify(parsed));
+        setCurrentUser(parsed);
+        setOauthToast(`Erfolgreich angemeldet als ${parsed.name} (@${parsed.gitUsername || parsed.email})`);
+      } catch (e) {
+        console.error('Failed to parse auth user:', e);
+      }
+    }
+
+    if (token || userParam) {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
 
   // Load Initial Data
   const fetchData = async () => {
@@ -128,7 +176,7 @@ export default function App() {
         const uData: UserItem[] = await uRes.json();
         setUsers(uData);
         if (uData.length > 0 && !currentUser) {
-          setCurrentUser(uData[0]);
+          // If no user is logged in yet, we let AuthScreen prompt for login
         }
       }
     } catch (err) {
@@ -314,7 +362,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: newStatus,
-          actorName: currentUser.name,
+          actorName: currentUser?.name || 'User',
           actorType: 'HUMAN',
         }),
       });
@@ -332,7 +380,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...payload,
-          actorName: currentUser.name,
+          actorName: currentUser?.name || 'User',
           actorType: 'HUMAN',
         }),
       });
@@ -363,7 +411,7 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          authorName: currentUser.name,
+          authorName: currentUser?.name || 'User',
           authorType: 'HUMAN',
           content,
         }),
@@ -389,7 +437,7 @@ export default function App() {
           title,
           parentId,
           status: 'TODO',
-          actorName: currentUser.name,
+          actorName: currentUser?.name || 'User',
         }),
       });
       const fullRes = await fetch(`${API_URL}/api/issues/${parentId}`);
@@ -410,7 +458,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...payload,
-          actorName: currentUser.name,
+          actorName: currentUser?.name || 'User',
         }),
       });
       fetchIssues();
@@ -529,8 +577,8 @@ export default function App() {
             priority: 'HIGH',
             type: 'STORY',
             assigneeType: 'HUMAN',
-            assigneeId: currentUser.id,
-            assigneeName: currentUser.name,
+            assigneeId: currentUser?.id || '',
+            assigneeName: currentUser?.name || 'User',
             labels: ['architecture', 'spec'],
           },
           {
@@ -552,8 +600,8 @@ export default function App() {
             priority: 'MEDIUM',
             type: 'TASK',
             assigneeType: 'HUMAN',
-            assigneeId: currentUser.id,
-            assigneeName: currentUser.name,
+            assigneeId: currentUser?.id || '',
+            assigneeName: currentUser?.name || 'User',
             labels: ['qa', 'verification'],
           },
         ];
@@ -579,6 +627,21 @@ export default function App() {
 
   const activeSprint = sprints.find((s) => s.status === 'ACTIVE');
   const hasActiveFilters = searchQuery || filterStatus !== 'ALL' || filterPriority !== 'ALL' || filterAssignee !== 'ALL' || filterSprint !== 'ALL';
+
+  if (!currentUser) {
+    return (
+      <AuthScreen
+        onLoginSuccess={(user, token) => {
+          localStorage.setItem('kanso_user', JSON.stringify(user));
+          localStorage.setItem('kanso_auth_token', token);
+          setCurrentUser(user);
+          setAuthToken(token);
+          fetchData();
+        }}
+        apiBaseUrl={API_URL}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -703,45 +766,148 @@ export default function App() {
 
           <div className="h-4 w-px bg-slate-200" />
 
-          {/* User Persona Switcher */}
+          {/* User Persona & Management Switcher */}
           <div className="relative group">
             <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-100 cursor-pointer transition border border-transparent hover:border-slate-200">
-              <div className="w-6 h-6 rounded-full bg-indigo-100 border border-indigo-200/80 flex items-center justify-center text-[11px] font-bold text-indigo-700">
-                {currentUser.name.charAt(0)}
+              <div className="w-6 h-6 rounded-full bg-indigo-100 border border-indigo-200/80 flex items-center justify-center text-[11px] font-bold text-indigo-700 overflow-hidden shrink-0">
+                {currentUser.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
+                ) : (
+                  currentUser.name.charAt(0)
+                )}
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-xs font-semibold text-slate-800 leading-none">{currentUser.name}</span>
-                <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wider mt-0.5">
+                <span className="text-xs font-semibold text-slate-800 leading-none flex items-center gap-1">
+                  <span>{currentUser.name}</span>
+                  {currentUser.gitUsername && (
+                    <span className="text-[10px] text-slate-400 font-mono font-normal">
+                      (@{currentUser.gitUsername})
+                    </span>
+                  )}
+                </span>
+                <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center gap-1">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      currentUser.role === 'ADMIN'
+                        ? 'bg-rose-500'
+                        : currentUser.role === 'MEMBER'
+                        ? 'bg-indigo-500'
+                        : 'bg-slate-400'
+                    }`}
+                  />
                   {currentUser.role}
                 </span>
               </div>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </div>
 
-            {/* Dropdown */}
-            <div className="absolute right-0 mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-lg p-1.5 hidden group-hover:block z-40 animate-in fade-in zoom-in-95 duration-100">
-              <div className="text-[10px] font-semibold text-slate-400 px-2.5 py-1 uppercase tracking-wider">
-                Benutzer wechseln
-              </div>
-              {users.map((u) => (
-                <button
-                  key={u.id}
-                  onClick={() => setCurrentUser(u)}
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition ${
-                    currentUser.id === u.id
-                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                      : 'hover:bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="truncate">{u.name}</span>
+            {/* Dropdown Menu */}
+            <div className="absolute right-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl p-2 hidden group-hover:block z-40 animate-in fade-in zoom-in-95 duration-100">
+              {/* Profile Card Header */}
+              <div className="px-2.5 py-2 border-b border-slate-100 mb-1.5">
+                <div className="font-semibold text-xs text-slate-800 truncate">{currentUser.name}</div>
+                <div className="text-[11px] text-slate-400 font-mono truncate">{currentUser.email}</div>
+                {currentUser.gitUsername && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                    <span>{currentUser.gitProvider || 'git'}: @{currentUser.gitUsername}</span>
                   </div>
-                  <span className="text-[10px] font-mono uppercase text-slate-500">
-                    {u.role}
-                  </span>
+                )}
+              </div>
+
+              {/* Management Actions */}
+              <div className="space-y-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowUserManagement(true)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition cursor-pointer"
+                >
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Nutzerverwaltung & Rollen</span>
                 </button>
-              ))}
+
+                <button
+                  type="button"
+                  onClick={() => setShowGitModal(true)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition cursor-pointer"
+                >
+                  <FolderGit2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Git-Integration & Repos</span>
+                </button>
+
+                {canAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setShowProjectSettings(true)}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Projekteinstellungen</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Persona Switcher (Multi-User testing) */}
+              {users.length > 1 && (
+                <div className="mt-2 pt-1.5 border-t border-slate-100">
+                  <div className="text-[10px] font-semibold text-slate-400 px-2 py-0.5 uppercase tracking-wider">
+                    Benutzer wechseln
+                  </div>
+                  <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                    {users.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={async () => {
+                          const res = await fetch(`${API_URL}/api/auth/switch-user`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: u.id }),
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            setCurrentUser(data.user);
+                            setAuthToken(data.token);
+                            localStorage.setItem('kanso_user', JSON.stringify(data.user));
+                            localStorage.setItem('kanso_auth_token', data.token);
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs transition cursor-pointer ${
+                          currentUser.id === u.id
+                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                            : 'hover:bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <div className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-bold overflow-hidden shrink-0">
+                            {u.avatarUrl ? (
+                              <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+                            ) : (
+                              u.name.charAt(0)
+                            )}
+                          </div>
+                          <span className="truncate">{u.name}</span>
+                        </div>
+                        <span className="text-[9px] font-mono uppercase text-slate-400">
+                          {u.role}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Logout */}
+              <div className="mt-2 pt-1 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Abmelden</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -974,6 +1140,7 @@ export default function App() {
         onOpenCreateProject={() => setShowCreateProject(true)}
         onOpenOnboarding={() => setShowOnboarding(true)}
         onOpenGitIntegration={() => setShowGitModal(true)}
+        onOpenUserManagement={() => setShowUserManagement(true)}
         onOpenProjectSettings={() => setShowProjectSettings(true)}
         onOpenSprintManager={() => setShowSprintModal(true)}
         onFilterSprint={(sId) => setFilterSprint(sId)}
@@ -1063,6 +1230,15 @@ export default function App() {
           setActiveProject(newProject);
           fetchIssues();
         }}
+      />
+
+      {/* User Management & Roles Modal */}
+      <UserManagementModal
+        isOpen={showUserManagement}
+        onClose={() => setShowUserManagement(false)}
+        currentUser={currentUser}
+        onUserUpdated={fetchData}
+        apiBaseUrl={API_URL}
       />
     </div>
   );

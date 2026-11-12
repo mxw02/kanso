@@ -55,14 +55,17 @@ enum IssueRelationType {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String
-  avatarUrl String?
-  role      UserRole @default(MEMBER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String
+  password    String?
+  avatarUrl   String?
+  role        UserRole @default(MEMBER)
+  gitProvider String?  // "github" or "gitlab"
+  gitUsername String?  // e.g. "mxw02"
+  gitId       String?  // provider external ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("users")
 }

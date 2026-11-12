@@ -138,7 +138,7 @@ async function buildServer(): Promise<FastifyInstance> {
       return reply.status(401).send({ error: 'Invalid credentials' });
     }
 
-    if (password) {
+    if (password && user.password) {
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) {
         return reply.status(401).send({ error: 'Invalid credentials' });
@@ -159,6 +159,75 @@ async function buildServer(): Promise<FastifyInstance> {
     };
   });
 
+  // Helper: Synchronize Git identity with User account & issue token
+  async function syncGitUser(params: {
+    provider: 'github' | 'gitlab';
+    accountName: string;
+    displayName?: string;
+    avatarUrl?: string;
+    email?: string;
+  }) {
+    const { provider, accountName, displayName, avatarUrl, email } = params;
+    const cleanAccount = accountName.trim().replace(/^@/, '');
+    const effectiveEmail = email || `${cleanAccount.toLowerCase()}@${provider}.kanso`;
+    const effectiveName = displayName || cleanAccount;
+
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { gitProvider: provider, gitUsername: cleanAccount },
+          { email: effectiveEmail },
+        ],
+      },
+    });
+
+    const totalUsers = await prisma.user.count();
+    const role = totalUsers === 0 ? UserRole.ADMIN : UserRole.MEMBER;
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: effectiveEmail,
+          name: effectiveName,
+          avatarUrl: avatarUrl || (provider === 'gitlab'
+            ? 'https://gitlab.com/uploads/-/system/user/avatar/42/avatar.png'
+            : `https://avatars.githubusercontent.com/${cleanAccount}`),
+          role,
+          gitProvider: provider,
+          gitUsername: cleanAccount,
+        },
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          name: effectiveName || user.name,
+          avatarUrl: avatarUrl || user.avatarUrl,
+          gitProvider: provider,
+          gitUsername: cleanAccount,
+        },
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        gitUsername: user.gitUsername,
+        gitProvider: user.gitProvider,
+      },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return { user, token };
+  }
+
+  // ==========================================
+  // AUTH & USERS (Rollen: ADMIN, MEMBER, VIEWER)
+  // ==========================================
   app.get('/api/users', async () => {
     return prisma.user.findMany({
       select: {
@@ -167,9 +236,175 @@ async function buildServer(): Promise<FastifyInstance> {
         name: true,
         role: true,
         avatarUrl: true,
+        gitProvider: true,
+        gitUsername: true,
+        createdAt: true,
       },
-      orderBy: { name: 'asc' },
+      orderBy: { createdAt: 'asc' },
     });
+  });
+
+  app.post('/api/users', async (request: FastifyRequest<{
+    Body: { name: string; email: string; role?: UserRole; gitProvider?: string; gitUsername?: string };
+  }>, reply: FastifyReply) => {
+    const { name, email, role = UserRole.MEMBER, gitProvider = 'github', gitUsername } = request.body || {};
+    if (!name || !email) {
+      return reply.status(400).send({ error: 'Name und E-Mail-Adresse sind erforderlich.' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (existing) {
+      return reply.status(409).send({ error: 'Ein Nutzer mit dieser E-Mail existiert bereits.' });
+    }
+
+    const cleanUsername = gitUsername ? gitUsername.trim().replace(/^@/, '') : null;
+    const provider = gitProvider || 'github';
+    const avatar = cleanUsername
+      ? (provider === 'gitlab'
+          ? 'https://gitlab.com/uploads/-/system/user/avatar/42/avatar.png'
+          : `https://avatars.githubusercontent.com/${cleanUsername}`)
+      : null;
+
+    const user = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role: role || UserRole.MEMBER,
+        gitProvider: provider,
+        gitUsername: cleanUsername,
+        avatarUrl: avatar,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        gitProvider: true,
+        gitUsername: true,
+        createdAt: true,
+      },
+    });
+
+    broadcastEvent('user_created', user);
+    return reply.status(201).send(user);
+  });
+
+  app.patch('/api/users/:id/role', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: { role: UserRole };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { role } = request.body || {};
+    if (!role || !Object.values(UserRole).includes(role)) {
+      return reply.status(400).send({ error: 'Gültige Rolle (ADMIN, MEMBER, VIEWER) erforderlich.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return reply.status(404).send({ error: 'Nutzer nicht gefunden.' });
+    }
+
+    if (user.role === UserRole.ADMIN && role !== UserRole.ADMIN) {
+      const adminCount = await prisma.user.count({ where: { role: UserRole.ADMIN } });
+      if (adminCount <= 1) {
+        return reply.status(400).send({ error: 'Der letzte Administrator kann nicht herabgestuft werden.' });
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { role },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        avatarUrl: true,
+        gitProvider: true,
+        gitUsername: true,
+        createdAt: true,
+      },
+    });
+
+    broadcastEvent('user_updated', updated);
+    return updated;
+  });
+
+  app.delete('/api/users/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return reply.status(404).send({ error: 'Nutzer nicht gefunden.' });
+    }
+
+    if (user.role === UserRole.ADMIN) {
+      const adminCount = await prisma.user.count({ where: { role: UserRole.ADMIN } });
+      if (adminCount <= 1) {
+        return reply.status(400).send({ error: 'Der letzte Administrator kann nicht gelöscht werden.' });
+      }
+    }
+
+    await prisma.user.delete({ where: { id } });
+    broadcastEvent('user_deleted', { id });
+    return { success: true };
+  });
+
+  app.post('/api/auth/switch-user', async (request: FastifyRequest<{
+    Body: { userId: string };
+  }>, reply: FastifyReply) => {
+    const { userId } = request.body || {};
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      return reply.status(404).send({ error: 'Nutzer nicht gefunden.' });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        gitUsername: user.gitUsername,
+        gitProvider: user.gitProvider,
+      },
+      JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+        gitProvider: user.gitProvider,
+        gitUsername: user.gitUsername,
+        createdAt: user.createdAt,
+      },
+      token,
+    };
+  });
+
+  app.post('/api/auth/git-login', async (request: FastifyRequest<{
+    Body: { provider?: 'github' | 'gitlab'; username: string; displayName?: string; avatarUrl?: string };
+  }>, reply: FastifyReply) => {
+    const { provider = 'github', username, displayName, avatarUrl } = request.body || {};
+    if (!username) {
+      return reply.status(400).send({ error: 'Git Username ist erforderlich' });
+    }
+
+    const result = await syncGitUser({
+      provider,
+      accountName: username.trim().replace(/^@/, ''),
+      displayName,
+      avatarUrl,
+    });
+
+    return result;
   });
 
   // ==========================================
@@ -1132,7 +1367,17 @@ async function buildServer(): Promise<FastifyInstance> {
       }
 
       broadcastEvent('git_connection_created', { provider: 'github', accountName });
-      return reply.redirect(`http://localhost:3000/?git_connected=github&account=${encodeURIComponent(accountName)}`);
+
+      const auth = await syncGitUser({
+        provider: 'github',
+        accountName,
+        displayName,
+        avatarUrl,
+      });
+
+      return reply.redirect(
+        `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(accountName)}`
+      );
     } catch (err: any) {
       console.error('Manifest callback error:', err);
       return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(err.message || 'Manifest-Fehler')}`);
@@ -1211,7 +1456,18 @@ async function buildServer(): Promise<FastifyInstance> {
         }
 
         broadcastEvent('git_connection_created', { provider: 'github', accountName: userData.login });
-        return reply.redirect(`http://localhost:3000/?git_connected=github&account=${encodeURIComponent(userData.login)}`);
+
+        const auth = await syncGitUser({
+          provider: 'github',
+          accountName: userData.login,
+          displayName: userData.name || userData.login,
+          avatarUrl: userData.avatar_url,
+          email: userData.email,
+        });
+
+        return reply.redirect(
+          `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(userData.login)}`
+        );
       }
 
       if (provider === 'gitlab') {
@@ -1274,7 +1530,18 @@ async function buildServer(): Promise<FastifyInstance> {
         }
 
         broadcastEvent('git_connection_created', { provider: 'gitlab', accountName: userData.username });
-        return reply.redirect(`http://localhost:3000/?git_connected=gitlab&account=${encodeURIComponent(userData.username)}`);
+
+        const auth = await syncGitUser({
+          provider: 'gitlab',
+          accountName: userData.username,
+          displayName: userData.name || userData.username,
+          avatarUrl: userData.avatar_url,
+          email: userData.email,
+        });
+
+        return reply.redirect(
+          `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=gitlab&account=${encodeURIComponent(userData.username)}`
+        );
       }
     } catch (err: any) {
       console.error('OAuth callback error:', err);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles, Settings, Calendar, FolderGit2 } from 'lucide-react';
+import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles, Settings, Calendar, FolderGit2, Users } from 'lucide-react';
 
 interface Issue {
   id: string;
@@ -26,6 +26,7 @@ interface Props {
   onOpenCreateProject: () => void;
   onOpenOnboarding: () => void;
   onOpenGitIntegration?: () => void;
+  onOpenUserManagement?: () => void;
   onOpenProjectSettings?: () => void;
   onOpenSprintManager?: () => void;
   onFilterSprint?: (sprintId: string) => void;
@@ -44,6 +45,7 @@ export const CommandPalette: React.FC<Props> = ({
   onOpenCreateProject,
   onOpenOnboarding,
   onOpenGitIntegration,
+  onOpenUserManagement,
   onOpenProjectSettings,
   onOpenSprintManager,
   onFilterSprint,
@@ -153,6 +155,24 @@ export const CommandPalette: React.FC<Props> = ({
                   </div>
                   <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 font-semibold">
                     Git
+                  </span>
+                </button>
+              )}
+
+              {onOpenUserManagement && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenUserManagement();
+                  }}
+                  className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    <span className="font-medium">Nutzerverwaltung & Rollen öffnen</span>
+                  </div>
+                  <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 font-semibold">
+                    Team
                   </span>
                 </button>
               )}
