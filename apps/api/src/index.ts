@@ -1243,7 +1243,8 @@ async function buildServer(): Promise<FastifyInstance> {
           name: `Kanso-Local-${randomSuffix}`,
           url: 'http://localhost:3000',
           hook_attributes: {
-            url: 'http://localhost:4001/api/webhooks/git',
+            url: '',
+            active: false,
           },
           redirect_url: 'http://localhost:4001/api/git/oauth/manifest-callback',
           callback_urls: ['http://localhost:4001/api/git/oauth/callback/github'],
@@ -1254,7 +1255,6 @@ async function buildServer(): Promise<FastifyInstance> {
             pull_requests: 'write',
             metadata: 'read',
           },
-          default_events: ['push', 'pull_request', 'issues'],
         };
         const manifestJson = JSON.stringify(manifestObj);
 
