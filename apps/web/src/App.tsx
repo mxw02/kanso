@@ -91,7 +91,7 @@ export default function App() {
   const [filterLabel, setFilterLabel] = useState<string | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  const API_URL = import.meta.env.VITE_API_URL || '';
 
   const canEdit = currentUser.role === 'ADMIN' || currentUser.role === 'MEMBER';
   const canAdmin = currentUser.role === 'ADMIN';
