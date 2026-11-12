@@ -228,7 +228,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, apiBaseUrl = 'http
                   <Users className="w-3.5 h-3.5 text-slate-400" />
                   Bestehende Workspace-Mitglieder:
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">1-Klick Demo</span>
+                <span className="text-[10px] text-slate-500 font-mono">Workspace</span>
               </div>
               <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                 {users.map((u) => (

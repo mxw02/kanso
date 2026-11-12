@@ -1611,17 +1611,77 @@ async function buildServer(): Promise<FastifyInstance> {
       return [];
     }
 
+    const currentAccount = conn.accountName;
+
+    // 1. Try authenticated user repos if token is present
     if (conn.accessToken && !conn.accessToken.startsWith('simulated_')) {
       try {
         if (provider === 'github') {
-          const ghRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+          const ghRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member', {
             headers: {
               Authorization: `Bearer ${conn.accessToken}`,
               'User-Agent': 'Kanso-App',
+              Accept: 'application/vnd.github+json',
             },
           });
           if (ghRes.ok) {
             const data: any = await ghRes.json();
+            if (Array.isArray(data) && data.length > 0) {
+              return data.map((r: any) => ({
+                fullName: r.full_name,
+                name: r.name,
+                description: r.description || '',
+                url: r.html_url,
+                defaultBranch: r.default_branch || 'main',
+                isPrivate: Boolean(r.private),
+                stars: r.stargazers_count || 0,
+                language: r.language || 'Code',
+              }));
+            }
+          }
+        }
+
+        if (provider === 'gitlab') {
+          const base = (conn.instanceUrl || 'https://gitlab.com').replace(/\/$/, '');
+          const glRes = await fetch(`${base}/api/v4/projects?membership=true&per_page=100&order_by=updated_at`, {
+            headers: {
+              Authorization: `Bearer ${conn.accessToken}`,
+            },
+          });
+          if (glRes.ok) {
+            const data: any = await glRes.json();
+            if (Array.isArray(data) && data.length > 0) {
+              return data.map((r: any) => ({
+                fullName: r.path_with_namespace || r.name,
+                name: r.name,
+                description: r.description || '',
+                url: r.web_url,
+                defaultBranch: r.default_branch || 'main',
+                isPrivate: r.visibility === 'private',
+                stars: r.star_count || 0,
+                language: 'Code',
+              }));
+            }
+          }
+        }
+      } catch (e) {
+        // Fallback to public repos API below
+      }
+    }
+
+    // 2. Fetch public repos for the connected account name
+    try {
+      if (provider === 'github') {
+        const ghPubRes = await fetch(`https://api.github.com/users/${encodeURIComponent(currentAccount)}/repos?per_page=100&sort=updated`, {
+          headers: {
+            'User-Agent': 'Kanso-App',
+            Accept: 'application/vnd.github+json',
+            ...(conn.accessToken && !conn.accessToken.startsWith('simulated_') ? { Authorization: `Bearer ${conn.accessToken}` } : {}),
+          },
+        });
+        if (ghPubRes.ok) {
+          const data: any = await ghPubRes.json();
+          if (Array.isArray(data)) {
             return data.map((r: any) => ({
               fullName: r.full_name,
               name: r.name,
@@ -1634,46 +1694,33 @@ async function buildServer(): Promise<FastifyInstance> {
             }));
           }
         }
-      } catch (e) {
-        // Fallback below
       }
+
+      if (provider === 'gitlab') {
+        const base = (conn.instanceUrl || 'https://gitlab.com').replace(/\/$/, '');
+        const glPubRes = await fetch(`${base}/api/v4/users/${encodeURIComponent(currentAccount)}/projects?per_page=100&order_by=updated_at`);
+        if (glPubRes.ok) {
+          const data: any = await glPubRes.json();
+          if (Array.isArray(data)) {
+            return data.map((r: any) => ({
+              fullName: r.path_with_namespace || r.name,
+              name: r.name,
+              description: r.description || '',
+              url: r.web_url,
+              defaultBranch: r.default_branch || 'main',
+              isPrivate: r.visibility === 'private',
+              stars: r.star_count || 0,
+              language: 'Code',
+            }));
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching real repos:', e);
     }
 
-    const currentAccount = conn.accountName;
-
-    // Repositories for the connected account
-    return [
-      {
-        fullName: `${currentAccount}/kanso`,
-        name: 'kanso',
-        description: 'Next-gen open source Jira alternative with Agentic MCP support',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/kanso`,
-        defaultBranch: 'main',
-        isPrivate: false,
-        stars: 42,
-        language: 'TypeScript',
-      },
-      {
-        fullName: `${currentAccount}/kanso-mcp-agent`,
-        name: 'kanso-mcp-agent',
-        description: 'Autonomous Coding & Triage MCP Agent for Kanso workspaces',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/kanso-mcp-agent`,
-        defaultBranch: 'main',
-        isPrivate: true,
-        stars: 18,
-        language: 'Python',
-      },
-      {
-        fullName: `${currentAccount}/kanso-infra`,
-        name: 'kanso-infra',
-        description: 'Docker Compose, Kubernetes Helm Charts & Cloud Deployments',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/kanso-infra`,
-        defaultBranch: 'main',
-        isPrivate: false,
-        stars: 7,
-        language: 'HCL',
-      },
-    ];
+    // Strictly return empty array if no real repositories are found - NO hardcoded demo repos
+    return [];
   });
 
   app.post('/api/git/create-board', async (request: FastifyRequest<{

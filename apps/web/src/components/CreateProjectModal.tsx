@@ -9,13 +9,6 @@ interface GitRepoItem {
   stars?: number;
 }
 
-const DEFAULT_REPOS: GitRepoItem[] = [
-  { fullName: 'mxw02/kanso', name: 'kanso', description: 'Next-gen open source Jira alternative with MCP', language: 'TypeScript' },
-  { fullName: 'mxw02/kanso-mcp-agent', name: 'kanso-mcp-agent', description: 'Autonomous Coding & Triage MCP Agent', language: 'Python' },
-  { fullName: 'mxw02/kanso-infra', name: 'kanso-infra', description: 'Docker Compose, Kubernetes & Deployments', language: 'HCL' },
-  { fullName: 'mxw02/web-client', name: 'web-client', description: 'Vite & React frontend dashboard', language: 'TypeScript' },
-];
-
 interface Props {
   isOpen: boolean;
   onClose: () => void;
