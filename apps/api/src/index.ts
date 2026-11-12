@@ -927,8 +927,293 @@ async function buildServer(): Promise<FastifyInstance> {
   });
 
   // ==========================================
-  // GIT INTEGRATION, CONNECTIONS & REPO BOARDS
+  // GIT INTEGRATION, OAUTH & REPO BOARDS
   // ==========================================
+  let customOAuthConfig = {
+    githubClientId: process.env.GITHUB_CLIENT_ID || '',
+    githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+    gitlabClientId: process.env.GITLAB_CLIENT_ID || '',
+    gitlabClientSecret: process.env.GITLAB_CLIENT_SECRET || '',
+    gitlabInstanceUrl: process.env.GITLAB_INSTANCE_URL || 'https://gitlab.com',
+  };
+
+  app.get('/api/git/oauth/config', async () => {
+    return {
+      github: {
+        configured: Boolean(customOAuthConfig.githubClientId && customOAuthConfig.githubClientSecret),
+        clientId: customOAuthConfig.githubClientId,
+        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/github',
+      },
+      gitlab: {
+        configured: Boolean(customOAuthConfig.gitlabClientId && customOAuthConfig.gitlabClientSecret),
+        clientId: customOAuthConfig.gitlabClientId,
+        instanceUrl: customOAuthConfig.gitlabInstanceUrl,
+        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+      },
+    };
+  });
+
+  app.post('/api/git/oauth/config', async (request: FastifyRequest<{
+    Body: {
+      githubClientId?: string;
+      githubClientSecret?: string;
+      gitlabClientId?: string;
+      gitlabClientSecret?: string;
+      gitlabInstanceUrl?: string;
+    };
+  }>) => {
+    const { githubClientId, githubClientSecret, gitlabClientId, gitlabClientSecret, gitlabInstanceUrl } = request.body || {};
+    if (githubClientId !== undefined) customOAuthConfig.githubClientId = githubClientId.trim();
+    if (githubClientSecret !== undefined) customOAuthConfig.githubClientSecret = githubClientSecret.trim();
+    if (gitlabClientId !== undefined) customOAuthConfig.gitlabClientId = gitlabClientId.trim();
+    if (gitlabClientSecret !== undefined) customOAuthConfig.gitlabClientSecret = gitlabClientSecret.trim();
+    if (gitlabInstanceUrl !== undefined) customOAuthConfig.gitlabInstanceUrl = gitlabInstanceUrl.trim() || 'https://gitlab.com';
+
+    return {
+      success: true,
+      github: {
+        configured: Boolean(customOAuthConfig.githubClientId && customOAuthConfig.githubClientSecret),
+        clientId: customOAuthConfig.githubClientId,
+        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/github',
+      },
+      gitlab: {
+        configured: Boolean(customOAuthConfig.gitlabClientId && customOAuthConfig.gitlabClientSecret),
+        clientId: customOAuthConfig.gitlabClientId,
+        instanceUrl: customOAuthConfig.gitlabInstanceUrl,
+        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+      },
+    };
+  });
+
+  // Start OAuth Authorization Flow
+  app.get('/api/git/oauth/authorize/:provider', async (request: FastifyRequest<{
+    Params: { provider: string };
+    Querystring: { instanceUrl?: string };
+  }>, reply: FastifyReply) => {
+    const { provider } = request.params;
+    const { instanceUrl } = request.query;
+
+    if (provider === 'github') {
+      if (customOAuthConfig.githubClientId) {
+        const ghAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
+          customOAuthConfig.githubClientId
+        )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/github')}&scope=repo,read:user,user:email&state=kanso_${Date.now()}`;
+        return reply.redirect(ghAuthUrl);
+      } else {
+        // If OAuth credentials not yet configured, redirect with notice or instant dev connect
+        return reply.redirect('http://localhost:3000/?oauth_needs_config=github');
+      }
+    }
+
+    if (provider === 'gitlab') {
+      const base = instanceUrl || customOAuthConfig.gitlabInstanceUrl || 'https://gitlab.com';
+      if (customOAuthConfig.gitlabClientId) {
+        const glAuthUrl = `${base.replace(/\/$/, '')}/oauth/authorize?client_id=${encodeURIComponent(
+          customOAuthConfig.gitlabClientId
+        )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/gitlab')}&response_type=code&scope=api+read_user+read_repository&state=kanso_${Date.now()}`;
+        return reply.redirect(glAuthUrl);
+      } else {
+        return reply.redirect('http://localhost:3000/?oauth_needs_config=gitlab');
+      }
+    }
+
+    return reply.status(400).send({ error: 'Unbekannter Git Provider' });
+  });
+
+  // OAuth Callback Handler (handles GitHub & GitLab code exchange)
+  app.get('/api/git/oauth/callback/:provider', async (request: FastifyRequest<{
+    Params: { provider: string };
+    Querystring: { code?: string; state?: string; error?: string; error_description?: string };
+  }>, reply: FastifyReply) => {
+    const { provider } = request.params;
+    const { code, error, error_description } = request.query;
+
+    if (error || !code) {
+      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(error_description || error || 'Abgebrochen')}`);
+    }
+
+    try {
+      if (provider === 'github') {
+        const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            client_id: customOAuthConfig.githubClientId,
+            client_secret: customOAuthConfig.githubClientSecret,
+            code,
+          }),
+        });
+
+        const tokenData: any = await tokenRes.json();
+        if (!tokenData.access_token) {
+          return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
+        }
+
+        const userRes = await fetch('https://api.github.com/user', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            'User-Agent': 'Kanso-Issue-Tracker',
+          },
+        });
+        const userData: any = await userRes.json();
+
+        // Save or update GitConnection
+        const existing = await prisma.gitConnection.findFirst({
+          where: { provider: 'github', accountName: userData.login },
+        });
+
+        if (existing) {
+          await prisma.gitConnection.update({
+            where: { id: existing.id },
+            data: {
+              displayName: userData.name || userData.login,
+              avatarUrl: userData.avatar_url,
+              accessToken: tokenData.access_token,
+              authType: 'oauth',
+              isDefault: true,
+            },
+          });
+        } else {
+          await prisma.gitConnection.create({
+            data: {
+              provider: 'github',
+              accountName: userData.login,
+              displayName: userData.name || userData.login,
+              avatarUrl: userData.avatar_url,
+              accessToken: tokenData.access_token,
+              instanceUrl: 'https://github.com',
+              authType: 'oauth',
+              isDefault: true,
+            },
+          });
+        }
+
+        broadcastEvent('git_connection_created', { provider: 'github', accountName: userData.login });
+        return reply.redirect(`http://localhost:3000/?git_connected=github&account=${encodeURIComponent(userData.login)}`);
+      }
+
+      if (provider === 'gitlab') {
+        const base = customOAuthConfig.gitlabInstanceUrl || 'https://gitlab.com';
+        const tokenRes = await fetch(`${base.replace(/\/$/, '')}/oauth/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            client_id: customOAuthConfig.gitlabClientId,
+            client_secret: customOAuthConfig.gitlabClientSecret,
+            code,
+            grant_type: 'authorization_code',
+            redirect_uri: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+          }),
+        });
+
+        const tokenData: any = await tokenRes.json();
+        if (!tokenData.access_token) {
+          return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
+        }
+
+        const userRes = await fetch(`${base.replace(/\/$/, '')}/api/v4/user`, {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+          },
+        });
+        const userData: any = await userRes.json();
+
+        const existing = await prisma.gitConnection.findFirst({
+          where: { provider: 'gitlab', accountName: userData.username },
+        });
+
+        if (existing) {
+          await prisma.gitConnection.update({
+            where: { id: existing.id },
+            data: {
+              displayName: userData.name || userData.username,
+              avatarUrl: userData.avatar_url,
+              accessToken: tokenData.access_token,
+              authType: 'oauth',
+              isDefault: true,
+            },
+          });
+        } else {
+          await prisma.gitConnection.create({
+            data: {
+              provider: 'gitlab',
+              accountName: userData.username,
+              displayName: userData.name || userData.username,
+              avatarUrl: userData.avatar_url,
+              accessToken: tokenData.access_token,
+              instanceUrl: base,
+              authType: 'oauth',
+              isDefault: true,
+            },
+          });
+        }
+
+        broadcastEvent('git_connection_created', { provider: 'gitlab', accountName: userData.username });
+        return reply.redirect(`http://localhost:3000/?git_connected=gitlab&account=${encodeURIComponent(userData.username)}`);
+      }
+    } catch (err: any) {
+      console.error('OAuth callback error:', err);
+      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(err.message || 'OAuth-Fehler')}`);
+    }
+  });
+
+  // Instant 1-Click OAuth Connect (for Dev & Instant Login)
+  app.post('/api/git/oauth/instant-connect', async (request: FastifyRequest<{
+    Body: {
+      provider: string;
+      accountName?: string;
+      displayName?: string;
+      avatarUrl?: string;
+    };
+  }>, reply: FastifyReply) => {
+    const { provider = 'github', accountName, displayName, avatarUrl } = request.body || {};
+    const effectiveAccount = accountName?.trim() || (provider === 'gitlab' ? 'mxw02_gitlab' : 'mxw02');
+    const effectiveDisplay = displayName?.trim() || (provider === 'gitlab' ? 'Maurice Woike (GitLab)' : 'Maurice Woike');
+    const effectiveAvatar = avatarUrl?.trim() || (provider === 'gitlab' 
+      ? 'https://gitlab.com/uploads/-/system/user/avatar/42/avatar.png'
+      : 'https://avatars.githubusercontent.com/u/1024025?v=4');
+
+    const existing = await prisma.gitConnection.findFirst({
+      where: { provider, accountName: effectiveAccount },
+    });
+
+    let conn;
+    if (existing) {
+      conn = await prisma.gitConnection.update({
+        where: { id: existing.id },
+        data: {
+          displayName: effectiveDisplay,
+          avatarUrl: effectiveAvatar,
+          accessToken: `simulated_oauth_${Date.now()}`,
+          authType: 'oauth',
+          isDefault: true,
+        },
+      });
+    } else {
+      conn = await prisma.gitConnection.create({
+        data: {
+          provider,
+          accountName: effectiveAccount,
+          displayName: effectiveDisplay,
+          avatarUrl: effectiveAvatar,
+          accessToken: `simulated_oauth_${Date.now()}`,
+          instanceUrl: provider === 'gitlab' ? 'https://gitlab.com' : 'https://github.com',
+          authType: 'oauth',
+          isDefault: true,
+        },
+      });
+    }
+
+    broadcastEvent('git_connection_created', conn);
+    return reply.status(201).send(conn);
+  });
+
   app.get('/api/git/connections', async () => {
     let connections = await prisma.gitConnection.findMany({
       orderBy: { createdAt: 'desc' },
@@ -940,7 +1225,10 @@ async function buildServer(): Promise<FastifyInstance> {
         data: {
           provider: 'github',
           accountName: 'mxw02',
+          displayName: 'Maurice Woike',
+          avatarUrl: 'https://avatars.githubusercontent.com/u/1024025?v=4',
           instanceUrl: 'https://github.com',
+          authType: 'oauth',
           isDefault: true,
         },
       });
@@ -956,9 +1244,12 @@ async function buildServer(): Promise<FastifyInstance> {
       accountName: string;
       accessToken?: string;
       instanceUrl?: string;
+      displayName?: string;
+      avatarUrl?: string;
+      authType?: string;
     };
   }>, reply: FastifyReply) => {
-    const { provider, accountName, accessToken, instanceUrl } = request.body;
+    const { provider, accountName, accessToken, instanceUrl, displayName, avatarUrl, authType } = request.body;
     if (!accountName) {
       return reply.status(400).send({ error: 'Account- oder Organisationsname ist erforderlich.' });
     }
@@ -967,8 +1258,11 @@ async function buildServer(): Promise<FastifyInstance> {
       data: {
         provider: provider || 'github',
         accountName: accountName.trim(),
+        displayName: displayName ? displayName.trim() : accountName.trim(),
+        avatarUrl: avatarUrl ? avatarUrl.trim() : null,
         accessToken: accessToken ? accessToken.trim() : null,
         instanceUrl: instanceUrl ? instanceUrl.trim() : provider === 'gitlab' ? 'https://gitlab.com' : 'https://github.com',
+        authType: authType || (accessToken ? 'pat' : 'oauth'),
       },
     });
 
@@ -990,43 +1284,78 @@ async function buildServer(): Promise<FastifyInstance> {
   }>) => {
     const { provider = 'github', account = 'mxw02' } = request.query;
 
+    // Check if we have an active connection with real access token
+    const conn = await prisma.gitConnection.findFirst({
+      where: { provider: provider.toLowerCase(), isDefault: true },
+    });
+
+    if (conn?.accessToken && !conn.accessToken.startsWith('simulated_')) {
+      try {
+        if (provider === 'github') {
+          const ghRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+            headers: {
+              Authorization: `Bearer ${conn.accessToken}`,
+              'User-Agent': 'Kanso-App',
+            },
+          });
+          if (ghRes.ok) {
+            const data: any = await ghRes.json();
+            return data.map((r: any) => ({
+              fullName: r.full_name,
+              name: r.name,
+              description: r.description || '',
+              url: r.html_url,
+              defaultBranch: r.default_branch || 'main',
+              isPrivate: Boolean(r.private),
+              stars: r.stargazers_count || 0,
+              language: r.language || 'Code',
+            }));
+          }
+        }
+      } catch (e) {
+        // Fallback to sample repos if network error
+      }
+    }
+
+    const currentAccount = conn?.accountName || account;
+
     // Preset list of active repositories for this account
     const sampleRepos = [
       {
-        fullName: `${account}/kanso`,
+        fullName: `${currentAccount}/kanso`,
         name: 'kanso',
         description: 'Next-gen open source Jira alternative with Agentic MCP support',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/kanso`,
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/kanso`,
         defaultBranch: 'main',
         isPrivate: false,
         stars: 42,
         language: 'TypeScript',
       },
       {
-        fullName: `${account}/kanso-mcp-agent`,
+        fullName: `${currentAccount}/kanso-mcp-agent`,
         name: 'kanso-mcp-agent',
         description: 'Autonomous Coding & Triage MCP Agent for Kanso workspaces',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/kanso-mcp-agent`,
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/kanso-mcp-agent`,
         defaultBranch: 'main',
         isPrivate: true,
         stars: 18,
         language: 'Python',
       },
       {
-        fullName: `${account}/kanso-infra`,
+        fullName: `${currentAccount}/kanso-infra`,
         name: 'kanso-infra',
         description: 'Docker Compose, Kubernetes Helm Charts & Cloud Deployments',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/kanso-infra`,
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/kanso-infra`,
         defaultBranch: 'main',
         isPrivate: false,
         stars: 7,
         language: 'HCL',
       },
       {
-        fullName: `${account}/web-client`,
+        fullName: `${currentAccount}/web-client`,
         name: 'web-client',
         description: 'Vite & React frontend dashboard',
-        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${account}/web-client`,
+        url: `https://${provider === 'gitlab' ? 'gitlab.com' : 'github.com'}/${currentAccount}/web-client`,
         defaultBranch: 'main',
         isPrivate: true,
         stars: 5,

@@ -14,6 +14,13 @@ import {
   Sparkles,
   RefreshCw,
   FolderGit2,
+  ShieldCheck,
+  Key,
+  Settings,
+  AlertCircle,
+  ArrowUpRight,
+  User,
+  Sliders,
 } from 'lucide-react';
 
 interface GitRepo {
@@ -31,8 +38,16 @@ interface GitConnection {
   id: string;
   provider: string;
   accountName: string;
+  displayName?: string;
+  avatarUrl?: string;
+  authType?: string; // 'oauth' or 'pat'
   instanceUrl?: string;
   createdAt: string;
+}
+
+interface OAuthConfig {
+  github: { configured: boolean; clientId?: string; callbackUrl: string };
+  gitlab: { configured: boolean; clientId?: string; instanceUrl?: string; callbackUrl: string };
 }
 
 interface Props {
@@ -61,12 +76,24 @@ export const GitIntegrationModal: React.FC<Props> = ({
   const [seedIssues, setSeedIssues] = useState(true);
   const [creatingBoard, setCreatingBoard] = useState(false);
 
-  // New Connection Form
+  // New Connection Form (PAT)
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [accountName, setAccountName] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [instanceUrl, setInstanceUrl] = useState('');
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+
+  // OAuth State
+  const [oauthConfig, setOAuthConfig] = useState<OAuthConfig | null>(null);
+  const [showOAuthConfigModal, setShowOAuthConfigModal] = useState(false);
+  const [ghClientIdInput, setGhClientIdInput] = useState('');
+  const [ghClientSecretInput, setGhClientSecretInput] = useState('');
+  const [glClientIdInput, setGlClientIdInput] = useState('');
+  const [glClientSecretInput, setGlClientSecretInput] = useState('');
+  const [glInstanceUrlInput, setGlInstanceUrlInput] = useState('https://gitlab.com');
+  const [isSavingOAuthConfig, setIsSavingOAuthConfig] = useState(false);
+  const [oauthSavedNotice, setOauthSavedNotice] = useState(false);
+  const [isConnectingOAuth, setIsConnectingOAuth] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || '';
   const webhookUrl = `${window.location.origin}/api/webhooks/git`;
@@ -74,9 +101,10 @@ export const GitIntegrationModal: React.FC<Props> = ({
   const fetchData = async () => {
     try {
       setLoadingRepos(true);
-      const [connRes, repoRes] = await Promise.all([
+      const [connRes, repoRes, oauthRes] = await Promise.all([
         fetch(`${API_URL}/api/git/connections`),
         fetch(`${API_URL}/api/git/repos?provider=${provider}`),
+        fetch(`${API_URL}/api/git/oauth/config`),
       ]);
 
       if (connRes.ok) {
@@ -89,10 +117,70 @@ export const GitIntegrationModal: React.FC<Props> = ({
           handleSelectRepo(rList[0]);
         }
       }
+      if (oauthRes.ok) {
+        const oData: OAuthConfig = await oauthRes.json();
+        setOAuthConfig(oData);
+        if (oData.github?.clientId) setGhClientIdInput(oData.github.clientId);
+        if (oData.gitlab?.clientId) setGlClientIdInput(oData.gitlab.clientId);
+        if (oData.gitlab?.instanceUrl) setGlInstanceUrlInput(oData.gitlab.instanceUrl);
+      }
     } catch (err) {
       console.error('Failed to load git data', err);
     } finally {
       setLoadingRepos(false);
+    }
+  };
+
+  const handleOAuthConnect = (prov: 'github' | 'gitlab') => {
+    if (oauthConfig?.[prov]?.configured) {
+      window.location.href = `${API_URL}/api/git/oauth/authorize/${prov}`;
+    } else {
+      setShowOAuthConfigModal(true);
+    }
+  };
+
+  const handleInstantDevConnect = async (prov: 'github' | 'gitlab') => {
+    try {
+      setIsConnectingOAuth(true);
+      const res = await fetch(`${API_URL}/api/git/oauth/instant-connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: prov }),
+      });
+      if (res.ok) {
+        await fetchData();
+      }
+    } catch (err) {
+      console.error('Failed instant connect', err);
+    } finally {
+      setIsConnectingOAuth(false);
+    }
+  };
+
+  const handleSaveOAuthConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSavingOAuthConfig(true);
+      const res = await fetch(`${API_URL}/api/git/oauth/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          githubClientId: ghClientIdInput,
+          githubClientSecret: ghClientSecretInput,
+          gitlabClientId: glClientIdInput,
+          gitlabClientSecret: glClientSecretInput,
+          gitlabInstanceUrl: glInstanceUrlInput,
+        }),
+      });
+      if (res.ok) {
+        setOAuthConfig(await res.json());
+        setOauthSavedNotice(true);
+        setTimeout(() => setOauthSavedNotice(false), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to save oauth config', err);
+    } finally {
+      setIsSavingOAuthConfig(false);
     }
   };
 
@@ -404,137 +492,398 @@ export const GitIntegrationModal: React.FC<Props> = ({
             </div>
           )}
 
-          {/* TAB 2: CONNECTED ACCOUNTS */}
+          {/* TAB 2: CONNECTED ACCOUNTS & OAUTH */}
           {activeTab === 'accounts' && (
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Verbundene Git-Konten</h3>
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Git-Authentifizierung & OAuth Apps
+                  </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Verbinde deine GitHub- und GitLab-Organisationen für automatisches Ticket-Linking.
+                    Melde dich direkt per 1-Klick OAuth mit GitHub oder GitLab an für maximale Benutzerfreundlichkeit.
                   </p>
                 </div>
 
-                {!showAddAccount && canEdit && (
-                  <button
-                    onClick={() => setShowAddAccount(true)}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Account verbinden</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowOAuthConfigModal(!showOAuthConfigModal)}
+                  className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-indigo-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>OAuth App einrichten</span>
+                </button>
               </div>
 
-              {/* Add Account Drawer Form */}
-              {showAddAccount && (
+              {/* OAuth App Setup Form / Drawer */}
+              {showOAuthConfigModal && (
                 <form
-                  onSubmit={handleAddAccount}
-                  className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-3 animate-in fade-in duration-100"
+                  onSubmit={handleSaveOAuthConfig}
+                  className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 space-y-4 animate-in fade-in duration-150"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-indigo-950">Neuen Git-Account hinzufügen</span>
+                  <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <span className="text-xs font-bold text-indigo-950">
+                        OAuth App Konfiguration (GitHub & GitLab)
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setShowAddAccount(false)}
+                      onClick={() => setShowOAuthConfigModal(false)}
                       className="text-xs text-slate-400 hover:text-slate-600"
                     >
-                      Abbrechen
+                      Schließen
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Provider</label>
-                      <select
-                        value={provider}
-                        onChange={(e: any) => setProvider(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
-                      >
-                        <option value="github">GitHub</option>
-                        <option value="gitlab">GitLab (Cloud oder Self-Hosted)</option>
-                      </select>
+                  <p className="text-[11px] text-slate-600">
+                    Erstelle deine eigene OAuth App bei GitHub (unter <em>Settings → Developer settings → OAuth Apps</em>) oder GitLab und trage hier Client ID & Secret ein.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* GitHub OAuth Fields */}
+                    <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">GitHub OAuth App</span>
+                        {oauthConfig?.github.configured && (
+                          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            Konfiguriert
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Client ID</label>
+                        <input
+                          type="text"
+                          value={ghClientIdInput}
+                          onChange={(e) => setGhClientIdInput(e.target.value)}
+                          placeholder="z. B. Iv1.xxxxxxxxxxxx"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Client Secret</label>
+                        <input
+                          type="password"
+                          value={ghClientSecretInput}
+                          onChange={(e) => setGhClientSecretInput(e.target.value)}
+                          placeholder="••••••••••••••••••••••••"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Callback URL: <code className="text-indigo-600 bg-slate-50 px-1 rounded select-all font-mono">http://localhost:4001/api/git/oauth/callback/github</code>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Benutzer- / Organisationsname *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={accountName}
-                        onChange={(e) => setAccountName(e.target.value)}
-                        placeholder="z. B. mxw02 oder acme-corp"
-                        className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
-                      />
+                    {/* GitLab OAuth Fields */}
+                    <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800">GitLab OAuth App</span>
+                        {oauthConfig?.gitlab.configured && (
+                          <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            Konfiguriert
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Application ID (Client ID)</label>
+                        <input
+                          type="text"
+                          value={glClientIdInput}
+                          onChange={(e) => setGlClientIdInput(e.target.value)}
+                          placeholder="z. B. gl_app_xxxxxxxxxxxx"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Secret</label>
+                        <input
+                          type="password"
+                          value={glClientSecretInput}
+                          onChange={(e) => setGlClientSecretInput(e.target.value)}
+                          placeholder="••••••••••••••••••••••••"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        Callback URL: <code className="text-indigo-600 bg-slate-50 px-1 rounded select-all font-mono">http://localhost:4001/api/git/oauth/callback/gitlab</code>
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Personal Access Token (PAT) (Optional für private Repositories)
-                    </label>
-                    <input
-                      type="password"
-                      value={accessToken}
-                      onChange={(e) => setAccessToken(e.target.value)}
-                      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                      className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    {oauthSavedNotice ? (
+                      <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>OAuth Konfiguration erfolgreich gespeichert!</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-slate-500">
+                        Änderungen sind sofort aktiv – kein Container-Neustart erforderlich.
+                      </span>
+                    )}
 
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddAccount(false)}
-                      className="px-3 py-1 text-xs text-slate-500"
-                    >
-                      Abbrechen
-                    </button>
                     <button
                       type="submit"
-                      disabled={!accountName.trim()}
-                      className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold"
+                      disabled={isSavingOAuthConfig}
+                      className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
                     >
-                      Account verknüpfen
+                      {isSavingOAuthConfig ? 'Speichern...' : 'OAuth Einstellungen speichern'}
                     </button>
                   </div>
                 </form>
               )}
 
-              {/* Accounts list */}
-              <div className="space-y-2">
-                {connections.map((c) => (
-                  <div
-                    key={c.id}
-                    className="p-3.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-700">
-                        {c.provider === 'gitlab' ? 'GL' : 'GH'}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900">{c.accountName}</span>
-                          <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 uppercase">
-                            Verbunden
-                          </span>
+              {/* 1-Click OAuth Provider Cards */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* GitHub OAuth Card */}
+                {(() => {
+                  const ghConn = connections.find((c) => c.provider === 'github');
+                  return (
+                    <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                            <FolderGit2 className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-xs font-bold text-slate-900">GitHub</h4>
+                              {ghConn && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span>Verbunden</span>
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              {ghConn
+                                ? `Angemeldet als @${ghConn.accountName}`
+                                : 'Automatischer OAuth 2.0 Login'}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-[11px] text-slate-500 font-mono">{c.instanceUrl || 'https://github.com'}</p>
+
+                        {ghConn && canEdit && (
+                          <button
+                            onClick={() => handleDeleteConnection(ghConn.id)}
+                            title="Verbindung trennen"
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {ghConn ? (
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs">
+                          {ghConn.avatarUrl ? (
+                            <img src={ghConn.avatarUrl} alt="" className="w-7 h-7 rounded-full border border-slate-200" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
+                              {ghConn.accountName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 truncate">
+                            <span className="font-semibold text-slate-800 block truncate">
+                              {ghConn.displayName || ghConn.accountName}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">
+                              GitHub · {ghConn.authType === 'pat' ? 'Personal Access Token' : 'OAuth App Token'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOAuthConnect('github')}
+                            className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
+                          >
+                            <FolderGit2 className="w-4 h-4" />
+                            <span>Mit GitHub verbinden (OAuth)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isConnectingOAuth}
+                            onClick={() => handleInstantDevConnect('github')}
+                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition flex items-center justify-center gap-1.5"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>1-Klick Dev Login (@mxw02)</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* GitLab OAuth Card */}
+                {(() => {
+                  const glConn = connections.find((c) => c.provider === 'gitlab');
+                  return (
+                    <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                            <GitBranch className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-xs font-bold text-slate-900">GitLab</h4>
+                              {glConn && (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span>Verbunden</span>
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              {glConn
+                                ? `Angemeldet als @${glConn.accountName}`
+                                : 'GitLab.com oder Self-Hosted'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {glConn && canEdit && (
+                          <button
+                            onClick={() => handleDeleteConnection(glConn.id)}
+                            title="Verbindung trennen"
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {glConn ? (
+                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs">
+                          {glConn.avatarUrl ? (
+                            <img src={glConn.avatarUrl} alt="" className="w-7 h-7 rounded-full border border-slate-200" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs">
+                              {glConn.accountName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 truncate">
+                            <span className="font-semibold text-slate-800 block truncate">
+                              {glConn.displayName || glConn.accountName}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500 truncate block">
+                              {glConn.instanceUrl || 'https://gitlab.com'}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOAuthConnect('gitlab')}
+                            className="w-full py-2 px-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
+                          >
+                            <GitBranch className="w-4 h-4" />
+                            <span>Mit GitLab verbinden (OAuth)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={isConnectingOAuth}
+                            onClick={() => handleInstantDevConnect('gitlab')}
+                            className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition flex items-center justify-center gap-1.5"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+                            <span>1-Klick Dev Login (@mxw02_gitlab)</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Secondary Option: Manual PAT Connection */}
+              <div className="pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-600">
+                    Erweiterte Option: Personal Access Token (PAT)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAccount(!showAddAccount)}
+                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                  >
+                    {showAddAccount ? 'Abbrechen' : '+ Token manuell hinterlegen'}
+                  </button>
+                </div>
+
+                {showAddAccount && (
+                  <form
+                    onSubmit={handleAddAccount}
+                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3 mt-3 animate-in fade-in duration-100 text-xs"
+                  >
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">Provider</label>
+                        <select
+                          value={provider}
+                          onChange={(e: any) => setProvider(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
+                        >
+                          <option value="github">GitHub</option>
+                          <option value="gitlab">GitLab</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Account / Organisation *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={accountName}
+                          onChange={(e) => setAccountName(e.target.value)}
+                          placeholder="z. B. mxw02"
+                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                        />
                       </div>
                     </div>
 
-                    {canEdit && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Personal Access Token (PAT)
+                      </label>
+                      <input
+                        type="password"
+                        value={accessToken}
+                        onChange={(e) => setAccessToken(e.target.value)}
+                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-1">
                       <button
-                        onClick={() => handleDeleteConnection(c.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition"
+                        type="button"
+                        onClick={() => setShowAddAccount(false)}
+                        className="px-3 py-1 text-xs text-slate-500"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        Abbrechen
                       </button>
-                    )}
-                  </div>
-                ))}
+                      <button
+                        type="submit"
+                        disabled={!accountName.trim()}
+                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold"
+                      >
+                        PAT hinterlegen
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             </div>
           )}

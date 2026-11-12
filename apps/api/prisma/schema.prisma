@@ -250,8 +250,11 @@ model GitConnection {
   id          String   @id @default(uuid())
   provider    String   // "github" or "gitlab"
   accountName String   // e.g. "mxw02"
+  displayName String?
+  avatarUrl   String?
   accessToken String?
   instanceUrl String?  @default("https://github.com")
+  authType    String   @default("oauth") // "oauth" or "pat"
   isDefault   Boolean  @default(true)
 
   createdAt   DateTime @default(now())

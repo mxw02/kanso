@@ -88,6 +88,7 @@ export default function App() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
+  const [oauthToast, setOauthToast] = useState<string | null>(null);
   const [sprints, setSprints] = useState<any[]>([]);
   const [focusedIssueIndex, setFocusedIssueIndex] = useState<number>(-1);
   const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
@@ -181,6 +182,22 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('git_connected')) {
+      const prov = params.get('git_connected');
+      const acc = params.get('account') || '';
+      setOauthToast(`Erfolgreich mit ${prov === 'gitlab' ? 'GitLab' : 'GitHub'} (${acc}) per OAuth verbunden!`);
+      setShowGitModal(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => setOauthToast(null), 4000);
+    } else if (params.get('oauth_needs_config')) {
+      setShowGitModal(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (params.get('oauth_error')) {
+      alert(`OAuth-Fehler: ${params.get('oauth_error')}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   useEffect(() => {
@@ -565,6 +582,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+      {/* OAuth Toast Notification */}
+      {oauthToast && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
+          <Sparkles className="w-4 h-4 text-emerald-200" />
+          <span>{oauthToast}</span>
+        </div>
+      )}
       {/* ======================================================== */}
       {/* REFINED ZEN HEADER                                       */}
       {/* ======================================================== */}
