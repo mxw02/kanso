@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle } from 'lucide-react';
+import { Search, Plus, Layers, Table, LayoutGrid, HelpCircle, Sparkles } from 'lucide-react';
 
 interface Issue {
   id: string;
@@ -24,6 +24,7 @@ interface Props {
   onSelectProject: (project: Project) => void;
   onOpenCreateIssue: () => void;
   onOpenCreateProject: () => void;
+  onOpenOnboarding: () => void;
   onSetView: (view: 'board' | 'list') => void;
   onOpenShortcuts: () => void;
 }
@@ -37,6 +38,7 @@ export const CommandPalette: React.FC<Props> = ({
   onSelectProject,
   onOpenCreateIssue,
   onOpenCreateProject,
+  onOpenOnboarding,
   onSetView,
   onOpenShortcuts,
 }) => {
@@ -95,6 +97,22 @@ export const CommandPalette: React.FC<Props> = ({
               Actions
             </div>
             <div className="space-y-0.5">
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenOnboarding();
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 hover:text-slate-900 transition"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <span className="font-medium">Projekt-Onboarding & Setup Wizard starten</span>
+                </div>
+                <span className="text-[10px] text-indigo-600 bg-indigo-50 font-semibold px-2 py-0.5 rounded border border-indigo-200">
+                  Wizard
+                </span>
+              </button>
+
               <button
                 onClick={() => {
                   onClose();

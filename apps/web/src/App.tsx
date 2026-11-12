@@ -8,6 +8,7 @@ import {
   RotateCcw,
   User,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
@@ -16,6 +17,7 @@ import { CreateIssueModal } from './components/CreateIssueModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
 import { CommandPalette } from './components/CommandPalette';
 import { ShortcutsModal } from './components/ShortcutsModal';
+import { OnboardingWizard } from './components/OnboardingWizard';
 
 interface StatusColumn {
   id: string;
@@ -70,6 +72,7 @@ export default function App() {
   const [showCreateIssue, setShowCreateIssue] = useState(false);
   const [createIssueDefaultStatus, setCreateIssueDefaultStatus] = useState<string | undefined>(undefined);
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
 
   // Filters & Search
@@ -95,8 +98,10 @@ export default function App() {
       if (pRes.ok) {
         const pData: Project[] = await pRes.json();
         setProjects(pData);
-        if (pData.length > 0 && !activeProject) {
-          setActiveProject(pData[0]);
+        if (pData.length > 0) {
+          if (!activeProject) setActiveProject(pData[0]);
+        } else {
+          setShowOnboarding(true);
         }
       }
 
@@ -355,6 +360,97 @@ export default function App() {
     }
   };
 
+  const handleOnboardingComplete = async (projectData: {
+    name: string;
+    key: string;
+    description: string;
+    columns: { id: string; title: string }[];
+    seedSampleIssues: boolean;
+    selectedAgents: string[];
+  }) => {
+    try {
+      const res = await fetch(`${API_URL}/api/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: projectData.name,
+          key: projectData.key,
+          description: projectData.description,
+          columns: projectData.columns,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Fehler beim Erstellen des Projekts');
+        return;
+      }
+
+      const createdProject = await res.json();
+      setProjects((prev) => [...prev, createdProject]);
+      setActiveProject(createdProject);
+
+      // Seed tailored sample issues for the new workflow if checked
+      if (projectData.seedSampleIssues && projectData.columns.length > 0) {
+        const cols = projectData.columns;
+        const col0 = cols[0].id;
+        const col1 = cols.length > 1 ? cols[1].id : col0;
+        const col2 = cols.length > 2 ? cols[2].id : col1;
+        const mainAgent = projectData.selectedAgents[0] || 'agent-triage-v1';
+
+        const sampleIssues = [
+          {
+            projectId: createdProject.id,
+            title: `Architektur & System-Spezifikation für ${createdProject.name}`,
+            description: `### Scope & Anforderungen\n- [ ] Zielarchitektur definieren\n- [ ] Schnittstellen & MCP-Tools konfigurieren\n- [ ] Meilensteine mit Team abstimmen`,
+            status: col0,
+            priority: 'HIGH',
+            type: 'STORY',
+            assigneeType: 'HUMAN',
+            assigneeId: currentUser.id,
+            assigneeName: currentUser.name,
+            labels: ['architecture', 'spec'],
+          },
+          {
+            projectId: createdProject.id,
+            title: `Autonome Triage & Task-Decomposition via ${mainAgent}`,
+            description: `### Agentic Workflow\n1. Analysiere offene Feature-Anforderungen.\n2. Zerlege komplexe Stories in Subtasks mit \`kanso_create_issue\`.\n3. Aktualisiere Status und berichte Fortschritt via Kommentar.`,
+            status: col1,
+            priority: 'URGENT',
+            type: 'TASK',
+            assigneeType: 'AGENT',
+            assigneeName: mainAgent,
+            labels: ['agentic', 'mcp', 'automation'],
+          },
+          {
+            projectId: createdProject.id,
+            title: `End-to-End Verifikation & Quality Gate durchführen`,
+            description: `### Test & Akzeptanz\n- [ ] Unit- & Integrationstests ausführen\n- [ ] Code-Coverage und Security-Audit prüfen\n- [ ] Freigabe für Production Rollout`,
+            status: col2,
+            priority: 'MEDIUM',
+            type: 'TASK',
+            assigneeType: 'HUMAN',
+            assigneeId: currentUser.id,
+            assigneeName: currentUser.name,
+            labels: ['qa', 'verification'],
+          },
+        ];
+
+        for (const issue of sampleIssues) {
+          await fetch(`${API_URL}/api/issues`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(issue),
+          });
+        }
+      }
+
+      fetchIssues();
+    } catch (err) {
+      console.error('Fehler beim Onboarding:', err);
+    }
+  };
+
   const activeColumns = activeProject?.columns && activeProject.columns.length > 0
     ? activeProject.columns
     : DEFAULT_COLUMNS;
@@ -397,13 +493,23 @@ export default function App() {
             </select>
 
             {canEdit && (
-              <button
-                onClick={() => setShowCreateProject(true)}
-                title="Create Project"
-                className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setShowOnboarding(true)}
+                  title="Projekt Setup-Wizard (Onboarding)"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition"
+                >
+                  <Sparkles className="w-3 h-3 text-indigo-600" />
+                  <span>Setup Wizard</span>
+                </button>
+                <button
+                  onClick={() => setShowCreateProject(true)}
+                  title="Create Project"
+                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -635,12 +741,20 @@ export default function App() {
           setShowCreateIssue(true);
         }}
         onOpenCreateProject={() => setShowCreateProject(true)}
+        onOpenOnboarding={() => setShowOnboarding(true)}
         onSetView={(v) => setViewMode(v)}
         onOpenShortcuts={() => setShowShortcuts(true)}
       />
 
       {/* Shortcuts Modal */}
       <ShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+      {/* Onboarding Wizard */}
+      <OnboardingWizard
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={handleOnboardingComplete}
+      />
 
       {/* Issue Detail Modal */}
       <IssueDetailModal
