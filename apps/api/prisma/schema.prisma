@@ -121,6 +121,7 @@ model Issue {
   assigneeId    String?
   assigneeName  String?
   labels        String[]      @default([])
+  dueDate       DateTime?
   agentMetadata Json?
 
   // Agent-First Board Fields
