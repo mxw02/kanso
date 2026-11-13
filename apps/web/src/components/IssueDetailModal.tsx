@@ -31,10 +31,14 @@ import {
   XCircle,
   Globe,
   Target,
+  Paperclip,
+  Loader2,
 } from 'lucide-react';
 import { MarkdownViewer } from './MarkdownViewer';
 import { computeReadiness, ProofOfWorkCheck } from '../utils/readiness';
 import type { GoalItem } from './GoalsModal';
+import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
+import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
 
 interface Issue {
   id: string;
@@ -145,6 +149,45 @@ export const IssueDetailModal: React.FC<Props> = ({
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [copiedBranch, setCopiedBranch] = useState(false);
+  const [uploadingTarget, setUploadingTarget] = useState<'desc' | 'comment' | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragTarget, setDragTarget] = useState<'desc' | 'comment' | null>(null);
+
+  const handleFileUpload = async (
+    files: FileList | File[] | null | undefined,
+    target: 'desc' | 'comment',
+    textarea: HTMLTextAreaElement | null
+  ) => {
+    if (!files || files.length === 0) return;
+    setUploadError(null);
+    setUploadingTarget(target);
+    try {
+      for (const file of Array.from(files)) {
+        const res = await uploadFileToKanso(file, API_URL);
+        if (target === 'desc') {
+          setDescText((prev) => {
+            let nextVal = prev;
+            insertMarkdownAtCursor(textarea, prev, res.markdown, (v) => {
+              nextVal = v;
+            });
+            return nextVal;
+          });
+        } else {
+          setNewComment((prev) => {
+            let nextVal = prev;
+            insertMarkdownAtCursor(textarea, prev, res.markdown, (v) => {
+              nextVal = v;
+            });
+            return nextVal;
+          });
+        }
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload fehlgeschlagen.');
+    } finally {
+      setUploadingTarget(null);
+    }
+  };
 
   // Collapsible empty sections state
   const [showPowSection, setShowPowSection] = useState(false);
@@ -681,31 +724,84 @@ export const IssueDetailModal: React.FC<Props> = ({
               </div>
 
               {isEditingDesc && canEdit ? (
-                <div className="space-y-2">
+                <div
+                  className="space-y-2"
+                  onDragOver={(e) => {
+                    if (e.dataTransfer?.types.includes('Files')) {
+                      e.preventDefault();
+                      setDragTarget('desc');
+                    }
+                  }}
+                  onDragLeave={() => setDragTarget((prev) => (prev === 'desc' ? null : prev))}
+                  onDrop={(e) => {
+                    if (e.dataTransfer?.files?.length) {
+                      e.preventDefault();
+                      setDragTarget(null);
+                      handleFileUpload(e.dataTransfer.files, 'desc', null);
+                    }
+                  }}
+                >
                   <textarea
                     rows={6}
                     value={descText}
                     onChange={(e) => setDescText(e.target.value)}
-                    placeholder="Write with markdown (# headers, - lists, `code`, **bold**)..."
-                    className="w-full bg-white border border-teal-600 rounded-lg p-3 text-xs text-zinc-900 focus:outline-none font-mono"
+                    onPaste={(e) => {
+                      const files = extractFilesFromClipboard(e.clipboardData);
+                      if (files.length > 0) {
+                        e.preventDefault();
+                        handleFileUpload(files, 'desc', e.currentTarget);
+                      }
+                    }}
+                    placeholder="Markdown, Paste (⌘V) oder Drag & Drop für Bilder & Dateien..."
+                    className={`w-full bg-white border rounded-lg p-3 text-xs text-zinc-900 focus:outline-none font-mono transition ${
+                      dragTarget === 'desc' ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20' : 'border-teal-600'
+                    }`}
                   />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setDescText(issue.description || '');
-                        setIsEditingDesc(false);
-                      }}
-                      className="px-3 py-1 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 rounded text-xs"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleSaveDescription}
-                      className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded text-xs font-medium"
-                    >
-                      Save Changes
-                    </button>
+                  <AttachmentPreviewStrip
+                    markdown={descText}
+                    onRemove={(raw) =>
+                      setDescText((prev) => prev.replace(raw, '').replace(/\n{3,}/g, '\n\n').trim())
+                    }
+                  />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-teal-700 cursor-pointer font-medium">
+                      {uploadingTarget === 'desc' ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-700" />
+                      ) : (
+                        <Paperclip className="w-3.5 h-3.5" />
+                      )}
+                      <span>{uploadingTarget === 'desc' ? 'Wird hochgeladen...' : 'Bild / Datei anhängen (Paste & Drop)'}</span>
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => {
+                          handleFileUpload(e.target.files, 'desc', null);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setDescText(issue.description || '');
+                          setIsEditingDesc(false);
+                        }}
+                        className="px-3 py-1 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 rounded text-xs"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveDescription}
+                        className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded text-xs font-medium"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
                   </div>
+                  {uploadError && (
+                    <div className="text-[11px] text-rose-600">{uploadError}</div>
+                  )}
                 </div>
               ) : (
                 <MarkdownViewer
@@ -1285,25 +1381,79 @@ export const IssueDetailModal: React.FC<Props> = ({
                     )}
                   </div>
 
-                  <form onSubmit={handleCommentSubmit} className="space-y-2">
+                  <form
+                    onSubmit={handleCommentSubmit}
+                    className="space-y-2"
+                    onDragOver={(e) => {
+                      if (e.dataTransfer?.types.includes('Files')) {
+                        e.preventDefault();
+                        setDragTarget('comment');
+                      }
+                    }}
+                    onDragLeave={() => setDragTarget((prev) => (prev === 'comment' ? null : prev))}
+                    onDrop={(e) => {
+                      if (e.dataTransfer?.files?.length) {
+                        e.preventDefault();
+                        setDragTarget(null);
+                        handleFileUpload(e.dataTransfer.files, 'comment', null);
+                      }
+                    }}
+                  >
                     <textarea
                       rows={3}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder={`Comment as ${currentUser.name}...`}
-                      className="w-full bg-white border border-zinc-300 rounded-xl p-3 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-teal-600"
+                      onPaste={(e) => {
+                        const files = extractFilesFromClipboard(e.clipboardData);
+                        if (files.length > 0) {
+                          e.preventDefault();
+                          handleFileUpload(files, 'comment', e.currentTarget);
+                        }
+                      }}
+                      placeholder={`Comment as ${currentUser.name}... (Paste & Drop für Bilder/Dateien)`}
+                      className={`w-full bg-white border rounded-xl p-3 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none transition ${
+                        dragTarget === 'comment' ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20' : 'border-zinc-300 focus:border-teal-600'
+                      }`}
                     />
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-zinc-400">Markdown supported</span>
+                    <AttachmentPreviewStrip
+                      markdown={newComment}
+                      onRemove={(raw) =>
+                        setNewComment((prev) => prev.replace(raw, '').replace(/\n{3,}/g, '\n\n').trim())
+                      }
+                    />
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] text-zinc-400">Markdown supported</span>
+                        <label className="inline-flex items-center gap-1 text-[11px] text-zinc-500 hover:text-teal-700 cursor-pointer font-medium">
+                          {uploadingTarget === 'comment' ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-700" />
+                          ) : (
+                            <Paperclip className="w-3.5 h-3.5" />
+                          )}
+                          <span>{uploadingTarget === 'comment' ? 'Lädt hoch...' : 'Datei / Bild'}</span>
+                          <input
+                            type="file"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => {
+                              handleFileUpload(e.target.files, 'comment', null);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      </div>
                       <button
                         type="submit"
-                        disabled={submittingComment || !newComment.trim()}
+                        disabled={submittingComment || uploadingTarget === 'comment' || !newComment.trim()}
                         className="flex items-center gap-1.5 px-4 py-1.5 bg-teal-700 hover:bg-teal-800 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-xs transition"
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>Post Comment</span>
                       </button>
                     </div>
+                    {uploadError && (
+                      <div className="text-[11px] text-rose-600">{uploadError}</div>
+                    )}
                   </form>
                 </div>
               )}

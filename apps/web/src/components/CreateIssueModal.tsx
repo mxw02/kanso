@@ -11,9 +11,13 @@ import {
   ChevronDown,
   Check,
   Target,
+  Paperclip,
+  Loader2,
 } from 'lucide-react';
 import { computeReadiness } from '../utils/readiness';
 import type { GoalItem } from './GoalsModal';
+import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
+import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
 
 interface Column {
   id: string;
@@ -63,6 +67,35 @@ export const CreateIssueModal: React.FC<Props> = ({
   const [status, setStatus] = useState(defaultStatus || (columns[1]?.id ?? 'TODO'));
   const [priority, setPriority] = useState<'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM');
   const [goalId, setGoalId] = useState<string>('');
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [dragOverDesc, setDragOverDesc] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const API_URL = import.meta.env.VITE_API_URL || '';
+
+  const handleFileUpload = async (
+    files: FileList | File[] | null | undefined,
+    textarea: HTMLTextAreaElement | null
+  ) => {
+    if (!files || files.length === 0) return;
+    setUploadError(null);
+    setUploadingFile(true);
+    try {
+      for (const file of Array.from(files)) {
+        const res = await uploadFileToKanso(file, API_URL);
+        setDescription((prev) => {
+          let nextVal = prev;
+          insertMarkdownAtCursor(textarea, prev, res.markdown, (v) => {
+            nextVal = v;
+          });
+          return nextVal;
+        });
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload fehlgeschlagen.');
+    } finally {
+      setUploadingFile(false);
+    }
+  };
   const [selectedAssignee, setSelectedAssignee] = useState<{
     type: 'HUMAN' | 'AGENT' | 'UNASSIGNED';
     id?: string | null;
@@ -209,13 +242,66 @@ export const CreateIssueModal: React.FC<Props> = ({
           />
 
           {/* Description Input */}
-          <textarea
-            rows={5}
-            placeholder="Add description, acceptance criteria, or markdown notes..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-transparent text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-none leading-relaxed font-sans"
-          />
+          <div
+            onDragOver={(e) => {
+              if (e.dataTransfer?.types.includes('Files')) {
+                e.preventDefault();
+                setDragOverDesc(true);
+              }
+            }}
+            onDragLeave={() => setDragOverDesc(false)}
+            onDrop={(e) => {
+              if (e.dataTransfer?.files?.length) {
+                e.preventDefault();
+                setDragOverDesc(false);
+                handleFileUpload(e.dataTransfer.files, null);
+              }
+            }}
+            className={`rounded-lg transition ${
+              dragOverDesc ? 'bg-teal-50/40 ring-2 ring-teal-500/30 p-2' : ''
+            }`}
+          >
+            <textarea
+              rows={5}
+              placeholder="Beschreibung, Akzeptanzkriterien oder Bilder/Dateien per Paste (⌘V) & Drag-and-Drop einfügen..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onPaste={(e) => {
+                const files = extractFilesFromClipboard(e.clipboardData);
+                if (files.length > 0) {
+                  e.preventDefault();
+                  handleFileUpload(files, e.currentTarget);
+                }
+              }}
+              className="w-full text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-none leading-relaxed font-sans bg-transparent"
+            />
+            <AttachmentPreviewStrip
+              markdown={description}
+              onRemove={(raw) =>
+                setDescription((prev) => prev.replace(raw, '').replace(/\n{3,}/g, '\n\n').trim())
+              }
+            />
+            <div className="flex items-center justify-between pt-1">
+              <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-teal-700 cursor-pointer font-medium">
+                {uploadingFile ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-700" />
+                ) : (
+                  <Paperclip className="w-3.5 h-3.5" />
+                )}
+                <span>{uploadingFile ? 'Wird hochgeladen...' : 'Bild / Datei anhängen'}</span>
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleFileUpload(e.target.files, null);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {uploadError && <span className="text-[11px] text-rose-600">{uploadError}</span>}
+            </div>
+          </div>
         </div>
 
         {/* Selected Labels Pill Bar (if any selected) */}

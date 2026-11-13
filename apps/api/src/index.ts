@@ -15,6 +15,7 @@ import {
 } from './agent-features';
 import { decryptSecret, encryptSecret } from './crypto';
 import { registerImportRoutes } from './jira-import';
+import { registerUploadRoutes } from './uploads';
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ const DEFAULT_COLUMNS = [
 
 async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
+    bodyLimit: 15 * 1024 * 1024,
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     },
@@ -2652,6 +2654,7 @@ async function buildServer(): Promise<FastifyInstance> {
 
   registerAgentFeatureRoutes(app, prisma, broadcastEvent);
   registerImportRoutes(app, prisma, broadcastEvent);
+  registerUploadRoutes(app);
 
   return app;
 }
