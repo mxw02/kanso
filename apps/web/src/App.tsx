@@ -1075,69 +1075,69 @@ export default function App() {
       <section className="px-6 py-2 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
         <div className="flex items-center gap-3">
           {/* View Toggle: Summary vs Board vs List */}
-          <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80">
+          <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80 shrink-0">
             <button
               onClick={() => setViewMode('summary')}
               title="Projekt-Zusammenfassung"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'summary'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5" />
+              <BarChart3 className="w-3.5 h-3.5 shrink-0" />
               <span>Summary</span>
             </button>
 
             <button
               onClick={() => setViewMode('board')}
               title="Kanban Board (B)"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'board'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
               <span>Board</span>
             </button>
 
             <button
               onClick={() => setViewMode('list')}
               title="Table View (L)"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'list'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <Table className="w-3.5 h-3.5" />
+              <Table className="w-3.5 h-3.5 shrink-0" />
               <span>List</span>
             </button>
 
             <button
               onClick={() => setViewMode('calendar')}
               title="Kalender-Ansicht"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'calendar'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
               <span>Kalender</span>
             </button>
 
             <button
               onClick={() => setViewMode('my-tasks')}
               title="Projektübergreifende Ansicht: Meine Aufgaben"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'my-tasks'
                   ? 'bg-white text-teal-800 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <UserCheck className="w-3.5 h-3.5" />
+              <UserCheck className="w-3.5 h-3.5 shrink-0" />
               <span>Meine Aufgaben</span>
             </button>
           </div>
