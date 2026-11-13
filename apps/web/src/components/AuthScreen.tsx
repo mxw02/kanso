@@ -66,39 +66,39 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, apiBaseUrl = 'http
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center items-center px-4 sm:px-6 py-10 relative overflow-hidden font-sans selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 flex flex-col justify-center items-center px-4 sm:px-6 py-10 relative overflow-hidden font-sans selection:bg-teal-600 selection:text-white">
       {/* Subtle Zen background accents */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/3 w-[760px] h-[500px] bg-indigo-500/[0.05] rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/3 w-[760px] h-[500px] bg-teal-600/[0.05] rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[480px] h-[480px] bg-sky-500/[0.04] rounded-full blur-3xl pointer-events-none" />
 
       {/* Main card */}
       <div className="w-full max-w-md relative z-10">
         {/* Brand header */}
         <div className="text-center mb-7">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-600 text-white shadow-sm mb-3.5">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-teal-700 text-white shadow-sm mb-3.5">
             <Layers className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 mb-1 flex items-center justify-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mb-1 flex items-center justify-center gap-2">
             Kanso
-            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80 font-semibold">
+            <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200/80 font-semibold">
               v1.2
             </span>
           </h1>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-zinc-500">
             Agent-First Issue & Project Management. Reduziert auf das Wesentliche.
           </p>
         </div>
 
         {/* Auth Container */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-6 sm:p-7 shadow-sm">
-          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
-            <Lock className="w-4 h-4 text-indigo-600" />
-            <h2 className="text-sm font-semibold text-slate-900">
+        <div className="bg-white border border-zinc-200/90 rounded-2xl p-6 sm:p-7 shadow-sm">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-zinc-100">
+            <Lock className="w-4 h-4 text-teal-700" />
+            <h2 className="text-sm font-semibold text-zinc-900">
               Anmeldung über Versionskontrolle
             </h2>
           </div>
 
-          <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+          <p className="text-xs text-zinc-500 mb-5 leading-relaxed">
             Melde dich mit deinem GitHub- oder GitLab-Account an, um auf deine Boards, Workflows und Agenten zuzugreifen.
           </p>
 
@@ -115,7 +115,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, apiBaseUrl = 'http
               type="button"
               onClick={() => handleOAuthLogin('github')}
               disabled={isAuthorizing}
-              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shadow-xs group font-medium text-xs cursor-pointer disabled:opacity-50"
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition shadow-xs group font-medium text-xs cursor-pointer disabled:opacity-50"
             >
               <div className="flex items-center gap-3">
                 <svg className="w-4 h-4 fill-current text-white" viewBox="0 0 24 24">
@@ -123,14 +123,14 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, apiBaseUrl = 'http
                 </svg>
                 <span>Mit GitHub anmelden</span>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:text-white transition" />
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-0.5 group-hover:text-white transition" />
             </button>
 
             <button
               type="button"
               onClick={() => handleOAuthLogin('gitlab')}
               disabled={isAuthorizing}
-              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 hover:border-orange-300 transition shadow-xs group font-medium text-xs cursor-pointer disabled:opacity-50"
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-white hover:bg-zinc-50 text-zinc-800 border border-zinc-200 hover:border-orange-300 transition shadow-xs group font-medium text-xs cursor-pointer disabled:opacity-50"
             >
               <div className="flex items-center gap-3">
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -139,30 +139,30 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, apiBaseUrl = 'http
                 </svg>
                 <span>Mit GitLab anmelden</span>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 group-hover:text-slate-700 transition" />
+              <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:translate-x-0.5 group-hover:text-zinc-700 transition" />
             </button>
           </div>
 
           {/* Quick Direct Git-Handle Login */}
-          <div className="mt-5 pt-4 border-t border-slate-100">
-            <span className="text-[11px] font-medium text-slate-500 mb-2 block">
+          <div className="mt-5 pt-4 border-t border-zinc-100">
+            <span className="text-[11px] font-medium text-zinc-500 mb-2 block">
               Oder direkt mit Git-Handle autorisieren:
             </span>
             <form onSubmit={handleManualGitLogin} className="flex gap-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-2 text-xs text-slate-400 font-mono">@</span>
+                <span className="absolute left-3 top-2 text-xs text-zinc-400 font-mono">@</span>
                 <input
                   type="text"
                   value={manualHandle}
                   onChange={(e) => setManualHandle(e.target.value)}
                   placeholder="z. B. mxw02"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-7 pr-3 py-1.5 text-xs font-mono text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/15"
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl pl-7 pr-3 py-1.5 text-xs font-mono text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-600/15"
                 />
               </div>
               <select
                 value={manualProvider}
                 onChange={(e) => setManualProvider(e.target.value as any)}
-                className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-slate-700 focus:bg-white focus:outline-none focus:border-indigo-400 cursor-pointer"
+                className="bg-zinc-50 border border-zinc-200 rounded-xl px-2.5 py-1.5 text-xs font-medium text-zinc-700 focus:bg-white focus:outline-none focus:border-teal-500 cursor-pointer"
               >
                 <option value="github">GitHub</option>
                 <option value="gitlab">GitLab</option>
@@ -170,7 +170,7 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, apiBaseUrl = 'http
               <button
                 type="submit"
                 disabled={!manualHandle.trim() || isAuthorizing}
-                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer flex items-center justify-center shadow-xs"
+                className="px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer flex items-center justify-center shadow-xs"
               >
                 Login
               </button>
@@ -179,13 +179,13 @@ export const AuthScreen: React.FC<Props> = ({ onLoginSuccess, apiBaseUrl = 'http
         </div>
 
         {/* Feature Highlights Footer */}
-        <div className="mt-6 grid grid-cols-3 gap-3 text-center text-slate-500 text-[11px]">
+        <div className="mt-6 grid grid-cols-3 gap-3 text-center text-zinc-500 text-[11px]">
           <div className="flex flex-col items-center gap-1">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             <span>Zero Password</span>
           </div>
           <div className="flex flex-col items-center gap-1">
-            <GitBranch className="w-4 h-4 text-indigo-600" />
+            <GitBranch className="w-4 h-4 text-teal-700" />
             <span>GitHub & GitLab</span>
           </div>
           <div className="flex flex-col items-center gap-1">

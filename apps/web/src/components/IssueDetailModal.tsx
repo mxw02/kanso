@@ -448,20 +448,20 @@ export const IssueDetailModal: React.FC<Props> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
+      className="fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-slate-200 rounded-2xl max-w-5xl w-full h-[90vh] shadow-2xl flex flex-col overflow-hidden"
+        className="bg-white border border-zinc-200 rounded-2xl max-w-5xl w-full h-[90vh] shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-sm font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded">
+            <span className="font-mono text-sm font-semibold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded">
               {issue.identifier}
             </span>
-            <span className="text-xs text-slate-500 font-medium px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+            <span className="text-xs text-zinc-500 font-medium px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200">
               {issue.type}
             </span>
 
@@ -482,7 +482,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   }
                 }}
                 title="Delete issue"
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -490,7 +490,7 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition"
+              className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 rounded-lg transition"
             >
               <X className="w-4 h-4" />
             </button>
@@ -500,7 +500,7 @@ export const IssueDetailModal: React.FC<Props> = ({
         {/* Content Body */}
         <div className="flex-1 flex overflow-hidden">
           {/* Main Content Area */}
-          <div className="flex-1 p-6 overflow-y-auto space-y-5 border-r border-slate-200">
+          <div className="flex-1 p-6 overflow-y-auto space-y-5 border-r border-zinc-200">
             {/* Blocker Alert Banner */}
             {blockers.length > 0 && (
               <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
@@ -534,11 +534,11 @@ export const IssueDetailModal: React.FC<Props> = ({
                     type="text"
                     value={titleText}
                     onChange={(e) => setTitleText(e.target.value)}
-                    className="flex-1 bg-white border border-indigo-500 rounded-lg px-3 py-1.5 text-base font-bold text-slate-900 focus:outline-none"
+                    className="flex-1 bg-white border border-teal-600 rounded-lg px-3 py-1.5 text-base font-bold text-zinc-900 focus:outline-none"
                   />
                   <button
                     onClick={handleSaveTitle}
-                    className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+                    className="p-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg"
                   >
                     <Check className="w-4 h-4" />
                   </button>
@@ -547,18 +547,18 @@ export const IssueDetailModal: React.FC<Props> = ({
                       setTitleText(issue.title);
                       setIsEditingTitle(false);
                     }}
-                    className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg"
+                    className="p-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 rounded-lg"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
                 <div className="group flex items-start justify-between gap-3">
-                  <h1 className="text-xl font-bold text-slate-900 leading-snug">{issue.title}</h1>
+                  <h1 className="text-xl font-bold text-zinc-900 leading-snug">{issue.title}</h1>
                   {canEdit && (
                     <button
                       onClick={() => setIsEditingTitle(true)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 transition"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-zinc-700 transition"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
@@ -595,14 +595,14 @@ export const IssueDetailModal: React.FC<Props> = ({
                       value={hitlReply}
                       onChange={(e) => setHitlReply(e.target.value)}
                       placeholder="Antwort oder Begründung..."
-                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-indigo-400"
+                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-teal-500"
                     />
                     <div className="flex items-center gap-1.5">
                       {issue.hitlState === 'NEEDS_CLARIFICATION' ? (
                         <button
                           disabled={hitlBusy || !hitlReply.trim()}
                           onClick={() => handleResolveHitl('ANSWER')}
-                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-50"
                         >
                           Antwort senden
                         </button>
@@ -631,10 +631,10 @@ export const IssueDetailModal: React.FC<Props> = ({
             )}
 
             {/* 2.2: Agent-Readiness Score Bar (compact) */}
-            <div className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-2">
+            <div className="px-3.5 py-2 rounded-xl border border-zinc-200 bg-zinc-50/70 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="text-[11px] font-semibold text-slate-700">Agent-Readiness</span>
+                <Sparkles className="w-3.5 h-3.5 text-teal-700" />
+                <span className="text-[11px] font-semibold text-zinc-700">Agent-Readiness</span>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     readiness.level === 'READY'
@@ -648,7 +648,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                 </span>
               </div>
               {readiness.missing.length > 0 && (
-                <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-2.5 gap-y-0.5">
+                <div className="text-[10px] text-zinc-500 flex flex-wrap gap-x-2.5 gap-y-0.5">
                   {readiness.missing.map((m, idx) => (
                     <span key={idx}>• {m}</span>
                   ))}
@@ -657,15 +657,15 @@ export const IssueDetailModal: React.FC<Props> = ({
             </div>
 
             {/* Description (Markdown) */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-200/80">
+                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
                   Description
                 </span>
                 {canEdit && !isEditingDesc && (
                   <button
                     onClick={() => setIsEditingDesc(true)}
-                    className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700 font-medium transition"
+                    className="text-xs flex items-center gap-1 text-teal-700 hover:text-teal-800 font-medium transition"
                   >
                     <Edit2 className="w-3 h-3" />
                     <span>Edit</span>
@@ -680,7 +680,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     value={descText}
                     onChange={(e) => setDescText(e.target.value)}
                     placeholder="Write with markdown (# headers, - lists, `code`, **bold**)..."
-                    className="w-full bg-white border border-indigo-500 rounded-lg p-3 text-xs text-slate-900 focus:outline-none font-mono"
+                    className="w-full bg-white border border-teal-600 rounded-lg p-3 text-xs text-zinc-900 focus:outline-none font-mono"
                   />
                   <div className="flex justify-end gap-2">
                     <button
@@ -688,13 +688,13 @@ export const IssueDetailModal: React.FC<Props> = ({
                         setDescText(issue.description || '');
                         setIsEditingDesc(false);
                       }}
-                      className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-xs"
+                      className="px-3 py-1 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 rounded text-xs"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveDescription}
-                      className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-medium"
+                      className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded text-xs font-medium"
                     >
                       Save Changes
                     </button>
@@ -719,7 +719,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => setShowPowSection(true)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-[11px] font-medium text-zinc-600 transition"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       <span>+ Proof of Work</span>
@@ -732,7 +732,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                         setShowPreviewSection(true);
                         setEditingPreview(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-[11px] font-medium text-zinc-600 transition"
                     >
                       <Globe className="w-3.5 h-3.5 text-sky-600" />
                       <span>+ Preview-URL</span>
@@ -742,9 +742,9 @@ export const IssueDetailModal: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => setShowSubtasksSection(true)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-[11px] font-medium text-zinc-600 transition"
                     >
-                      <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
+                      <CheckSquare className="w-3.5 h-3.5 text-teal-700" />
                       <span>+ Sub-Task</span>
                     </button>
                   )}
@@ -752,9 +752,9 @@ export const IssueDetailModal: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => setShowAddRelation(true)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-[11px] font-medium text-zinc-600 transition"
                     >
-                      <Link2 className="w-3.5 h-3.5 text-indigo-600" />
+                      <Link2 className="w-3.5 h-3.5 text-teal-700" />
                       <span>+ Verknüpfung</span>
                     </button>
                   )}
@@ -763,11 +763,11 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* 1E: Proof of Work (Definition of Done) */}
             {(powList.length > 0 || showPowSection || (issue.ciStatus && issue.ciStatus !== 'NONE')) && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    <span className="text-[11px] font-semibold text-zinc-700 uppercase tracking-wider">
                       Proof of Work ({powList.filter((c) => c.status === 'PASSED').length}/{powList.length})
                     </span>
                   </div>
@@ -789,7 +789,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => setShowPowSection(false)}
-                        className="text-slate-400 hover:text-slate-600"
+                        className="text-zinc-400 hover:text-zinc-600"
                         title="Ausblenden"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -803,7 +803,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     {powList.map((check) => (
                       <div
                         key={check.id}
-                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white border border-slate-200 text-xs"
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white border border-zinc-200 text-xs"
                       >
                         <button
                           type="button"
@@ -817,12 +817,12 @@ export const IssueDetailModal: React.FC<Props> = ({
                           ) : check.status === 'FAILED' ? (
                             <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           ) : (
-                            <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <Square className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                           )}
                           <div className="min-w-0">
-                            <div className="font-medium text-slate-800 truncate">{check.title}</div>
+                            <div className="font-medium text-zinc-800 truncate">{check.title}</div>
                             {check.command && (
-                              <code className="text-[10px] text-slate-500 font-mono">{check.command}</code>
+                              <code className="text-[10px] text-zinc-500 font-mono">{check.command}</code>
                             )}
                           </div>
                         </button>
@@ -830,7 +830,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                           <button
                             type="button"
                             onClick={() => handleRemovePow(check.id)}
-                            className="text-slate-400 hover:text-rose-600 p-0.5"
+                            className="text-zinc-400 hover:text-rose-600 p-0.5"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -847,18 +847,18 @@ export const IssueDetailModal: React.FC<Props> = ({
                       value={newPowTitle}
                       onChange={(e) => setNewPowTitle(e.target.value)}
                       placeholder="Check (z. B. Unit Tests grün)"
-                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:border-teal-500"
                     />
                     <input
                       type="text"
                       value={newPowCmd}
                       onChange={(e) => setNewPowCmd(e.target.value)}
                       placeholder="npm test"
-                      className="w-36 text-xs font-mono px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                      className="w-36 text-xs font-mono px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:border-teal-500"
                     />
                     <button
                       type="submit"
-                      className="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-medium hover:bg-slate-900"
+                      className="px-3 py-1.5 rounded-lg bg-zinc-800 text-white text-xs font-medium hover:bg-zinc-900"
                     >
                       + Check
                     </button>
@@ -869,11 +869,11 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Ephemeral Preview Environment (2.6) */}
             {(issue.previewUrl || editingPreview || showPreviewSection) && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-sky-600" />
-                    <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                    <span className="text-[11px] font-semibold text-zinc-700 uppercase tracking-wider">
                       Preview-Environment
                     </span>
                   </div>
@@ -888,7 +888,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                           setEditingPreview(true);
                         }
                       }}
-                      className="text-[11px] text-indigo-600 hover:text-indigo-700 font-medium"
+                      className="text-[11px] text-teal-700 hover:text-teal-800 font-medium"
                     >
                       {editingPreview ? 'Abbrechen' : issue.previewUrl ? 'Ändern' : '+ Verknüpfen'}
                     </button>
@@ -902,12 +902,12 @@ export const IssueDetailModal: React.FC<Props> = ({
                       value={previewUrlInput}
                       onChange={(e) => setPreviewUrlInput(e.target.value)}
                       placeholder="https://pr-42.preview.kanso.dev"
-                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white focus:outline-none focus:border-teal-500"
                     />
                     <button
                       type="button"
                       onClick={handleSavePreview}
-                      className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700"
+                      className="px-3 py-1.5 rounded-lg bg-teal-700 text-white text-xs font-medium hover:bg-teal-800"
                     >
                       Speichern
                     </button>
@@ -927,7 +927,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                       <img
                         src={issue.previewScreenshotUrl}
                         alt="Preview Screenshot"
-                        className="w-full max-h-32 object-cover rounded-lg border border-slate-200"
+                        className="w-full max-h-32 object-cover rounded-lg border border-zinc-200"
                       />
                     )}
                   </div>
@@ -937,11 +937,11 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Sub-tasks Section */}
             {((issue.subIssues && issue.subIssues.length > 0) || showSubtasksSection) && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <CheckSquare className="w-4 h-4 text-indigo-600" />
-                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    <CheckSquare className="w-4 h-4 text-teal-700" />
+                    <span className="text-xs font-semibold text-zinc-700 uppercase tracking-wider">
                       Sub-tasks ({issue.subIssues?.length || 0})
                     </span>
                   </div>
@@ -949,7 +949,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => setShowSubtasksSection(false)}
-                      className="text-slate-400 hover:text-slate-600"
+                      className="text-zinc-400 hover:text-zinc-600"
                       title="Ausblenden"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -964,13 +964,13 @@ export const IssueDetailModal: React.FC<Props> = ({
                     return (
                       <div
                         key={sub.id}
-                        className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs hover:border-slate-300 transition"
+                        className="flex items-center justify-between p-2 rounded-lg bg-white border border-zinc-200 text-xs hover:border-zinc-300 transition"
                       >
                         <div className="flex items-center gap-2.5">
                           <button
                             onClick={() => handleToggleSubtaskStatus(sub)}
                             disabled={!canEdit}
-                            className="text-slate-400 hover:text-indigo-600"
+                            className="text-zinc-400 hover:text-teal-700"
                           >
                             {isDone ? (
                               <CheckSquare className="w-4 h-4 text-emerald-600" />
@@ -980,17 +980,17 @@ export const IssueDetailModal: React.FC<Props> = ({
                           </button>
                           <span
                             onClick={() => onSelectIssue && onSelectIssue(sub.id)}
-                            className="font-mono text-indigo-600 font-semibold text-[11px] hover:underline cursor-pointer"
+                            className="font-mono text-teal-700 font-semibold text-[11px] hover:underline cursor-pointer"
                           >
                             {sub.identifier}
                           </span>
-                          <span className={`font-medium ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                          <span className={`font-medium ${isDone ? 'line-through text-zinc-400' : 'text-zinc-800'}`}>
                             {sub.title}
                           </span>
                         </div>
                         <span
                           className={`text-[10px] px-2 py-0.5 rounded font-medium ${
-                            isDone ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                            isDone ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-600'
                           }`}
                         >
                           {sub.status}
@@ -1008,11 +1008,11 @@ export const IssueDetailModal: React.FC<Props> = ({
                     value={newSubtaskTitle}
                     onChange={(e) => setNewSubtaskTitle(e.target.value)}
                     placeholder="Add sub-task (press Enter)..."
-                    className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                    className="flex-1 bg-white border border-zinc-300 rounded-lg px-3 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-teal-600"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs rounded-lg font-medium transition"
+                    className="px-3 py-1.5 bg-zinc-200 hover:bg-zinc-300 text-zinc-800 text-xs rounded-lg font-medium transition"
                   >
                     Add
                   </button>
@@ -1023,18 +1023,18 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Ticket-Verknüpfungen (Relations & Blockers) */}
             {((issue.outgoingRelations?.length || 0) + (issue.incomingRelations?.length || 0) > 0 || showAddRelation) && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-indigo-600" />
-                  <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <Link2 className="w-4 h-4 text-teal-700" />
+                  <span className="text-xs font-semibold text-zinc-700 uppercase tracking-wider">
                     Verknüpfungen & Blocker ({(issue.outgoingRelations?.length || 0) + (issue.incomingRelations?.length || 0)})
                   </span>
                 </div>
                 {canEdit && !showAddRelation && (
                   <button
                     onClick={() => setShowAddRelation(true)}
-                    className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1"
+                    className="text-xs text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1"
                   >
                     <Plus className="w-3 h-3" />
                     <span>Verknüpfung</span>
@@ -1046,15 +1046,15 @@ export const IssueDetailModal: React.FC<Props> = ({
               {showAddRelation && (
                 <form
                   onSubmit={handleAddRelation}
-                  className="p-3 rounded-lg border border-indigo-200 bg-white space-y-2.5 animate-in fade-in duration-100"
+                  className="p-3 rounded-lg border border-teal-200 bg-white space-y-2.5 animate-in fade-in duration-100"
                 >
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Typ</label>
+                      <label className="block text-[10px] font-semibold text-zinc-600 mb-1">Typ</label>
                       <select
                         value={relationType}
                         onChange={(e: any) => setRelationType(e.target.value)}
-                        className="w-full px-2.5 py-1 text-xs rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-2.5 py-1 text-xs rounded border border-zinc-200 focus:outline-none focus:border-teal-600"
                       >
                         <option value="IS_BLOCKED_BY">wird blockiert durch</option>
                         <option value="BLOCKS">blockiert</option>
@@ -1064,11 +1064,11 @@ export const IssueDetailModal: React.FC<Props> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-semibold text-slate-600 mb-1">Ziel-Ticket</label>
+                      <label className="block text-[10px] font-semibold text-zinc-600 mb-1">Ziel-Ticket</label>
                       <select
                         value={relationTargetId}
                         onChange={(e) => setRelationTargetId(e.target.value)}
-                        className="w-full px-2.5 py-1 text-xs rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-2.5 py-1 text-xs rounded border border-zinc-200 focus:outline-none focus:border-teal-600"
                       >
                         <option value="">Ticket auswählen...</option>
                         {allIssues
@@ -1086,14 +1086,14 @@ export const IssueDetailModal: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => setShowAddRelation(false)}
-                      className="px-2.5 py-1 text-xs text-slate-500 hover:text-slate-800"
+                      className="px-2.5 py-1 text-xs text-zinc-500 hover:text-zinc-800"
                     >
                       Abbrechen
                     </button>
                     <button
                       type="submit"
                       disabled={!relationTargetId || submittingRelation}
-                      className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded text-xs font-semibold"
+                      className="px-3 py-1 bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white rounded text-xs font-semibold"
                     >
                       {submittingRelation ? 'Verknüpfe...' : 'Verknüpfen'}
                     </button>
@@ -1106,10 +1106,10 @@ export const IssueDetailModal: React.FC<Props> = ({
                 {issue.outgoingRelations?.map((rel: any) => (
                   <div
                     key={rel.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs"
+                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-zinc-200 text-xs"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 uppercase">
                         {rel.type === 'IS_BLOCKED_BY'
                           ? 'wird blockiert durch'
                           : rel.type === 'BLOCKS'
@@ -1120,21 +1120,21 @@ export const IssueDetailModal: React.FC<Props> = ({
                       </span>
                       <span
                         onClick={() => onSelectIssue && onSelectIssue(rel.targetIssue.id)}
-                        className="font-mono text-indigo-600 font-semibold hover:underline cursor-pointer"
+                        className="font-mono text-teal-700 font-semibold hover:underline cursor-pointer"
                       >
                         {rel.targetIssue?.identifier}
                       </span>
-                      <span className="text-slate-800 truncate max-w-xs">{rel.targetIssue?.title}</span>
+                      <span className="text-zinc-800 truncate max-w-xs">{rel.targetIssue?.title}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-500">
                         {rel.targetIssue?.status}
                       </span>
                       {canEdit && (
                         <button
                           onClick={() => handleDeleteRelation(rel.id)}
-                          className="text-slate-400 hover:text-red-600 p-0.5"
+                          className="text-zinc-400 hover:text-red-600 p-0.5"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -1146,10 +1146,10 @@ export const IssueDetailModal: React.FC<Props> = ({
                 {issue.incomingRelations?.map((rel: any) => (
                   <div
                     key={rel.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200 text-xs"
+                    className="flex items-center justify-between p-2 rounded-lg bg-white border border-zinc-200 text-xs"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 uppercase">
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 uppercase">
                         {rel.type === 'BLOCKS'
                           ? 'wird blockiert durch'
                           : rel.type === 'IS_BLOCKED_BY'
@@ -1158,21 +1158,21 @@ export const IssueDetailModal: React.FC<Props> = ({
                       </span>
                       <span
                         onClick={() => onSelectIssue && onSelectIssue(rel.sourceIssue.id)}
-                        className="font-mono text-indigo-600 font-semibold hover:underline cursor-pointer"
+                        className="font-mono text-teal-700 font-semibold hover:underline cursor-pointer"
                       >
                         {rel.sourceIssue?.identifier}
                       </span>
-                      <span className="text-slate-800 truncate max-w-xs">{rel.sourceIssue?.title}</span>
+                      <span className="text-zinc-800 truncate max-w-xs">{rel.sourceIssue?.title}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500">
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-500">
                         {rel.sourceIssue?.status}
                       </span>
                       {canEdit && (
                         <button
                           onClick={() => handleDeleteRelation(rel.id)}
-                          className="text-slate-400 hover:text-red-600 p-0.5"
+                          className="text-zinc-400 hover:text-red-600 p-0.5"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -1187,13 +1187,13 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Tabs: Comments vs Activity Log vs Git */}
             <div>
-              <div className="flex items-center gap-4 border-b border-slate-200 pb-2 mb-4">
+              <div className="flex items-center gap-4 border-b border-zinc-200 pb-2 mb-4">
                 <button
                   onClick={() => setActiveTab('comments')}
                   className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
                     activeTab === 'comments'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      ? 'border-teal-700 text-teal-700'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-800'
                   }`}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
@@ -1204,8 +1204,8 @@ export const IssueDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab('activity')}
                   className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
                     activeTab === 'activity'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      ? 'border-teal-700 text-teal-700'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-800'
                   }`}
                 >
                   <History className="w-3.5 h-3.5" />
@@ -1216,8 +1216,8 @@ export const IssueDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab('git')}
                   className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
                     activeTab === 'git'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      ? 'border-teal-700 text-teal-700'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-800'
                   }`}
                 >
                   <GitBranch className="w-3.5 h-3.5" />
@@ -1228,8 +1228,8 @@ export const IssueDetailModal: React.FC<Props> = ({
                   onClick={() => setActiveTab('trace')}
                   className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
                     activeTab === 'trace'
-                      ? 'border-indigo-600 text-indigo-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      ? 'border-teal-700 text-teal-700'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-800'
                   }`}
                 >
                   <Activity className="w-3.5 h-3.5" />
@@ -1244,7 +1244,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     {issue.comments?.map((comment: any) => (
                       <div
                         key={comment.id}
-                        className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5"
+                        className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-1.5"
                       >
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
@@ -1254,13 +1254,13 @@ export const IssueDetailModal: React.FC<Props> = ({
                                 <span>{comment.authorName}</span>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-1 text-slate-700 text-[11px] font-semibold bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
-                                <User className="w-3 h-3 text-slate-500" />
+                              <div className="flex items-center gap-1 text-zinc-700 text-[11px] font-semibold bg-zinc-100 border border-zinc-200 px-2 py-0.5 rounded">
+                                <User className="w-3 h-3 text-zinc-500" />
                                 <span>{comment.authorName}</span>
                               </div>
                             )}
                           </div>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-zinc-400 font-mono">
                             {new Date(comment.createdAt).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -1272,7 +1272,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     ))}
 
                     {(!issue.comments || issue.comments.length === 0) && (
-                      <div className="text-center py-6 text-xs text-slate-400">
+                      <div className="text-center py-6 text-xs text-zinc-400">
                         No discussion on this ticket yet.
                       </div>
                     )}
@@ -1284,14 +1284,14 @@ export const IssueDetailModal: React.FC<Props> = ({
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder={`Comment as ${currentUser.name}...`}
-                      className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                      className="w-full bg-white border border-zinc-300 rounded-xl p-3 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-teal-600"
                     />
                     <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-slate-400">Markdown supported</span>
+                      <span className="text-[10px] text-zinc-400">Markdown supported</span>
                       <button
                         type="submit"
                         disabled={submittingComment || !newComment.trim()}
-                        className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-teal-700 hover:bg-teal-800 disabled:opacity-40 text-white rounded-lg text-xs font-semibold shadow-xs transition"
                       >
                         <Send className="w-3.5 h-3.5" />
                         <span>Post Comment</span>
@@ -1307,29 +1307,29 @@ export const IssueDetailModal: React.FC<Props> = ({
                   {issue.activities?.map((act: any) => (
                     <div
                       key={act.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs"
+                      className="flex items-start gap-3 p-3 rounded-lg bg-zinc-50 border border-zinc-200 text-xs"
                     >
                       <div className="mt-0.5">
                         {act.actorType === 'AGENT' ? (
                           <Bot className="w-4 h-4 text-emerald-600" />
                         ) : (
-                          <User className="w-4 h-4 text-slate-500" />
+                          <User className="w-4 h-4 text-zinc-500" />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-800">{act.actorName}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="font-semibold text-zinc-800">{act.actorName}</span>
+                          <span className="text-[10px] text-zinc-400 font-mono">
                             {new Date(act.createdAt).toLocaleString()}
                           </span>
                         </div>
-                        <p className="text-slate-600 text-xs mt-0.5">{act.details}</p>
+                        <p className="text-zinc-600 text-xs mt-0.5">{act.details}</p>
                       </div>
                     </div>
                   ))}
 
                   {(!issue.activities || issue.activities.length === 0) && (
-                    <div className="text-center py-6 text-xs text-slate-400">
+                    <div className="text-center py-6 text-xs text-zinc-400">
                       No activity recorded yet.
                     </div>
                   )}
@@ -1340,18 +1340,18 @@ export const IssueDetailModal: React.FC<Props> = ({
               {activeTab === 'git' && (
                 <div className="space-y-4">
                   {/* Branch helper banner */}
-                  <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-4">
+                  <div className="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2.5">
-                      <GitBranch className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <GitBranch className="w-4 h-4 text-teal-700 shrink-0" />
                       <div>
-                        <div className="text-xs font-semibold text-slate-800">Feature Branch erstellen</div>
-                        <code className="text-[11px] font-mono text-slate-500">git checkout -b {branchName}</code>
+                        <div className="text-xs font-semibold text-zinc-800">Feature Branch erstellen</div>
+                        <code className="text-[11px] font-mono text-zinc-500">git checkout -b {branchName}</code>
                       </div>
                     </div>
 
                     <button
                       onClick={handleCopyBranch}
-                      className="flex items-center gap-1 px-3 py-1 bg-white border border-slate-200 hover:border-slate-300 rounded-md text-xs font-semibold text-slate-700 shadow-xs transition"
+                      className="flex items-center gap-1 px-3 py-1 bg-white border border-zinc-200 hover:border-zinc-300 rounded-md text-xs font-semibold text-zinc-700 shadow-xs transition"
                     >
                       {copiedBranch ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                       <span>{copiedBranch ? 'Kopiert' : 'Kopieren'}</span>
@@ -1360,9 +1360,9 @@ export const IssueDetailModal: React.FC<Props> = ({
 
                   {/* Simulate Git Hook Trigger */}
                   {showSimulateGit ? (
-                    <form onSubmit={handleSimulateGit} className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-3">
-                      <div className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                        <GitCommit className="w-4 h-4 text-indigo-600" />
+                    <form onSubmit={handleSimulateGit} className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/40 space-y-3">
+                      <div className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                        <GitCommit className="w-4 h-4 text-teal-700" />
                         <span>Git Push / PR Hook simulieren</span>
                       </div>
 
@@ -1370,7 +1370,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                         <select
                           value={gitType}
                           onChange={(e: any) => setGitType(e.target.value)}
-                          className="px-2.5 py-1 text-xs rounded border border-slate-200 bg-white"
+                          className="px-2.5 py-1 text-xs rounded border border-zinc-200 bg-white"
                         >
                           <option value="commit">Commit auf main</option>
                           <option value="pull_request">Merged PR</option>
@@ -1380,25 +1380,25 @@ export const IssueDetailModal: React.FC<Props> = ({
                           value={gitMsg}
                           onChange={(e) => setGitMsg(e.target.value)}
                           placeholder="Commit-Message mit 'Fixes #...'"
-                          className="col-span-2 px-2.5 py-1 text-xs rounded border border-slate-200 bg-white"
+                          className="col-span-2 px-2.5 py-1 text-xs rounded border border-zinc-200 bg-white"
                         />
                       </div>
 
-                      <p className="text-[11px] text-slate-500">
-                        Keyword <code className="font-mono text-indigo-600 font-bold">Fixes #{issue.identifier}</code> schließt das Ticket automatisch auf Status DONE.
+                      <p className="text-[11px] text-zinc-500">
+                        Keyword <code className="font-mono text-teal-700 font-bold">Fixes #{issue.identifier}</code> schließt das Ticket automatisch auf Status DONE.
                       </p>
 
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => setShowSimulateGit(false)}
-                          className="px-2.5 py-1 text-xs text-slate-500"
+                          className="px-2.5 py-1 text-xs text-zinc-500"
                         >
                           Abbrechen
                         </button>
                         <button
                           type="submit"
-                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold"
+                          className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded text-xs font-semibold"
                         >
                           Ausführen & Ticket aktualisieren
                         </button>
@@ -1408,7 +1408,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     <div className="flex justify-end">
                       <button
                         onClick={() => setShowSimulateGit(true)}
-                        className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1"
+                        className="text-xs text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Git Commit / PR Hook testen</span>
@@ -1421,15 +1421,15 @@ export const IssueDetailModal: React.FC<Props> = ({
                     {issue.gitLinks?.map((git: any) => (
                       <div
                         key={git.id}
-                        className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between text-xs"
+                        className="p-3 rounded-xl border border-zinc-200 bg-white flex items-center justify-between text-xs"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600">
-                            {git.type === 'pull_request' ? <GitPullRequest className="w-4 h-4 text-purple-600" /> : <GitCommit className="w-4 h-4 text-indigo-600" />}
+                          <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-600">
+                            {git.type === 'pull_request' ? <GitPullRequest className="w-4 h-4 text-purple-600" /> : <GitCommit className="w-4 h-4 text-teal-700" />}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-slate-900">{git.reference}</span>
+                              <span className="font-mono font-bold text-zinc-900">{git.reference}</span>
                               <span
                                 className={`text-[10px] font-semibold px-1.5 py-0.2 rounded uppercase ${
                                   git.status === 'merged'
@@ -1440,7 +1440,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                                 {git.status || 'COMMITTED'}
                               </span>
                             </div>
-                            <p className="text-slate-600 text-xs mt-0.5">{git.title}</p>
+                            <p className="text-zinc-600 text-xs mt-0.5">{git.title}</p>
                           </div>
                         </div>
 
@@ -1449,7 +1449,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                             href={git.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1 text-slate-400 hover:text-indigo-600"
+                            className="p-1 text-zinc-400 hover:text-teal-700"
                           >
                             <ExternalLink className="w-4 h-4" />
                           </a>
@@ -1458,7 +1458,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     ))}
 
                     {(!issue.gitLinks || issue.gitLinks.length === 0) && (
-                      <div className="text-center py-6 text-xs text-slate-400">
+                      <div className="text-center py-6 text-xs text-zinc-400">
                         Noch keine Commits oder Pull Requests mit diesem Ticket verknüpft.
                       </div>
                     )}
@@ -1470,12 +1470,12 @@ export const IssueDetailModal: React.FC<Props> = ({
               {activeTab === 'trace' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-500">
+                    <span className="text-zinc-500">
                       Live-Telemetrie & Tool-Calls des Agenten
                     </span>
                     {issue.agentStatus && (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-semibold">
-                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200 text-[10px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-600 animate-pulse" />
                         {issue.agentStatus}
                       </span>
                     )}
@@ -1486,15 +1486,15 @@ export const IssueDetailModal: React.FC<Props> = ({
                       {issue.traceEvents.map((ev: any) => (
                         <div
                           key={ev.id}
-                          className="p-2.5 rounded-xl border border-slate-200 bg-white text-xs space-y-1"
+                          className="p-2.5 rounded-xl border border-zinc-200 bg-white text-xs space-y-1"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0">
-                              <Terminal className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                              <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                              <Terminal className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                              <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-700">
                                 {ev.phase}
                               </span>
-                              <span className="font-medium text-slate-900 truncate">{ev.title}</span>
+                              <span className="font-medium text-zinc-900 truncate">{ev.title}</span>
                             </div>
                             <span
                               className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
@@ -1502,23 +1502,23 @@ export const IssueDetailModal: React.FC<Props> = ({
                                   ? 'bg-rose-50 text-rose-700'
                                   : ev.status === 'SUCCESS'
                                     ? 'bg-emerald-50 text-emerald-700'
-                                    : 'bg-slate-100 text-slate-600'
+                                    : 'bg-zinc-100 text-zinc-600'
                               }`}
                             >
                               {ev.status}
                             </span>
                           </div>
                           {ev.filePath && (
-                            <div className="text-[10px] font-mono text-indigo-600 pl-5">
+                            <div className="text-[10px] font-mono text-teal-700 pl-5">
                               {ev.filePath}
                             </div>
                           )}
                           {ev.detail && (
-                            <pre className="text-[10px] font-mono text-slate-600 bg-slate-50 border border-slate-100 rounded p-2 overflow-x-auto whitespace-pre-wrap">
+                            <pre className="text-[10px] font-mono text-zinc-600 bg-zinc-50 border border-zinc-100 rounded p-2 overflow-x-auto whitespace-pre-wrap">
                               {ev.detail}
                             </pre>
                           )}
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 pl-5">
+                          <div className="flex items-center justify-between text-[10px] text-zinc-400 pl-5">
                             <span>{ev.agentName}</span>
                             <span>{new Date(ev.createdAt).toLocaleTimeString()}</span>
                           </div>
@@ -1526,7 +1526,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    <div className="text-center py-8 text-xs text-zinc-400 bg-zinc-50 rounded-xl border border-dashed border-zinc-200">
                       Noch keine Execution-Traces vorhanden. Agenten senden Live-Schritte über MCP (`kanso_report_trace`) oder API.
                     </div>
                   )}
@@ -1536,17 +1536,17 @@ export const IssueDetailModal: React.FC<Props> = ({
           </div>
 
           {/* Sidebar Properties */}
-          <div className="w-80 p-6 bg-slate-50 space-y-4 text-xs overflow-y-auto shrink-0">
+          <div className="w-80 p-6 bg-zinc-50 space-y-4 text-xs overflow-y-auto shrink-0">
             {/* Status */}
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
                 Status
               </label>
               {canEdit ? (
                 <select
                   value={issue.status}
                   onChange={(e) => onUpdate(issue.id, { status: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-zinc-300 rounded-lg p-2 text-zinc-900 font-medium focus:outline-none focus:border-teal-600"
                 >
                   {columns.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -1555,7 +1555,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   ))}
                 </select>
               ) : (
-                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
+                <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800 font-medium">
                   {columns.find((c) => c.id === issue.status)?.title || issue.status}
                 </div>
               )}
@@ -1563,7 +1563,7 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Sprint Assignment */}
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
                 Sprint / Cycle
               </label>
               {canEdit ? (
@@ -1573,7 +1573,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                     const val = e.target.value;
                     onUpdate(issue.id, { sprintId: val ? val : null });
                   }}
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-zinc-300 rounded-lg p-2 text-zinc-900 font-medium focus:outline-none focus:border-teal-600"
                 >
                   <option value="">📁 Product Backlog (kein Sprint)</option>
                   {sprints.map((s) => (
@@ -1583,7 +1583,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   ))}
                 </select>
               ) : (
-                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800">
+                <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800">
                   {issue.sprint?.name || 'Product Backlog'}
                 </div>
               )}
@@ -1591,14 +1591,14 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Priority */}
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
                 Priority
               </label>
               {canEdit ? (
                 <select
                   value={issue.priority}
                   onChange={(e: any) => onUpdate(issue.id, { priority: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-zinc-300 rounded-lg p-2 text-zinc-900 font-medium focus:outline-none focus:border-teal-600"
                 >
                   <option value="URGENT">Urgent</option>
                   <option value="HIGH">High</option>
@@ -1606,7 +1606,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   <option value="LOW">Low</option>
                 </select>
               ) : (
-                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
+                <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800 font-medium">
                   {issue.priority}
                 </div>
               )}
@@ -1614,14 +1614,14 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Issue Type */}
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
                 Typ
               </label>
               {canEdit ? (
                 <select
                   value={issue.type || 'TASK'}
                   onChange={(e) => onUpdate(issue.id, { type: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
+                  className="w-full bg-white border border-zinc-300 rounded-lg p-2 text-zinc-900 font-medium focus:outline-none focus:border-teal-600"
                 >
                   <option value="TASK">Task</option>
                   <option value="BUG">Bug</option>
@@ -1630,7 +1630,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   <option value="EPIC">Epic</option>
                 </select>
               ) : (
-                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
+                <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800 font-medium">
                   {issue.type || 'TASK'}
                 </div>
               )}
@@ -1638,7 +1638,7 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Assignee Target */}
             <div className="relative">
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
                 Assignee
               </label>
               {canEdit ? (
@@ -1646,7 +1646,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => setAssigneeDropdownOpen(!assigneeDropdownOpen)}
-                    className="w-full bg-white border border-slate-300 hover:border-slate-400 rounded-xl px-3 py-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500 flex items-center justify-between text-xs transition cursor-pointer shadow-2xs"
+                    className="w-full bg-white border border-zinc-300 hover:border-zinc-400 rounded-xl px-3 py-2 text-zinc-900 font-medium focus:outline-none focus:border-teal-600 flex items-center justify-between text-xs transition cursor-pointer shadow-2xs"
                   >
                     {issue.assigneeType === 'AGENT' ? (
                       <div className="flex items-center gap-2 min-w-0">
@@ -1669,14 +1669,14 @@ export const IssueDetailModal: React.FC<Props> = ({
                               <img
                                 src={assignedUser.avatarUrl}
                                 alt={issue.assigneeName || ''}
-                                className="w-5 h-5 rounded-full object-cover border border-slate-200 shrink-0"
+                                className="w-5 h-5 rounded-full object-cover border border-zinc-200 shrink-0"
                               />
                             ) : (
-                              <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-[10px] shrink-0 border border-indigo-200">
+                              <div className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 font-bold flex items-center justify-center text-[10px] shrink-0 border border-teal-200">
                                 {(issue.assigneeName || 'U').charAt(0)}
                               </div>
                             )}
-                            <span className="font-semibold text-slate-800 truncate">
+                            <span className="font-semibold text-zinc-800 truncate">
                               {issue.assigneeName}
                             </span>
                             {assignedUser?.role && (
@@ -1685,8 +1685,8 @@ export const IssueDetailModal: React.FC<Props> = ({
                                   assignedUser.role === 'ADMIN'
                                     ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                     : assignedUser.role === 'MEMBER'
-                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                    ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                                    : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
                                 }`}
                               >
                                 {assignedUser.role}
@@ -1696,19 +1696,19 @@ export const IssueDetailModal: React.FC<Props> = ({
                         );
                       })()
                     ) : (
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                      <div className="flex items-center gap-2 text-zinc-400">
+                        <div className="w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-400 shrink-0">
                           <User className="w-3 h-3" />
                         </div>
-                        <span className="text-slate-500">Unassigned</span>
+                        <span className="text-zinc-500">Unassigned</span>
                       </div>
                     )}
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5" />
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0 ml-1.5" />
                   </button>
 
                   {/* Dropdown Popover */}
                   {assigneeDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-72 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-zinc-200 rounded-xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 max-h-72 overflow-y-auto">
                       {/* Unassigned Option */}
                       <button
                         type="button"
@@ -1722,23 +1722,23 @@ export const IssueDetailModal: React.FC<Props> = ({
                         }}
                         className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs transition cursor-pointer ${
                           issue.assigneeType === 'UNASSIGNED'
-                            ? 'bg-slate-100 text-slate-900 font-semibold'
-                            : 'hover:bg-slate-50 text-slate-600'
+                            ? 'bg-zinc-100 text-zinc-900 font-semibold'
+                            : 'hover:bg-zinc-50 text-zinc-600'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                          <div className="w-5 h-5 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-400">
                             <User className="w-3 h-3" />
                           </div>
                           <span>Unassigned</span>
                         </div>
-                        {issue.assigneeType === 'UNASSIGNED' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                        {issue.assigneeType === 'UNASSIGNED' && <Check className="w-3.5 h-3.5 text-teal-700" />}
                       </button>
 
-                      <div className="my-1.5 border-t border-slate-100" />
+                      <div className="my-1.5 border-t border-zinc-100" />
 
                       {/* Autonomous AI Agents */}
-                      <div className="text-[10px] font-semibold text-slate-400 px-2.5 py-1 uppercase tracking-wider flex items-center gap-1">
+                      <div className="text-[10px] font-semibold text-zinc-400 px-2.5 py-1 uppercase tracking-wider flex items-center gap-1">
                         <Sparkles className="w-3 h-3 text-emerald-600" />
                         <span>Autonomous AI Agents</span>
                       </div>
@@ -1761,7 +1761,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                           className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer text-left ${
                             issue.assigneeType === 'AGENT' && issue.assigneeName === agent.id
                               ? 'bg-emerald-50 text-emerald-900 font-semibold'
-                              : 'hover:bg-slate-50 text-slate-700'
+                              : 'hover:bg-zinc-50 text-zinc-700'
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
@@ -1770,7 +1770,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                             </div>
                             <div className="min-w-0">
                               <div className="font-mono text-[11px] truncate">{agent.id}</div>
-                              <div className="text-[10px] text-slate-400 truncate">{agent.desc}</div>
+                              <div className="text-[10px] text-zinc-400 truncate">{agent.desc}</div>
                             </div>
                           </div>
                           {issue.assigneeType === 'AGENT' && issue.assigneeName === agent.id && (
@@ -1779,10 +1779,10 @@ export const IssueDetailModal: React.FC<Props> = ({
                         </button>
                       ))}
 
-                      <div className="my-1.5 border-t border-slate-100" />
+                      <div className="my-1.5 border-t border-zinc-100" />
 
                       {/* Team Members */}
-                      <div className="text-[10px] font-semibold text-slate-400 px-2.5 py-1 uppercase tracking-wider">
+                      <div className="text-[10px] font-semibold text-zinc-400 px-2.5 py-1 uppercase tracking-wider">
                         Team Members ({users.length})
                       </div>
                       {users.map((u) => {
@@ -1802,12 +1802,12 @@ export const IssueDetailModal: React.FC<Props> = ({
                             }}
                             className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer ${
                               isSelected
-                                ? 'bg-indigo-50/80 text-indigo-900 font-semibold'
-                                : 'hover:bg-slate-50 text-slate-700'
+                                ? 'bg-teal-50/80 text-teal-950 font-semibold'
+                                : 'hover:bg-zinc-50 text-zinc-700'
                             }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-6 h-6 rounded-full bg-indigo-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] text-indigo-700">
+                              <div className="w-6 h-6 rounded-full bg-teal-100 border border-zinc-200 overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] text-teal-800">
                                 {u.avatarUrl ? (
                                   <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
                                 ) : (
@@ -1816,7 +1816,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                               </div>
                               <div className="text-left min-w-0">
                                 <div className="truncate font-medium">{u.name}</div>
-                                <div className="text-[10px] text-slate-400 font-mono truncate">
+                                <div className="text-[10px] text-zinc-400 font-mono truncate">
                                   {u.gitUsername ? `@${u.gitUsername}` : u.email}
                                 </div>
                               </div>
@@ -1827,13 +1827,13 @@ export const IssueDetailModal: React.FC<Props> = ({
                                   u.role === 'ADMIN'
                                     ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                     : u.role === 'MEMBER'
-                                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                    : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                    ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                                    : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
                                 }`}
                               >
                                 {u.role}
                               </span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-teal-700" />}
                             </div>
                           </button>
                         );
@@ -1842,7 +1842,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                   )}
                 </div>
               ) : (
-                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 flex items-center gap-2 text-xs">
+                <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800 flex items-center gap-2 text-xs">
                   {issue.assigneeName || 'Unassigned'}
                 </div>
               )}
@@ -1850,14 +1850,14 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Labels */}
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">
                 Labels
               </label>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {issue.labels?.map((label) => (
                   <span
                     key={label}
-                    className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 font-medium"
+                    className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-zinc-700 border border-zinc-200 font-medium"
                   >
                     #{label}
                   </span>
@@ -1867,8 +1867,8 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Target Files (moved from Readiness Header) */}
             <div>
-              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
-                <FileCode2 className="w-3 h-3 text-slate-400" />
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                <FileCode2 className="w-3 h-3 text-zinc-400" />
                 <span>Ziel-Dateien</span>
               </label>
               {canEdit ? (
@@ -1879,10 +1879,10 @@ export const IssueDetailModal: React.FC<Props> = ({
                   onBlur={handleSaveTargetFiles}
                   onKeyDown={(e) => e.key === 'Enter' && handleSaveTargetFiles()}
                   placeholder="z. B. src/auth.ts, App.tsx"
-                  className="w-full text-[11px] font-mono px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-500"
+                  className="w-full text-[11px] font-mono px-2.5 py-2 rounded-lg border border-zinc-300 bg-white focus:outline-none focus:border-teal-600"
                 />
               ) : (
-                <div className="text-[11px] font-mono text-slate-600">
+                <div className="text-[11px] font-mono text-zinc-600">
                   {targetFilesInput || 'Keine Ziel-Dateien angegeben'}
                 </div>
               )}
@@ -1890,7 +1890,7 @@ export const IssueDetailModal: React.FC<Props> = ({
 
             {/* Timestamps */}
             {(issue.createdAt || issue.updatedAt) && (
-              <div className="pt-3 border-t border-slate-200 space-y-1 text-[11px] text-slate-400">
+              <div className="pt-3 border-t border-zinc-200 space-y-1 text-[11px] text-zinc-400">
                 {issue.createdAt && (
                   <div className="flex justify-between">
                     <span>Erstellt</span>
@@ -1913,10 +1913,10 @@ export const IssueDetailModal: React.FC<Props> = ({
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Agent Execution</span>
                 </div>
-                <div className="text-slate-600">
-                  Agent: <span className="font-mono text-slate-900 font-medium">{issue.agentRuns[0].agentName}</span>
+                <div className="text-zinc-600">
+                  Agent: <span className="font-mono text-zinc-900 font-medium">{issue.agentRuns[0].agentName}</span>
                 </div>
-                <div className="text-slate-600">
+                <div className="text-zinc-600">
                   Status: <span className="font-semibold text-emerald-700">{issue.agentRuns[0].status}</span>
                 </div>
               </div>

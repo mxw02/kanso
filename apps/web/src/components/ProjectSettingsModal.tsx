@@ -315,26 +315,26 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   return (
     <div className="flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0">
       {/* Page Header */}
-      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60 shrink-0">
+      <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/60 shrink-0">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition"
           >
             <span>← Zurück zum Board</span>
           </button>
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+          <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700">
             <Settings className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-900">Projekteinstellungen</h2>
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
+              <h2 className="text-sm font-bold text-zinc-900">Projekteinstellungen</h2>
+              <span className="font-mono text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-800 font-semibold border border-teal-100">
                 {project.key}
               </span>
             </div>
-            <p className="text-xs text-slate-500">{project.name}</p>
+            <p className="text-xs text-zinc-500">{project.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -348,7 +348,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5"
+              className="px-4 py-1.5 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5"
             >
               {isSaving ? 'Speichern...' : 'Änderungen speichern'}
             </button>
@@ -359,17 +359,17 @@ export const ProjectSettingsModal: React.FC<Props> = ({
       {/* Body: Left Sidebar Tabs + Right Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Navigation Tabs */}
-          <aside className="w-64 border-r border-slate-200 bg-slate-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between">
+          <aside className="w-64 border-r border-zinc-200 bg-zinc-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between">
             <div className="space-y-1">
               <button
                 onClick={() => setActiveTab('general')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
                   activeTab === 'general'
-                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >
-                <Sliders className="w-4 h-4 text-slate-400" />
+                <Sliders className="w-4 h-4 text-zinc-400" />
                 <span>Allgemein</span>
               </button>
 
@@ -377,11 +377,11 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 onClick={() => setActiveTab('stages')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
                   activeTab === 'stages'
-                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >
-                <Layers className="w-4 h-4 text-slate-400" />
+                <Layers className="w-4 h-4 text-zinc-400" />
                 <span>Board Stages ({columns.length})</span>
               </button>
 
@@ -389,11 +389,11 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 onClick={() => setActiveTab('workflow')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
                   activeTab === 'workflow'
-                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >
-                <GitBranch className="w-4 h-4 text-slate-400" />
+                <GitBranch className="w-4 h-4 text-zinc-400" />
                 <span>Workflow & Regeln ({transitions.length})</span>
               </button>
 
@@ -401,11 +401,11 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 onClick={() => setActiveTab('agents')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
                   activeTab === 'agents'
-                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >
-                <Sparkles className="w-4 h-4 text-slate-400" />
+                <Sparkles className="w-4 h-4 text-zinc-400" />
                 <span>KI & Agenten</span>
               </button>
 
@@ -413,17 +413,17 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 onClick={() => setActiveTab('git')}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
                   activeTab === 'git'
-                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >
-                <FolderGit2 className="w-4 h-4 text-slate-400" />
+                <FolderGit2 className="w-4 h-4 text-zinc-400" />
                 <span>Git & Webhooks</span>
               </button>
             </div>
 
             {canAdmin && (
-              <div className="pt-2 border-t border-slate-200">
+              <div className="pt-2 border-t border-zinc-200">
                 <button
                   onClick={() => setActiveTab('danger')}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
@@ -452,15 +452,15 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             {activeTab === 'general' && (
               <div className="space-y-6 max-w-xl">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Projekt-Stammdaten</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-sm font-bold text-zinc-900">Projekt-Stammdaten</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Grundlegende Informationen und Kennung dieses Projekts im Workspace.
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
                       Projektname *
                     </label>
                     <input
@@ -469,13 +469,13 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       onChange={(e) => setName(e.target.value)}
                       disabled={!canEdit}
                       placeholder="z. B. Autonomous Core"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-900 disabled:bg-slate-50"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 text-zinc-900 disabled:bg-zinc-50"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
                         Projekt-Kürzel (Key) *
                       </label>
                       <input
@@ -485,25 +485,25 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                         onChange={(e) => setKey(e.target.value.toUpperCase())}
                         disabled={!canEdit}
                         placeholder="z. B. AUTO"
-                        className="w-full px-3 py-2 text-xs font-mono font-bold rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-900 disabled:bg-slate-50 uppercase"
+                        className="w-full px-3 py-2 text-xs font-mono font-bold rounded-lg border border-zinc-200 focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 text-zinc-900 disabled:bg-zinc-50 uppercase"
                       />
-                      <p className="text-[11px] text-slate-400 mt-1">
+                      <p className="text-[11px] text-zinc-400 mt-1">
                         Präfix für Ticket-Identifikatoren (z. B. <span className="font-mono">{key || 'AUTO'}-1</span>)
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
                         Workspace
                       </label>
-                      <div className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-600 font-medium">
+                      <div className="px-3 py-2 text-xs rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-600 font-medium">
                         {project.workspace?.name || 'Standard Workspace'}
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
                       Beschreibung
                     </label>
                     <textarea
@@ -512,20 +512,20 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       onChange={(e) => setDescription(e.target.value)}
                       disabled={!canEdit}
                       placeholder="Wozu dient dieses Projekt? Ziele und Rahmenbedingungen..."
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-900 disabled:bg-slate-50"
+                      className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-600 text-zinc-900 disabled:bg-zinc-50"
                     />
                   </div>
                 </div>
 
                 {/* Metadata Box */}
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs text-slate-600">
+                <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between text-xs text-zinc-600">
                   <div className="flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-slate-400" />
+                    <Hash className="w-4 h-4 text-zinc-400" />
                     <span>Tickets im Projekt:</span>
-                    <strong className="text-slate-900">{project._count?.issues ?? 0} Tickets</strong>
+                    <strong className="text-zinc-900">{project._count?.issues ?? 0} Tickets</strong>
                   </div>
                   {project.createdAt && (
-                    <div className="flex items-center gap-1.5 text-slate-400">
+                    <div className="flex items-center gap-1.5 text-zinc-400">
                       <Clock className="w-3.5 h-3.5" />
                       <span>Erstellt am {new Date(project.createdAt).toLocaleDateString('de-DE')}</span>
                     </div>
@@ -538,8 +538,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             {activeTab === 'stages' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Board Stages & Workflow</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-sm font-bold text-zinc-900">Board Stages & Workflow</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Passe die Spalten für das Kanban-Board und die Status-Pipeline dieses Projekts an.
                   </p>
                 </div>
@@ -547,13 +547,13 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 {/* Presets */}
                 {canEdit && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500 font-medium">Vorlage anwenden:</span>
+                    <span className="text-xs text-zinc-500 font-medium">Vorlage anwenden:</span>
                     <div className="flex flex-wrap gap-1.5">
                       {PRESET_WORKFLOWS.map((p) => (
                         <button
                           key={p.name}
                           onClick={() => handleApplyPreset(p.columns)}
-                          className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 transition"
+                          className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-zinc-100 hover:bg-teal-50 text-zinc-700 hover:text-teal-800 border border-zinc-200 hover:border-teal-200 transition"
                         >
                           {p.name}
                         </button>
@@ -567,9 +567,9 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                   {columns.map((col, index) => (
                     <div
                       key={col.id || index}
-                      className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition group"
+                      className="flex items-center gap-2.5 p-2.5 rounded-xl border border-zinc-200 bg-white hover:border-zinc-300 transition group"
                     >
-                      <span className="text-xs font-mono font-semibold text-slate-400 w-6 text-center">
+                      <span className="text-xs font-mono font-semibold text-zinc-400 w-6 text-center">
                         {index + 1}
                       </span>
 
@@ -579,9 +579,9 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                           value={col.title}
                           onChange={(e) => handleUpdateStageTitle(index, e.target.value)}
                           disabled={!canEdit}
-                          className="flex-1 px-2.5 py-1 text-xs font-semibold text-slate-800 rounded border border-transparent hover:border-slate-200 focus:border-indigo-500 focus:bg-white focus:outline-none transition"
+                          className="flex-1 px-2.5 py-1 text-xs font-semibold text-zinc-800 rounded border border-transparent hover:border-zinc-200 focus:border-teal-600 focus:bg-white focus:outline-none transition"
                         />
-                        <span className="font-mono text-[10px] text-slate-400 uppercase px-1.5 py-0.5 bg-slate-50 rounded border border-slate-100">
+                        <span className="font-mono text-[10px] text-zinc-400 uppercase px-1.5 py-0.5 bg-zinc-50 rounded border border-zinc-100">
                           {col.id}
                         </span>
                       </div>
@@ -592,7 +592,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                             onClick={() => handleMoveStage(index, 'up')}
                             disabled={index === 0}
                             title="Nach oben verschieben"
-                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none"
+                            className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:pointer-events-none"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
                           </button>
@@ -600,14 +600,14 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                             onClick={() => handleMoveStage(index, 'down')}
                             disabled={index === columns.length - 1}
                             title="Nach unten verschieben"
-                            className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:pointer-events-none"
+                            className="p-1 rounded text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 disabled:opacity-30 disabled:pointer-events-none"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleRemoveStage(index)}
                             title="Stage löschen"
-                            className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                            className="p-1 rounded text-zinc-400 hover:text-red-600 hover:bg-red-50 transition"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -631,12 +631,12 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                           handleAddStage();
                         }
                       }}
-                      className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-900"
+                      className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:border-teal-600 text-zinc-900"
                     />
                     <button
                       onClick={handleAddStage}
                       disabled={!newStageTitle.trim()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold disabled:opacity-40 transition"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-semibold disabled:opacity-40 transition"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Stage hinzufügen</span>
@@ -741,8 +741,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                   {/* Header + Presets */}
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-bold text-slate-900">Workflow & Stage-Regeln</h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <h3 className="text-sm font-bold text-zinc-900">Workflow & Stage-Regeln</h3>
+                      <p className="text-xs text-zinc-500 mt-0.5">
                         Klicke eine Stage an und definiere, wann ein Ticket dort hinein darf.
                       </p>
                     </div>
@@ -771,7 +771,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                           setTransitions(generated);
                           setEnforceStrictTransitions(true);
                         }}
-                        className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-semibold hover:bg-indigo-100"
+                        className="px-2.5 py-1.5 rounded-lg bg-teal-50 text-teal-800 border border-teal-200 text-[11px] font-semibold hover:bg-teal-100"
                       >
                         Agent-First Preset
                       </button>
@@ -782,7 +782,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                             setTransitions([]);
                             setEnforceStrictTransitions(false);
                           }}
-                          className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 text-[11px] font-medium hover:bg-slate-50"
+                          className="px-2.5 py-1.5 rounded-lg bg-white text-zinc-600 border border-zinc-200 text-[11px] font-medium hover:bg-zinc-50"
                         >
                           Zurücksetzen
                         </button>
@@ -797,12 +797,12 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       onClick={() => setEnforceStrictTransitions(false)}
                       className={`p-3 rounded-xl border text-left transition ${
                         !enforceStrictTransitions
-                          ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                          ? 'border-teal-300 bg-teal-50/50 ring-1 ring-teal-200'
+                          : 'border-zinc-200 bg-white hover:bg-zinc-50'
                       }`}
                     >
-                      <div className="text-xs font-semibold text-slate-900">Flexibel mit Quality-Gates</div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="text-xs font-semibold text-zinc-900">Flexibel mit Quality-Gates</div>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">
                         Jede Stage ist erreichbar, aber definierte Eingangs-Regeln werden erzwungen.
                       </p>
                     </button>
@@ -811,12 +811,12 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       onClick={() => setEnforceStrictTransitions(true)}
                       className={`p-3 rounded-xl border text-left transition ${
                         enforceStrictTransitions
-                          ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                          ? 'border-teal-300 bg-teal-50/50 ring-1 ring-teal-200'
+                          : 'border-zinc-200 bg-white hover:bg-zinc-50'
                       }`}
                     >
-                      <div className="text-xs font-semibold text-slate-900">Strikte Pipeline</div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="text-xs font-semibold text-zinc-900">Strikte Pipeline</div>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">
                         Tickets dürfen nur über explizit erlaubte Vorgänger-Stages wandern.
                       </p>
                     </button>
@@ -824,7 +824,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                   {/* Visual Pipeline Selector */}
                   <div className="space-y-2">
-                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
                       1. Stage auswählen
                     </span>
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -839,14 +839,14 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                               onClick={() => setSelectedWorkflowStageId(col.id)}
                               className={`px-3 py-2 rounded-xl border text-left shrink-0 transition min-w-[115px] ${
                                 isSelected
-                                  ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
-                                  : 'border-slate-200 bg-white text-slate-800 hover:border-indigo-300'
+                                  ? 'border-teal-600 bg-teal-700 text-white shadow-sm'
+                                  : 'border-zinc-200 bg-white text-zinc-800 hover:border-teal-300'
                               }`}
                             >
                               <div className="text-xs font-semibold truncate">{col.title}</div>
                               <div
                                 className={`text-[10px] mt-0.5 ${
-                                  isSelected ? 'text-indigo-100' : 'text-slate-400'
+                                  isSelected ? 'text-teal-100' : 'text-zinc-400'
                                 }`}
                               >
                                 {rulesForCol.length === 0
@@ -859,7 +859,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                               </div>
                             </button>
                             {idx < columns.length - 1 && (
-                              <span className="text-slate-300 text-xs font-bold shrink-0">→</span>
+                              <span className="text-zinc-300 text-xs font-bold shrink-0">→</span>
                             )}
                           </React.Fragment>
                         );
@@ -869,13 +869,13 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                   {/* Selected Stage Inspector */}
                   {activeStage && (
-                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4">
+                    <div className="p-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 space-y-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="text-xs font-bold text-slate-900">
+                          <h4 className="text-xs font-bold text-zinc-900">
                             Regeln für Eingang in „{activeStage.title}“
                           </h4>
-                          <p className="text-[11px] text-slate-500">
+                          <p className="text-[11px] text-zinc-500">
                             Gilt für Drag & Drop, Status-Menü und MCP-Agenten.
                           </p>
                         </div>
@@ -892,7 +892,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                       {/* Source Stages */}
                       <div className="space-y-1.5">
-                        <label className="block text-[11px] font-semibold text-slate-700">
+                        <label className="block text-[11px] font-semibold text-zinc-700">
                           Erlaubt aus Stage(s):
                         </label>
                         <div className="flex flex-wrap gap-1.5">
@@ -901,8 +901,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                             onClick={() => toggleSourceStage('*')}
                             className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition ${
                               isAnySource || stageRules.length === 0
-                                ? 'bg-slate-900 text-white border-slate-900'
-                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                                ? 'bg-zinc-900 text-white border-zinc-900'
+                                : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300'
                             }`}
                           >
                             Überall (*)
@@ -918,8 +918,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                                   onClick={() => toggleSourceStage(c.id)}
                                   className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition ${
                                     active
-                                      ? 'bg-indigo-600 text-white border-indigo-600'
-                                      : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                                      ? 'bg-teal-700 text-white border-teal-700'
+                                      : 'bg-white text-zinc-600 border-zinc-200 hover:border-teal-300'
                                   }`}
                                 >
                                   {c.title}
@@ -931,7 +931,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                       {/* Entry Gate Toggles */}
                       <div className="space-y-1.5">
-                        <label className="block text-[11px] font-semibold text-slate-700">
+                        <label className="block text-[11px] font-semibold text-zinc-700">
                           Erforderliche Checks (Entry Gates):
                         </label>
                         <div className="flex flex-wrap gap-2">
@@ -951,7 +951,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                                 className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition ${
                                   active
                                     ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                    : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
                                 }`}
                               >
                                 <Check className={`w-3 h-3 ${active ? 'opacity-100 text-emerald-600' : 'opacity-25'}`} />
@@ -965,7 +965,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       {/* Readiness, Actor, Types */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                         <div className="space-y-1.5">
-                          <label className="block text-[11px] font-semibold text-slate-700">
+                          <label className="block text-[11px] font-semibold text-zinc-700">
                             Mindest-Readiness Score:
                           </label>
                           <div className="flex gap-1.5">
@@ -983,8 +983,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                                   onClick={() => updateStageCondition({ minReadinessScore: opt.val })}
                                   className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition ${
                                     active
-                                      ? 'bg-indigo-600 text-white border-indigo-600'
-                                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                      ? 'bg-teal-700 text-white border-teal-700'
+                                      : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
                                   }`}
                                 >
                                   {opt.label}
@@ -995,7 +995,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                         </div>
 
                         <div className="space-y-1.5">
-                          <label className="block text-[11px] font-semibold text-slate-700">
+                          <label className="block text-[11px] font-semibold text-zinc-700">
                             Wer darf verschieben?
                           </label>
                           <div className="flex gap-1.5">
@@ -1014,8 +1014,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                                   onClick={() => updateStageCondition({ allowedActors: opt.val })}
                                   className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition ${
                                     active
-                                      ? 'bg-indigo-600 text-white border-indigo-600'
-                                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                      ? 'bg-teal-700 text-white border-teal-700'
+                                      : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
                                   }`}
                                 >
                                   {opt.label}
@@ -1028,7 +1028,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                       {/* Ticket Types */}
                       <div className="space-y-1.5">
-                        <label className="block text-[11px] font-semibold text-slate-700">
+                        <label className="block text-[11px] font-semibold text-zinc-700">
                           Gilt für Ticket-Typen:
                         </label>
                         <div className="flex flex-wrap gap-1.5">
@@ -1047,8 +1047,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                                 }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
                                   active
-                                    ? 'bg-slate-900 text-white border-slate-900'
-                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                    ? 'bg-zinc-900 text-white border-zinc-900'
+                                    : 'bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300'
                                 }`}
                               >
                                 {t}
@@ -1056,7 +1056,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                             );
                           })}
                           {(!primaryCond.allowedTypes || primaryCond.allowedTypes.length === 0) && (
-                            <span className="text-[10px] text-slate-400 self-center ml-1">
+                            <span className="text-[10px] text-zinc-400 self-center ml-1">
                               (Alle Typen erlaubt)
                             </span>
                           )}
@@ -1064,8 +1064,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       </div>
 
                       {/* Plain-language live summary */}
-                      <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 text-[11px] text-slate-600">
-                        <span className="font-semibold text-slate-800">Zusammenfassung: </span>
+                      <div className="p-2.5 rounded-xl bg-white border border-zinc-200/80 text-[11px] text-zinc-600">
+                        <span className="font-semibold text-zinc-800">Zusammenfassung: </span>
                         {stageRules.length === 0 && enforceStrictTransitions ? (
                           <span className="text-rose-600">
                             Im strikten Modus ist der Eingang in „{activeStage.title}“ aktuell gesperrt (wähle mindestens eine Quell-Stage).
@@ -1088,7 +1088,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                                   .map((id) => columns.find((c) => c.id === id)?.title || id)
                                   .join(', ')}) `
                               : ''}
-                            erfordert: <strong className="text-slate-800">{summaryParts.join(' · ')}</strong>.
+                            erfordert: <strong className="text-zinc-800">{summaryParts.join(' · ')}</strong>.
                           </span>
                         )}
                       </div>
@@ -1101,24 +1101,24 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             {activeTab === 'agents' && (
               <div className="space-y-6 max-w-xl">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Autonome KI-Agenten & MCP</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-sm font-bold text-zinc-900">Autonome KI-Agenten & MCP</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Konfiguriere, welche Agenten auf dieses Projekt zugreifen und Tasks bearbeiten dürfen.
                   </p>
                 </div>
 
                 {/* Auto-Triage Switch */}
-                <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex items-start justify-between gap-4">
+                <div className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/50 flex items-start justify-between gap-4">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-900">Autonome Ticket-Triage & Klassifikation</h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <h4 className="text-xs font-bold text-zinc-900">Autonome Ticket-Triage & Klassifikation</h4>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
                       Neu angelegte Tickets werden automatisch vom Triage-Agenten analysiert, mit Tags versehen und in die passende Stage eingeordnet.
                     </p>
                   </div>
                   <button
                     onClick={() => setAutoTriage(!autoTriage)}
                     className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      autoTriage ? 'bg-indigo-600' : 'bg-slate-300'
+                      autoTriage ? 'bg-teal-700' : 'bg-zinc-300'
                     }`}
                   >
                     <span
@@ -1130,12 +1130,12 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 </div>
 
                 {/* Stage-based Multi-Agent Pipeline (2.1) */}
-                <div className="space-y-3 pt-2 border-t border-slate-200">
+                <div className="space-y-3 pt-2 border-t border-zinc-200">
                   <div>
-                    <h4 className="text-xs font-bold text-slate-900">
+                    <h4 className="text-xs font-bold text-zinc-900">
                       Stage-basierte Multi-Agent-Pipeline (Auto-Handoff)
                     </h4>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
                       Weise jeder Board-Spalte einen spezialisierten Agenten zu. Beim Verschieben eines Tickets übernimmt dieser Agent automatisch.
                     </p>
                   </div>
@@ -1145,11 +1145,11 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       return (
                         <div
                           key={col.id}
-                          className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3"
+                          className="p-2.5 rounded-xl border border-zinc-200 bg-white flex items-center justify-between gap-3"
                         >
                           <div className="min-w-[110px]">
-                            <span className="text-xs font-semibold text-slate-800">{col.title}</span>
-                            <span className="block text-[10px] font-mono text-slate-400">{col.id}</span>
+                            <span className="text-xs font-semibold text-zinc-800">{col.title}</span>
+                            <span className="block text-[10px] font-mono text-zinc-400">{col.id}</span>
                           </div>
                           <select
                             value={cfg.agentName}
@@ -1160,7 +1160,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                                 [col.id]: { agentName: val, autoAssign: Boolean(val) },
                               }));
                             }}
-                            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-indigo-400"
+                            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-800 focus:outline-none focus:border-teal-500"
                           >
                             <option value="">Kein Auto-Handoff</option>
                             <option value="agent-triage-v1">🤖 Triage Agent (agent-triage-v1)</option>
@@ -1176,7 +1176,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                 {/* Allowed Agents */}
                 <div className="space-y-3">
-                  <label className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-zinc-700">
                     Aktive Agenten im Projekt
                   </label>
 
@@ -1205,29 +1205,29 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                           onClick={() => toggleAgent(agent.id)}
                           className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between ${
                             active
-                              ? 'border-indigo-200 bg-indigo-50/40'
-                              : 'border-slate-200 bg-white hover:bg-slate-50'
+                              ? 'border-teal-200 bg-teal-50/40'
+                              : 'border-zinc-200 bg-white hover:bg-zinc-50'
                           }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
                               className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
-                                active ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'
+                                active ? 'bg-teal-700 text-white' : 'bg-zinc-100 text-zinc-400'
                               }`}
                             >
                               <Bot className="w-4 h-4" />
                             </div>
                             <div>
-                              <div className="text-xs font-bold text-slate-800">{agent.name}</div>
-                              <div className="text-[11px] text-slate-500">{agent.desc}</div>
+                              <div className="text-xs font-bold text-zinc-800">{agent.name}</div>
+                              <div className="text-[11px] text-zinc-500">{agent.desc}</div>
                             </div>
                           </div>
 
                           <div
                             className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
                               active
-                                ? 'bg-indigo-600 border-indigo-600 text-white'
-                                : 'border-slate-300 bg-white'
+                                ? 'bg-teal-700 border-teal-700 text-white'
+                                : 'border-zinc-300 bg-white'
                             }`}
                           >
                             {active && <Check className="w-3 h-3" />}
@@ -1240,7 +1240,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                 {/* Context Directives */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
                     Projektkontext & MCP Direktiven für Agenten
                   </label>
                   <textarea
@@ -1248,9 +1248,9 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                     value={agentInstructions}
                     onChange={(e) => setAgentInstructions(e.target.value)}
                     placeholder="Spezifische Richtlinien für Agenten in diesem Projekt..."
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-900"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-200 focus:outline-none focus:border-teal-600 text-zinc-900"
                   />
-                  <p className="text-[11px] text-slate-400 mt-1">
+                  <p className="text-[11px] text-zinc-400 mt-1">
                     Diese Direktiven werden bei jedem Agenten-Prompt über das Kanso MCP Toolset injiziert.
                   </p>
                 </div>
@@ -1261,8 +1261,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             {activeTab === 'git' && (
               <div className="space-y-6 max-w-xl">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Git-Repository & Webhooks</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <h3 className="text-sm font-bold text-zinc-900">Git-Repository & Webhooks</h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Verbinde dieses Board mit einem Git-Repository für automatische Commit- und Pull-Request-Verknüpfung.
                   </p>
                 </div>
@@ -1270,18 +1270,18 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 <div className="space-y-4">
                   {/* Provider Selection */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">Git Provider</label>
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Git Provider</label>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setGitProvider('GITHUB')}
                         className={`flex-1 py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
                           gitProvider === 'GITHUB'
-                            ? 'bg-indigo-50/60 border-indigo-500 text-indigo-700 shadow-2xs'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                            ? 'bg-teal-50/60 border-teal-600 text-teal-800 shadow-2xs'
+                            : 'bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300'
                         }`}
                       >
-                        <FolderGit2 className="w-4 h-4 text-slate-700" />
+                        <FolderGit2 className="w-4 h-4 text-zinc-700" />
                         <span>GitHub</span>
                       </button>
                       <button
@@ -1289,8 +1289,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                         onClick={() => setGitProvider('GITLAB')}
                         className={`flex-1 py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-2 transition ${
                           gitProvider === 'GITLAB'
-                            ? 'bg-indigo-50/60 border-indigo-500 text-indigo-700 shadow-2xs'
-                            : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                            ? 'bg-teal-50/60 border-teal-600 text-teal-800 shadow-2xs'
+                            : 'bg-white border-zinc-200 text-zinc-600 hover:border-zinc-300'
                         }`}
                       >
                         <FolderGit2 className="w-4 h-4 text-orange-500" />
@@ -1301,7 +1301,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
                   {/* Repository Input */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
                       Repository (owner/repo)
                     </label>
                     <input
@@ -1309,34 +1309,34 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       placeholder="z. B. mxw02/kanso"
                       value={gitRepo}
                       onChange={(e) => setGitRepo(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-900"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-zinc-200 focus:outline-none focus:border-teal-600 text-zinc-900"
                     />
-                    <p className="text-[11px] text-slate-400 mt-1">
+                    <p className="text-[11px] text-zinc-400 mt-1">
                       Wird verwendet, um Commits, Branches und Pull Requests diesem Board zuzuordnen.
                     </p>
                   </div>
 
                   {/* Default Branch */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
                       Default Branch
                     </label>
                     <div className="flex items-center gap-2">
-                      <GitBranch className="w-4 h-4 text-slate-400 shrink-0" />
+                      <GitBranch className="w-4 h-4 text-zinc-400 shrink-0" />
                       <input
                         type="text"
                         placeholder="main"
                         value={gitBranch}
                         onChange={(e) => setGitBranch(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-500 text-slate-900"
+                        className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-zinc-200 focus:outline-none focus:border-teal-600 text-zinc-900"
                       />
                     </div>
                   </div>
 
                   {/* Webhook Configuration Box */}
-                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-3">
+                  <div className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/60 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-800">Kanso Webhook URL</span>
+                      <span className="text-xs font-semibold text-zinc-800">Kanso Webhook URL</span>
                       <button
                         type="button"
                         onClick={() => {
@@ -1345,21 +1345,21 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                           setCopiedWebhook(true);
                           setTimeout(() => setCopiedWebhook(false), 2000);
                         }}
-                        className="flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-medium transition"
+                        className="flex items-center gap-1 text-[11px] text-teal-700 hover:text-teal-900 font-medium transition"
                       >
                         {copiedWebhook ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                         <span>{copiedWebhook ? 'Kopiert!' : 'Kopieren'}</span>
                       </button>
                     </div>
 
-                    <div className="p-2 rounded bg-white border border-slate-200 font-mono text-[11px] text-slate-700 select-all break-all">
+                    <div className="p-2 rounded bg-white border border-zinc-200 font-mono text-[11px] text-zinc-700 select-all break-all">
                       http://localhost:4001/api/webhooks/git
                     </div>
 
-                    <div className="space-y-1.5 text-[11px] text-slate-500">
-                      <p className="font-semibold text-slate-700">Auto-Close Funktion:</p>
+                    <div className="space-y-1.5 text-[11px] text-zinc-500">
+                      <p className="font-semibold text-zinc-700">Auto-Close Funktion:</p>
                       <p>
-                        Schreibe in deine Git Commit-Message z. B. <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-indigo-600">Fixes #{key || 'KAN'}-42</code> oder <code className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-mono text-indigo-600">Resolves #{key || 'KAN'}-42</code>.
+                        Schreibe in deine Git Commit-Message z. B. <code className="bg-white px-1.5 py-0.5 rounded border border-zinc-200 font-mono text-teal-700">Fixes #{key || 'KAN'}-42</code> oder <code className="bg-white px-1.5 py-0.5 rounded border border-zinc-200 font-mono text-teal-700">Resolves #{key || 'KAN'}-42</code>.
                       </p>
                       <p>
                         Kanso schließt das Ticket beim Push oder PR-Merge vollautomatisch und registriert die Commit-SHA im Aktivitätslog.
@@ -1378,19 +1378,19 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                     <AlertTriangle className="w-4 h-4" />
                     <span>Gefahrenzone: Projekt löschen</span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Das Löschen eines Projekts entfernt unwiderruflich alle zugehörigen Tickets, Kommentare und Logs.
                   </p>
                 </div>
 
                 <div className="p-4 rounded-xl border border-red-200 bg-red-50/40 space-y-4">
-                  <div className="text-xs text-slate-700">
-                    Bist du sicher, dass du das Projekt <strong className="text-slate-900">{project.name}</strong> (
+                  <div className="text-xs text-zinc-700">
+                    Bist du sicher, dass du das Projekt <strong className="text-zinc-900">{project.name}</strong> (
                     <span className="font-mono font-bold text-red-600">{project.key}</span>) löschen möchtest?
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
+                    <label className="block text-[11px] font-semibold text-zinc-600 mb-1.5">
                       Tippe zur Bestätigung <span className="font-mono font-bold text-red-600">{project.key}</span> ein:
                     </label>
                     <input

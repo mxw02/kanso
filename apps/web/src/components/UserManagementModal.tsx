@@ -195,43 +195,43 @@ export const UserManagementModal: React.FC<Props> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-zinc-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 shadow-2xs">
               <Users className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-800">Nutzerverwaltung</h2>
-                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-200/70 text-slate-700">
+                <h2 className="text-base font-bold text-zinc-800">Nutzerverwaltung</h2>
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-zinc-200/70 text-zinc-700">
                   {users.length} {users.length === 1 ? 'Mitglied' : 'Mitglieder'}
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-zinc-500">
                 Team-Mitglieder, Rollenberechtigungen und autorisierte Git-Identitäten
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition cursor-pointer"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="px-6 border-b border-slate-100 flex items-center gap-6 bg-white text-xs font-medium text-slate-500">
+        <div className="px-6 border-b border-zinc-100 flex items-center gap-6 bg-white text-xs font-medium text-zinc-500">
           <button
             type="button"
             onClick={() => setActiveTab('members')}
             className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'members'
-                ? 'border-indigo-600 text-indigo-600 font-semibold'
-                : 'border-transparent hover:text-slate-800'
+                ? 'border-teal-700 text-teal-700 font-semibold'
+                : 'border-transparent hover:text-zinc-800'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -243,8 +243,8 @@ export const UserManagementModal: React.FC<Props> = ({
               onClick={() => setActiveTab('invite')}
               className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
                 activeTab === 'invite'
-                  ? 'border-indigo-600 text-indigo-600 font-semibold'
-                  : 'border-transparent hover:text-slate-800'
+                  ? 'border-teal-700 text-teal-700 font-semibold'
+                  : 'border-transparent hover:text-zinc-800'
               }`}
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -256,8 +256,8 @@ export const UserManagementModal: React.FC<Props> = ({
             onClick={() => setActiveTab('permissions')}
             className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'permissions'
-                ? 'border-indigo-600 text-indigo-600 font-semibold'
-                : 'border-transparent hover:text-slate-800'
+                ? 'border-teal-700 text-teal-700 font-semibold'
+                : 'border-transparent hover:text-zinc-800'
             }`}
           >
             <Shield className="w-3.5 h-3.5" />
@@ -286,16 +286,16 @@ export const UserManagementModal: React.FC<Props> = ({
               {/* Search & Filter Bar */}
               <div className="flex flex-col sm:flex-row items-center gap-3">
                 <div className="relative flex-1 w-full">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-2.5" />
                   <input
                     type="text"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Mitglieder nach Name, E-Mail oder Git-Handle suchen..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+                    className="w-full pl-9 pr-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-800 placeholder-zinc-400 focus:outline-none focus:border-teal-600 focus:bg-white transition"
                   />
                 </div>
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-stretch sm:self-auto">
+                <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl self-stretch sm:self-auto">
                   {(['ALL', 'ADMIN', 'MEMBER', 'VIEWER'] as const).map((r) => (
                     <button
                       key={r}
@@ -303,8 +303,8 @@ export const UserManagementModal: React.FC<Props> = ({
                       onClick={() => setRoleFilter(r)}
                       className={`px-2.5 py-1 text-[11px] rounded-lg font-medium transition cursor-pointer ${
                         roleFilter === r
-                          ? 'bg-white text-slate-800 shadow-2xs font-semibold'
-                          : 'text-slate-600 hover:text-slate-800'
+                          ? 'bg-white text-zinc-800 shadow-2xs font-semibold'
+                          : 'text-zinc-600 hover:text-zinc-800'
                       }`}
                     >
                       {r === 'ALL' ? 'Alle' : r}
@@ -314,9 +314,9 @@ export const UserManagementModal: React.FC<Props> = ({
               </div>
 
               {/* Members Table */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+              <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-2xs">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold text-[11px]">
+                  <thead className="bg-zinc-50 border-b border-zinc-200 text-zinc-500 font-semibold text-[11px]">
                     <tr>
                       <th className="py-2.5 px-4">Nutzer</th>
                       <th className="py-2.5 px-4">Git-Identität</th>
@@ -324,10 +324,10 @@ export const UserManagementModal: React.FC<Props> = ({
                       <th className="py-2.5 px-4 text-right">Aktionen</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-zinc-100">
                     {filteredUsers.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-8 text-center text-slate-400">
+                        <td colSpan={4} className="py-8 text-center text-zinc-400">
                           Keine Mitglieder gefunden.
                         </td>
                       </tr>
@@ -335,10 +335,10 @@ export const UserManagementModal: React.FC<Props> = ({
                       filteredUsers.map((u) => {
                         const isSelf = u.id === currentUser.id;
                         return (
-                          <tr key={u.id} className="hover:bg-slate-50/70 transition">
+                          <tr key={u.id} className="hover:bg-zinc-50/70 transition">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs overflow-hidden shrink-0 border border-slate-200">
+                                <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs overflow-hidden shrink-0 border border-zinc-200">
                                   {u.avatarUrl ? (
                                     <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
                                   ) : (
@@ -346,15 +346,15 @@ export const UserManagementModal: React.FC<Props> = ({
                                   )}
                                 </div>
                                 <div>
-                                  <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                  <div className="font-semibold text-zinc-800 flex items-center gap-1.5">
                                     <span>{u.name}</span>
                                     {isSelf && (
-                                      <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-normal">
+                                      <span className="text-[10px] bg-zinc-100 text-zinc-600 px-1.5 py-0.2 rounded font-normal">
                                         Du
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-[11px] text-slate-500 font-mono">{u.email}</div>
+                                  <div className="text-[11px] text-zinc-500 font-mono">{u.email}</div>
                                 </div>
                               </div>
                             </td>
@@ -368,18 +368,18 @@ export const UserManagementModal: React.FC<Props> = ({
                                   }
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] font-mono group transition"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-700 text-[11px] font-mono group transition"
                                 >
                                   {u.gitProvider === 'gitlab' ? (
                                     <span className="w-2 h-2 rounded-full bg-orange-500" />
                                   ) : (
-                                    <span className="w-2 h-2 rounded-full bg-slate-800" />
+                                    <span className="w-2 h-2 rounded-full bg-zinc-800" />
                                   )}
                                   <span>@{u.gitUsername}</span>
-                                  <ExternalLink className="w-3 h-3 text-slate-400 group-hover:text-slate-700 transition" />
+                                  <ExternalLink className="w-3 h-3 text-zinc-400 group-hover:text-zinc-700 transition" />
                                 </a>
                               ) : (
-                                <span className="text-[11px] text-slate-400 italic">Nicht verknüpft</span>
+                                <span className="text-[11px] text-zinc-400 italic">Nicht verknüpft</span>
                               )}
                             </td>
                             <td className="py-3 px-4">
@@ -391,8 +391,8 @@ export const UserManagementModal: React.FC<Props> = ({
                                     u.role === 'ADMIN'
                                       ? 'bg-rose-50 text-rose-700 border-rose-200'
                                       : u.role === 'MEMBER'
-                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                      : 'bg-slate-100 text-slate-700 border-slate-200'
+                                      ? 'bg-teal-50 text-teal-800 border-teal-200'
+                                      : 'bg-zinc-100 text-zinc-700 border-zinc-200'
                                   }`}
                                 >
                                   <option value="ADMIN">ADMIN</option>
@@ -405,8 +405,8 @@ export const UserManagementModal: React.FC<Props> = ({
                                     u.role === 'ADMIN'
                                       ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                       : u.role === 'MEMBER'
-                                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                      : 'bg-slate-100 text-slate-700 border border-slate-200'
+                                      ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                                      : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
                                   }`}
                                 >
                                   {u.role}
@@ -418,7 +418,7 @@ export const UserManagementModal: React.FC<Props> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteUser(u.id, u.name)}
-                                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                                   title="Nutzer entfernen"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -437,8 +437,8 @@ export const UserManagementModal: React.FC<Props> = ({
 
           {activeTab === 'invite' && (
             <form onSubmit={handleInviteSubmit} className="space-y-4 max-w-lg mx-auto">
-              <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-4 text-xs text-indigo-900 leading-relaxed flex items-start gap-3">
-                <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <div className="bg-teal-50/70 border border-teal-100 rounded-xl p-4 text-xs text-teal-950 leading-relaxed flex items-start gap-3">
+                <Sparkles className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-semibold block mb-0.5">Automatische Autorisierung</span>
                   Hinterlege hier die Git-Identität eines neuen Mitarbeiters. Sobald sich dieser über GitHub oder GitLab anmeldet, wird sein Profil direkt autorisiert und mit den festgelegten Rechten ausgestattet.
@@ -446,7 +446,7 @@ export const UserManagementModal: React.FC<Props> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
                   Vollständiger Name *
                 </label>
                 <input
@@ -455,12 +455,12 @@ export const UserManagementModal: React.FC<Props> = ({
                   value={inviteName}
                   onChange={(e) => setInviteName(e.target.value)}
                   placeholder="z. B. Max Mustermann"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-xl text-xs text-zinc-800 focus:outline-none focus:border-teal-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
                   E-Mail-Adresse *
                 </label>
                 <input
@@ -469,19 +469,19 @@ export const UserManagementModal: React.FC<Props> = ({
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder="max@company.com"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-mono"
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-xl text-xs text-zinc-800 focus:outline-none focus:border-teal-600 font-mono"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
                     Git-Provider
                   </label>
                   <select
                     value={inviteProvider}
                     onChange={(e) => setInviteProvider(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    className="w-full px-3 py-2 border border-zinc-300 rounded-xl text-xs text-zinc-800 focus:outline-none focus:border-teal-600 cursor-pointer"
                   >
                     <option value="github">GitHub</option>
                     <option value="gitlab">GitLab</option>
@@ -489,30 +489,30 @@ export const UserManagementModal: React.FC<Props> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
                     Git-Username / Handle
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-xs text-slate-400 font-mono">@</span>
+                    <span className="absolute left-3 top-2 text-xs text-zinc-400 font-mono">@</span>
                     <input
                       type="text"
                       value={inviteUsername}
                       onChange={(e) => setInviteUsername(e.target.value)}
                       placeholder="username"
-                      className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-mono"
+                      className="w-full pl-7 pr-3 py-2 border border-zinc-300 rounded-xl text-xs text-zinc-800 focus:outline-none focus:border-teal-600 font-mono"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-xs font-semibold text-zinc-700 mb-1">
                   Rolle & Berechtigung *
                 </label>
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium"
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-xl text-xs text-zinc-800 focus:outline-none focus:border-teal-600 cursor-pointer font-medium"
                 >
                   <option value="MEMBER">MEMBER — Volle Mitarbeit an Issues & Sprints</option>
                   <option value="ADMIN">ADMIN — Volle Administration & Nutzerverwaltung</option>
@@ -524,14 +524,14 @@ export const UserManagementModal: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('members')}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  className="px-4 py-2 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50 cursor-pointer"
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
                   disabled={inviting || !inviteName.trim() || !inviteEmail.trim()}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition cursor-pointer shadow-sm disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold transition cursor-pointer shadow-sm disabled:opacity-50"
                 >
                   {inviting ? 'Wird autorisiert...' : 'Nutzer autorisieren'}
                 </button>
@@ -541,7 +541,7 @@ export const UserManagementModal: React.FC<Props> = ({
 
           {activeTab === 'permissions' && (
             <div className="space-y-4">
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-zinc-500 leading-relaxed">
                 Kanso verwendet ein Rollenmodell für maximale Klarheit. Authentifizierte Git-Nutzer erhalten je nach zugewiesener Rolle folgende Berechtigungen:
               </p>
 
@@ -552,9 +552,9 @@ export const UserManagementModal: React.FC<Props> = ({
                     <span className="text-xs font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
                       ADMIN
                     </span>
-                    <span className="text-xs font-semibold text-slate-800">Volle Kontrolle</span>
+                    <span className="text-xs font-semibold text-zinc-800">Volle Kontrolle</span>
                   </div>
-                  <ul className="text-[11px] text-slate-600 space-y-1.5 list-disc list-inside">
+                  <ul className="text-[11px] text-zinc-600 space-y-1.5 list-disc list-inside">
                     <li>Nutzerverwaltung & Rollen zuweisen</li>
                     <li>Projekte erstellen, konfigurieren & löschen</li>
                     <li>Git-Verbindungen & Repositories verwalten</li>
@@ -564,14 +564,14 @@ export const UserManagementModal: React.FC<Props> = ({
                 </div>
 
                 {/* Member */}
-                <div className="border border-indigo-200 rounded-xl p-4 bg-indigo-50/30">
+                <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/30">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-teal-100 text-teal-900">
                       MEMBER
                     </span>
-                    <span className="text-xs font-semibold text-slate-800">Entwickler & Planer</span>
+                    <span className="text-xs font-semibold text-zinc-800">Entwickler & Planer</span>
                   </div>
-                  <ul className="text-[11px] text-slate-600 space-y-1.5 list-disc list-inside">
+                  <ul className="text-[11px] text-zinc-600 space-y-1.5 list-disc list-inside">
                     <li>Issues erstellen, zuweisen & bearbeiten</li>
                     <li>Status auf Kanban-Board per Drag & Drop verschieben</li>
                     <li>Subtasks, Abhängigkeiten & Kommentare pflegen</li>
@@ -581,14 +581,14 @@ export const UserManagementModal: React.FC<Props> = ({
                 </div>
 
                 {/* Viewer */}
-                <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                <div className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-zinc-200 text-zinc-700">
                       VIEWER
                     </span>
-                    <span className="text-xs font-semibold text-slate-800">Nur Lesen</span>
+                    <span className="text-xs font-semibold text-zinc-800">Nur Lesen</span>
                   </div>
-                  <ul className="text-[11px] text-slate-600 space-y-1.5 list-disc list-inside">
+                  <ul className="text-[11px] text-zinc-600 space-y-1.5 list-disc list-inside">
                     <li>Einsicht in Boards, Listen und Backlog</li>
                     <li>Details zu Tickets & Kommentaren lesen</li>
                     <li>Sprint-Status und Fortschritt beobachten</li>
@@ -601,15 +601,15 @@ export const UserManagementModal: React.FC<Props> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div className="px-6 py-3.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
           <div className="flex items-center gap-2">
-            <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+            <KeyRound className="w-3.5 h-3.5 text-zinc-400" />
             <span>Git OAuth Authentifizierung aktiv</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium transition cursor-pointer text-xs"
+            className="px-4 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-700 font-medium transition cursor-pointer text-xs"
           >
             Schließen
           </button>
