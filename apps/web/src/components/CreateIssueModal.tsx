@@ -19,6 +19,7 @@ import type { GoalItem } from './GoalsModal';
 import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
 import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
 import { MentionTextarea } from './MentionTextarea';
+import { IssueTemplate, resolveProjectTemplates } from '../utils/issueTemplates';
 
 interface Column {
   id: string;
@@ -42,6 +43,7 @@ interface Props {
   defaultStatus?: string;
   projectId?: string;
   goals?: GoalItem[];
+  templates?: IssueTemplate[] | null;
   onCreate: (payload: any) => Promise<void>;
 }
 
@@ -61,8 +63,13 @@ export const CreateIssueModal: React.FC<Props> = ({
   defaultStatus,
   projectId,
   goals = [],
+  templates,
   onCreate,
 }) => {
+  const availableTemplates = resolveProjectTemplates(templates);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [issueType, setIssueType] = useState<'TASK' | 'BUG' | 'FEATURE' | 'EPIC'>('TASK');
+  const [proofOfWorkChecks, setProofOfWorkChecks] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState(defaultStatus || (columns[1]?.id ?? 'TODO'));
@@ -119,6 +126,9 @@ export const CreateIssueModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setSelectedTemplateId('');
+      setIssueType('TASK');
+      setProofOfWorkChecks([]);
       setTitle('');
       setDescription('');
       setStatus(defaultStatus || (columns[1]?.id ?? 'TODO'));
@@ -132,6 +142,47 @@ export const CreateIssueModal: React.FC<Props> = ({
       setTimeout(() => titleInputRef.current?.focus(), 50);
     }
   }, [isOpen, defaultStatus, columns]);
+
+  const applyTemplate = (tpl: IssueTemplate | null) => {
+    const prevTpl = availableTemplates.find((t) => t.id === selectedTemplateId) || null;
+    const prevPrefix = prevTpl?.titlePrefix || '';
+    let nextTitle = title;
+    if (prevPrefix) {
+      if (nextTitle.trim() === prevPrefix.trim()) {
+        nextTitle = '';
+      } else if (nextTitle.startsWith(prevPrefix)) {
+        nextTitle = nextTitle.slice(prevPrefix.length);
+      } else if (nextTitle.trimStart().startsWith(prevPrefix.trim())) {
+        nextTitle = nextTitle.trimStart().slice(prevPrefix.trim().length).trimStart();
+      }
+    }
+
+    if (!tpl) {
+      setSelectedTemplateId('');
+      setIssueType('TASK');
+      setPriority('MEDIUM');
+      setSelectedLabels(['mcp']);
+      setProofOfWorkChecks([]);
+      setTitle(nextTitle);
+      if (!description.trim() || (prevTpl?.body && description.trim() === prevTpl.body.trim())) {
+        setDescription('');
+      }
+      return;
+    }
+
+    setSelectedTemplateId(tpl.id);
+    setIssueType(tpl.type || 'TASK');
+    setPriority(tpl.priority || 'MEDIUM');
+    setSelectedLabels(tpl.labels || []);
+    setProofOfWorkChecks(tpl.proofOfWorkChecks || []);
+    const nextPrefix = tpl.titlePrefix || '';
+    if (nextPrefix && !nextTitle.startsWith(nextPrefix)) {
+      setTitle(nextTitle.trim() ? `${nextPrefix}${nextTitle}` : nextPrefix);
+    } else {
+      setTitle(nextTitle);
+    }
+    setDescription(tpl.body || '');
+  };
 
   // Handle Cmd+Enter to submit
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -161,12 +212,20 @@ export const CreateIssueModal: React.FC<Props> = ({
         description: description.trim(),
         status,
         priority,
-        type: 'TASK',
+        type: issueType,
         assigneeType: selectedAssignee.type,
         assigneeId: selectedAssignee.type === 'HUMAN' ? selectedAssignee.id : null,
         assigneeName: selectedAssignee.name || null,
         labels: selectedLabels,
         goalId: goalId || null,
+        proofOfWork:
+          proofOfWorkChecks.length > 0
+            ? proofOfWorkChecks.map((checkTitle, idx) => ({
+                id: `pow-tpl-${Date.now()}-${idx}`,
+                title: checkTitle,
+                status: 'PENDING',
+              }))
+            : undefined,
       };
 
       await onCreate(payload);
@@ -204,7 +263,7 @@ export const CreateIssueModal: React.FC<Props> = ({
       onKeyDown={handleKeyDown}
     >
       <div
-        className="bg-white border border-zinc-200/90 rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col overflow-visible"
+        className="bg-white border border-zinc-200/90 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"
         onClick={(e) => {
           e.stopPropagation();
           // close dropdowns on background click
@@ -231,6 +290,44 @@ export const CreateIssueModal: React.FC<Props> = ({
 
         {/* Seamless Editor (Linear-style) */}
         <div className="px-6 py-3 space-y-2">
+          {/* Template Selector Pills */}
+          {availableTemplates.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mr-1">
+                Vorlage:
+              </span>
+              <button
+                type="button"
+                onClick={() => applyTemplate(null)}
+                className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition ${
+                  !selectedTemplateId
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                }`}
+              >
+                Leer
+              </button>
+              {availableTemplates.map((tpl) => {
+                const active = selectedTemplateId === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => applyTemplate(tpl)}
+                    title={tpl.description || tpl.name}
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition ${
+                      active
+                        ? 'bg-teal-700 text-white border-teal-700'
+                        : 'bg-white text-zinc-700 border-zinc-200 hover:border-teal-400'
+                    }`}
+                  >
+                    {tpl.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Title Input */}
           <input
             ref={titleInputRef}
@@ -263,7 +360,7 @@ export const CreateIssueModal: React.FC<Props> = ({
             }`}
           >
             <MentionTextarea
-              rows={5}
+              rows={selectedTemplateId || description.split('\n').length > 5 ? 10 : 6}
               placeholder="Beschreibung, Akzeptanzkriterien, @Mentions oder Bilder/Dateien per Paste (⌘V) & Drag-and-Drop einfügen..."
               value={description}
               onChange={setDescription}
@@ -277,7 +374,7 @@ export const CreateIssueModal: React.FC<Props> = ({
                   handleFileUpload(files, e.currentTarget);
                 }
               }}
-              className="w-full text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-none leading-relaxed font-sans bg-transparent"
+              className="w-full min-h-[140px] text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-y leading-relaxed font-sans bg-transparent"
             />
             <AttachmentPreviewStrip
               markdown={description}
@@ -305,6 +402,16 @@ export const CreateIssueModal: React.FC<Props> = ({
               </label>
               {uploadError && <span className="text-[11px] text-rose-600">{uploadError}</span>}
             </div>
+            {proofOfWorkChecks.length > 0 && (
+              <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-teal-50/70 border border-teal-200/80 text-[11px] text-teal-900 flex flex-wrap items-center gap-1.5">
+                <span className="font-semibold">Proof-of-Work-Checks aus Vorlage:</span>
+                {proofOfWorkChecks.map((c, idx) => (
+                  <span key={idx} className="px-1.5 py-0.2 rounded bg-white border border-teal-200 text-[10px]">
+                    • {c}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
