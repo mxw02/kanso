@@ -240,7 +240,7 @@ export const CreateIssueModal: React.FC<Props> = ({
       onKeyDown={handleKeyDown}
     >
       <div
-        className="bg-white border border-zinc-200/90 rounded-2xl max-w-2xl w-full shadow-2xl flex flex-col overflow-visible"
+        className="bg-white border border-zinc-200/90 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col"
         onClick={(e) => {
           e.stopPropagation();
           // close dropdowns on background click
@@ -337,7 +337,7 @@ export const CreateIssueModal: React.FC<Props> = ({
             }`}
           >
             <MentionTextarea
-              rows={5}
+              rows={selectedTemplateId || description.split('\n').length > 5 ? 10 : 6}
               placeholder="Beschreibung, Akzeptanzkriterien, @Mentions oder Bilder/Dateien per Paste (⌘V) & Drag-and-Drop einfügen..."
               value={description}
               onChange={setDescription}
@@ -351,7 +351,7 @@ export const CreateIssueModal: React.FC<Props> = ({
                   handleFileUpload(files, e.currentTarget);
                 }
               }}
-              className="w-full text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-none leading-relaxed font-sans bg-transparent"
+              className="w-full min-h-[140px] text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-y leading-relaxed font-sans bg-transparent"
             />
             <AttachmentPreviewStrip
               markdown={description}
