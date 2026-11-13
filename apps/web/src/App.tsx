@@ -1072,7 +1072,7 @@ export default function App() {
       {/* SECONDARY TOOLBAR & FILTER BAR                           */}
       {/* ======================================================== */}
       {!showProjectSettings && (
-      <section className="px-6 py-2 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
+      <section className="px-6 py-2 min-h-[46px] border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
         <div className="flex items-center gap-3">
           {/* View Toggle: Summary vs Board vs List */}
           <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80 shrink-0">
