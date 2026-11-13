@@ -130,7 +130,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
   ];
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
+    <div className="w-full p-2 sm:p-4 max-w-6xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
