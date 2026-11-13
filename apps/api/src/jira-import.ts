@@ -134,20 +134,17 @@ async function fetchJiraSearch(params: {
 }): Promise<{ total: number; issues: any[] }> {
   const baseUrl = normalizeBaseUrl(params.baseUrl);
   const authHeader = `Basic ${Buffer.from(`${params.email.trim()}:${params.apiToken.trim()}`).toString('base64')}`;
-  const jql = params.jql?.trim() || 'ORDER BY updated DESC';
+  // Jira Cloud /rest/api/3/search/jql rejects unbounded JQL queries, so default to a bounded 365-day window
+  const jql = params.jql?.trim() || 'updated >= -365d ORDER BY updated DESC';
   const maxResults = params.maxResults ?? 100;
   const fields = ['summary', 'description', 'status', 'priority', 'issuetype', 'labels', 'duedate'];
 
-  // Try Jira Cloud v3 /search/jql first, then fallback to /rest/api/3/search and /rest/api/2/search
+  // Try Jira Cloud v3 /search/jql first; only fall back to v2 /search if endpoint doesn't exist (404/405, e.g. Jira Server/DC)
   const attempts = [
     {
       url: `${baseUrl}/rest/api/3/search/jql`,
       method: 'POST',
       body: JSON.stringify({ jql, maxResults, fields }),
-    },
-    {
-      url: `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=${fields.join(',')}`,
-      method: 'GET',
     },
     {
       url: `${baseUrl}/rest/api/2/search?jql=${encodeURIComponent(jql)}&maxResults=${maxResults}&fields=${fields.join(',')}`,
@@ -177,9 +174,12 @@ async function fetchJiraSearch(params: {
     }
 
     const errText = await res.text().catch(() => '');
-    lastError = `Jira HTTP ${res.status}: ${errText.slice(0, 200)}`;
+    lastError = `Jira HTTP ${res.status}: ${errText.slice(0, 300)}`;
     if (res.status === 401 || res.status === 403) {
       throw new Error(`Authentifizierung bei Jira fehlgeschlagen (${res.status}). Bitte E-Mail & API-Token prüfen.`);
+    }
+    if (res.status === 400) {
+      throw new Error(lastError);
     }
   }
 

@@ -448,7 +448,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                     type="text"
                     value={jql}
                     onChange={(e) => setJql(e.target.value)}
-                    placeholder="project = PROJ AND status != Closed"
+                    placeholder="project = PROJ ORDER BY updated DESC (leer = letzte 365 Tage)"
                     className="w-full px-3 py-2 text-xs font-mono bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
                   />
                 </div>
