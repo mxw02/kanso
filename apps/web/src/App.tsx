@@ -166,8 +166,11 @@ export default function App() {
         const pData: Project[] = await pRes.json();
         setProjects(pData);
         if (pData.length > 0) {
-          if (!activeProject) setActiveProject(pData[0]);
+          if (!activeProject || !pData.some((p) => p.id === activeProject.id)) {
+            setActiveProject(pData[0]);
+          }
         } else {
+          setActiveProject(null);
           setShowOnboarding(true);
         }
       }
@@ -518,8 +521,11 @@ export default function App() {
     }
     const remaining = projects.filter((p) => p.id !== projectId);
     setProjects(remaining);
-    if (activeProject?.id === projectId) {
-      setActiveProject(remaining.length > 0 ? remaining[0] : null);
+    if (remaining.length === 0) {
+      setActiveProject(null);
+      setShowOnboarding(true);
+    } else if (activeProject?.id === projectId) {
+      setActiveProject(remaining[0]);
     }
     fetchIssues();
   };
@@ -1087,7 +1093,27 @@ export default function App() {
       {/* MAIN VIEW CONTENT                                        */}
       {/* ======================================================== */}
       <main className="flex-1 p-6 overflow-hidden flex flex-col">
-        {viewMode === 'board' ? (
+        {projects.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto py-12">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-5 shadow-xs">
+              <Layers className="w-8 h-8" />
+            </div>
+            <h2 className="text-lg font-bold text-slate-900 mb-2">
+              Kein Board vorhanden
+            </h2>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              Aktuell ist kein Projekt oder Board in deinem Workspace eingerichtet. Starte das Onboarding, um dein erstes Board einzurichten.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowOnboarding(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Onboarding starten</span>
+            </button>
+          </div>
+        ) : viewMode === 'board' ? (
           <KanbanBoard
             columns={activeColumns}
             issues={issues}
