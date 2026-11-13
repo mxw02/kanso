@@ -1411,7 +1411,10 @@ export default function App() {
           projectId={activeProject.id}
           projectName={activeProject.name}
           columns={activeColumns}
-          onImported={fetchIssues}
+          onImported={async () => {
+            await fetchGoals();
+            await fetchIssues();
+          }}
         />
       )}
 

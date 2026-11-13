@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { AssigneeType, IssuePriority, IssueType, PrismaClient } from '@prisma/client';
+import { AssigneeType, GoalStatus, IssuePriority, IssueType, PrismaClient } from '@prisma/client';
 import { decryptSecret, encryptSecret } from './crypto';
 
 interface ProjectColumn {
@@ -18,6 +18,7 @@ interface MappedExternalIssue {
   type: IssueType;
   labels: string[];
   dueDate?: Date | null;
+  goalId?: string | null;
 }
 
 /**
@@ -137,7 +138,18 @@ async function fetchJiraSearch(params: {
   // Jira Cloud /rest/api/3/search/jql rejects unbounded JQL queries, so default to a bounded 365-day window
   const jql = params.jql?.trim() || 'updated >= -365d ORDER BY updated DESC';
   const maxResults = params.maxResults ?? 100;
-  const fields = ['summary', 'description', 'status', 'priority', 'issuetype', 'labels', 'duedate'];
+  const fields = [
+    'summary',
+    'description',
+    'status',
+    'priority',
+    'issuetype',
+    'labels',
+    'duedate',
+    'parent',
+    'customfield_10015',
+    'created',
+  ];
 
   // Try Jira Cloud v3 /search/jql first; only fall back to v2 /search if endpoint doesn't exist (404/405, e.g. Jira Server/DC)
   const attempts = [
@@ -186,11 +198,92 @@ async function fetchJiraSearch(params: {
   throw new Error(lastError);
 }
 
+function isJiraEpic(raw: any): boolean {
+  const typeName = String(raw?.fields?.issuetype?.name || '').toLowerCase();
+  const hierarchy = raw?.fields?.issuetype?.hierarchyLevel;
+  return typeName.includes('epic') || typeName.includes('epik') || hierarchy === 1;
+}
+
+async function upsertJiraEpicGoal(
+  prisma: PrismaClient,
+  project: { id: string },
+  raw: any,
+  broadcastEvent: (event: string, data: any) => void
+): Promise<{ goalId: string; outcome: 'created' | 'updated' }> {
+  const fields = raw.fields || {};
+  const key = String(raw.key || raw.id);
+  const title = String(fields.summary || key).trim();
+  const description = extractJiraDescription(fields.description);
+  const statusCat = String(fields.status?.statusCategory?.key || '').toLowerCase();
+  const status = statusCat === 'done' ? GoalStatus.COMPLETED : GoalStatus.ACTIVE;
+
+  const rawStart = fields.customfield_10015 || fields.created || null;
+  const startDate = rawStart ? new Date(rawStart) : null;
+  const targetDate = fields.duedate ? new Date(`${fields.duedate}T23:59:59.000Z`) : null;
+
+  // Clean up if this Epic was previously imported as a regular Issue before Epic->Goal mapping
+  const legacyIssue = await prisma.issue.findUnique({
+    where: {
+      projectId_externalSource_externalKey: {
+        projectId: project.id,
+        externalSource: 'jira',
+        externalKey: key,
+      },
+    },
+  });
+  if (legacyIssue) {
+    await prisma.issue.delete({ where: { id: legacyIssue.id } });
+    broadcastEvent('issue_deleted', { id: legacyIssue.id });
+  }
+
+  const existing = await prisma.goal.findUnique({
+    where: {
+      projectId_externalSource_externalKey: {
+        projectId: project.id,
+        externalSource: 'jira',
+        externalKey: key,
+      },
+    },
+  });
+
+  if (existing) {
+    const updated = await prisma.goal.update({
+      where: { id: existing.id },
+      data: {
+        title,
+        description,
+        status,
+        startDate: startDate && !Number.isNaN(startDate.getTime()) ? startDate : existing.startDate,
+        targetDate: targetDate ?? existing.targetDate,
+      },
+    });
+    broadcastEvent('goal_updated', updated);
+    return { goalId: updated.id, outcome: 'updated' };
+  }
+
+  const created = await prisma.goal.create({
+    data: {
+      projectId: project.id,
+      title,
+      description,
+      status,
+      color: '#0f766e',
+      startDate: startDate && !Number.isNaN(startDate.getTime()) ? startDate : null,
+      targetDate,
+      externalSource: 'jira',
+      externalKey: key,
+    },
+  });
+  broadcastEvent('goal_created', created);
+  return { goalId: created.id, outcome: 'created' };
+}
+
 function mapRawJiraIssue(
   raw: any,
   baseUrl: string,
   customMapping: Record<string, string> | null | undefined,
-  projectColumns: ProjectColumn[]
+  projectColumns: ProjectColumn[],
+  goalId?: string | null
 ): MappedExternalIssue {
   const fields = raw.fields || {};
   const key = String(raw.key || raw.id);
@@ -214,6 +307,7 @@ function mapRawJiraIssue(
     type: mapJiraType(fields.issuetype?.name),
     labels,
     dueDate: fields.duedate ? new Date(`${fields.duedate}T12:00:00.000Z`) : null,
+    goalId: goalId ?? null,
   };
 }
 
@@ -245,6 +339,7 @@ async function upsertExternalIssue(
         type: mapped.type,
         labels: mapped.labels,
         dueDate: mapped.dueDate ?? existing.dueDate,
+        goalId: mapped.goalId !== undefined ? mapped.goalId : existing.goalId,
         externalUrl: mapped.externalUrl ?? existing.externalUrl,
         activities: {
           create: {
@@ -281,6 +376,7 @@ async function upsertExternalIssue(
       assigneeType: AssigneeType.UNASSIGNED,
       labels: mapped.labels,
       dueDate: mapped.dueDate ?? null,
+      goalId: mapped.goalId ?? null,
       externalSource: mapped.externalSource,
       externalKey: mapped.externalKey,
       externalUrl: mapped.externalUrl ?? null,
@@ -482,15 +578,42 @@ export function registerImportRoutes(
       const result = await fetchJiraSearch({ baseUrl, email, apiToken, jql, maxResults: 100 });
       let created = 0;
       let updated = 0;
+      let goalsCreated = 0;
+      let goalsUpdated = 0;
 
-      for (const rawIssue of result.issues) {
-        const mapped = mapRawJiraIssue(rawIssue, baseUrl, statusMapping, projectColumns);
+      // Pre-load existing Jira Epic -> Goal mappings for this project
+      const existingGoals = await prisma.goal.findMany({
+        where: { projectId: project.id, externalSource: 'jira', externalKey: { not: null } },
+        select: { id: true, externalKey: true },
+      });
+      const epicKeyToGoalId = new Map<string, string>();
+      for (const g of existingGoals) {
+        if (g.externalKey) epicKeyToGoalId.set(g.externalKey, g.id);
+      }
+
+      const epicIssues = result.issues.filter(isJiraEpic);
+      const regularIssues = result.issues.filter((i) => !isJiraEpic(i));
+
+      // Pass 1: Sync Epics as Kanso Goals
+      for (const rawEpic of epicIssues) {
+        const epicKey = String(rawEpic.key || rawEpic.id);
+        const { goalId, outcome } = await upsertJiraEpicGoal(prisma, project, rawEpic, broadcastEvent);
+        epicKeyToGoalId.set(epicKey, goalId);
+        if (outcome === 'created') goalsCreated += 1;
+        else goalsUpdated += 1;
+      }
+
+      // Pass 2: Sync regular Tickets and link them to their parent Epic Goal
+      for (const rawIssue of regularIssues) {
+        const parentKey = rawIssue.fields?.parent?.key || rawIssue.fields?.customfield_10014;
+        const goalId = parentKey ? epicKeyToGoalId.get(String(parentKey)) || null : null;
+        const mapped = mapRawJiraIssue(rawIssue, baseUrl, statusMapping, projectColumns, goalId);
         const outcome = await upsertExternalIssue(prisma, project, mapped, 'Jira Sync', broadcastEvent);
         if (outcome === 'created') created += 1;
         else updated += 1;
       }
 
-      const stats = { created, updated, total: result.issues.length };
+      const stats = { created, updated, goalsCreated, goalsUpdated, total: result.issues.length };
       if (saved) {
         await prisma.jiraIntegration.update({
           where: { id: saved.id },
@@ -530,14 +653,35 @@ export function registerImportRoutes(
       return { ignored: true, reason: 'No issue payload' };
     }
 
+    if (isJiraEpic(rawIssue)) {
+      const { goalId, outcome } = await upsertJiraEpicGoal(prisma, project, rawIssue, broadcastEvent);
+      return { success: true, kind: 'goal', outcome, goalId, key: rawIssue.key };
+    }
+
     const baseUrl = saved?.baseUrl || 'https://jira.atlassian.net';
     const statusMapping = (saved?.statusMapping as Record<string, string> | null) || {};
     const projectColumns = getProjectColumns(project.columns);
 
-    const mapped = mapRawJiraIssue(rawIssue, baseUrl, statusMapping, projectColumns);
+    const parentKey = rawIssue.fields?.parent?.key || rawIssue.fields?.customfield_10014;
+    let goalId: string | null = null;
+    if (parentKey) {
+      const parentGoal = await prisma.goal.findUnique({
+        where: {
+          projectId_externalSource_externalKey: {
+            projectId: project.id,
+            externalSource: 'jira',
+            externalKey: String(parentKey),
+          },
+        },
+        select: { id: true },
+      });
+      goalId = parentGoal?.id || null;
+    }
+
+    const mapped = mapRawJiraIssue(rawIssue, baseUrl, statusMapping, projectColumns, goalId);
     const outcome = await upsertExternalIssue(prisma, project, mapped, 'Jira Webhook', broadcastEvent);
 
-    return { success: true, outcome, key: mapped.externalKey };
+    return { success: true, kind: 'issue', outcome, key: mapped.externalKey };
   });
 
   // Generic CSV / JSON batch import for migration from any issue tracker

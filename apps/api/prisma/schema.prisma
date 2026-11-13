@@ -269,13 +269,16 @@ model Goal {
   description String?    @db.Text
   status      GoalStatus @default(ACTIVE)
   color       String     @default("#0f766e")
-  startDate   DateTime?
-  targetDate  DateTime?
-  issues      Issue[]
+  startDate      DateTime?
+  targetDate     DateTime?
+  externalSource String?
+  externalKey    String?
+  issues         Issue[]
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
+  @@unique([projectId, externalSource, externalKey])
   @@index([projectId, status])
   @@map("goals")
 }

@@ -109,7 +109,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const [previewIssues, setPreviewIssues] = useState<any[]>([]);
   const [previewTotal, setPreviewTotal] = useState<number | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-  const [syncResult, setSyncResult] = useState<{ created: number; updated: number; total: number } | null>(null);
+  const [syncResult, setSyncResult] = useState<{
+    created: number;
+    updated: number;
+    goalsCreated?: number;
+    goalsUpdated?: number;
+    total: number;
+  } | null>(null);
   const [jiraError, setJiraError] = useState<string | null>(null);
   const [jiraBusy, setJiraBusy] = useState<'load' | 'preview' | 'save' | 'sync' | null>(null);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -509,8 +515,16 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>
-                    Sync abgeschlossen: <strong>{syncResult.created}</strong> neu erstellt,{' '}
-                    <strong>{syncResult.updated}</strong> aktualisiert (Duplikate automatisch vermieden).
+                    Sync abgeschlossen: <strong>{syncResult.created}</strong> Tickets erstellt,{' '}
+                    <strong>{syncResult.updated}</strong> aktualisiert
+                    {(syncResult.goalsCreated || 0) + (syncResult.goalsUpdated || 0) > 0 && (
+                      <>
+                        {' '}
+                        • <strong>{syncResult.goalsCreated || 0}</strong> Epics als Ziele erstellt,{' '}
+                        <strong>{syncResult.goalsUpdated || 0}</strong> aktualisiert
+                      </>
+                    )}
+                    .
                   </span>
                 </div>
               )}
