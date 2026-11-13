@@ -13,7 +13,9 @@ import {
   GitBranch,
   KeyRound,
   Sparkles,
+  Building2,
 } from 'lucide-react';
+import { SsoOrgAdminPanel } from './SsoOrgAdminPanel';
 
 interface UserItem {
   id: string;
@@ -45,7 +47,7 @@ export const UserManagementModal: React.FC<Props> = ({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'MEMBER' | 'VIEWER'>('ALL');
-  const [activeTab, setActiveTab] = useState<'members' | 'invite' | 'permissions'>('members');
+  const [activeTab, setActiveTab] = useState<'members' | 'invite' | 'permissions' | 'sso' | 'orgs'>('members');
 
   // Invite Form state
   const [inviteName, setInviteName] = useState('');
@@ -263,6 +265,34 @@ export const UserManagementModal: React.FC<Props> = ({
             <Shield className="w-3.5 h-3.5" />
             Berechtigungsmatrix
           </button>
+          {isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setActiveTab('sso')}
+                className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'sso'
+                    ? 'border-teal-700 text-teal-700 font-semibold'
+                    : 'border-transparent hover:text-zinc-800'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                SSO & OIDC
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('orgs')}
+                className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'orgs'
+                    ? 'border-teal-700 text-teal-700 font-semibold'
+                    : 'border-transparent hover:text-zinc-800'
+                }`}
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                Orgs & Boards
+              </button>
+            </>
+          )}
         </div>
 
         {/* Feedback Alerts */}
@@ -597,6 +627,15 @@ export const UserManagementModal: React.FC<Props> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {(activeTab === 'sso' || activeTab === 'orgs') && isAdmin && (
+            <SsoOrgAdminPanel
+              mode={activeTab}
+              apiBaseUrl={apiBaseUrl}
+              users={users}
+              onChanged={onUserUpdated}
+            />
           )}
         </div>
 

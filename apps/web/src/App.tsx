@@ -92,6 +92,9 @@ const DEFAULT_COLUMNS: StatusColumn[] = [
 export default function App() {
   const [issues, setIssues] = useState<any[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
+  const [allowSelfServiceBoardCreation, setAllowSelfServiceBoardCreation] = useState<boolean>(true);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
@@ -209,10 +212,22 @@ export default function App() {
   // Load Initial Data
   const fetchData = async () => {
     try {
-      const [pRes, uRes] = await Promise.all([
-        fetch(`${API_URL}/api/projects`),
-        fetch(`${API_URL}/api/users`),
+      const token = localStorage.getItem('kanso_auth_token');
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const [pRes, uRes, wsRes, cfgRes] = await Promise.all([
+        fetch(`${API_URL}/api/projects`, { headers }),
+        fetch(`${API_URL}/api/users`, { headers }),
+        fetch(`${API_URL}/api/workspaces`, { headers }),
+        fetch(`${API_URL}/api/auth/public-config`),
       ]);
+
+      if (wsRes.ok) {
+        setWorkspaces(await wsRes.json());
+      }
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        setAllowSelfServiceBoardCreation(cfg.allowSelfServiceBoardCreation !== false);
+      }
 
       if (pRes.ok) {
         const pData: Project[] = await pRes.json();
@@ -570,11 +585,15 @@ export default function App() {
   };
 
   const handleCreateProject = async (payload: any) => {
-    if (!canAdmin && !canEdit) return;
+    if (!canAdmin && (!canEdit || !allowSelfServiceBoardCreation)) return;
     try {
+      const token = localStorage.getItem('kanso_auth_token');
       const res = await fetch(`${API_URL}/api/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -783,6 +802,28 @@ export default function App() {
 
           {/* Project Breadcrumb with Styled Dropdown */}
           <div className="flex items-center gap-1.5">
+            {workspaces.length > 0 && (
+              <select
+                value={activeWorkspaceId}
+                onChange={(e) => {
+                  const nextWs = e.target.value;
+                  setActiveWorkspaceId(nextWs);
+                  const filtered = nextWs
+                    ? projects.filter((p: any) => p.workspaceId === nextWs)
+                    : projects;
+                  if (filtered.length > 0) setActiveProject(filtered[0]);
+                }}
+                title="Organisation / Konto"
+                className="bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-700 cursor-pointer"
+              >
+                <option value="">Alle Orgs</option>
+                {workspaces.map((ws) => (
+                  <option key={ws.id} value={ws.id}>
+                    {ws.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="relative flex items-center">
               <select
                 value={activeProject?.id || ''}
@@ -792,11 +833,19 @@ export default function App() {
                 }}
                 className="appearance-none bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer transition shadow-2xs"
               >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} [{p.key}]
-                  </option>
-                ))}
+                {projects
+                  .filter((p: any) => !activeWorkspaceId || p.workspaceId === activeWorkspaceId)
+                  .sort((a: any, b: any) => {
+                    const aParent = a.parentId || a.id;
+                    const bParent = b.parentId || b.id;
+                    if (aParent !== bParent) return aParent.localeCompare(bParent);
+                    return a.parentId ? 1 : -1;
+                  })
+                  .map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.parentId ? '↳ ' : ''}{p.name} [{p.key}]
+                    </option>
+                  ))}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 pointer-events-none" />
             </div>
@@ -827,13 +876,15 @@ export default function App() {
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => setShowCreateProject(true)}
-                  title="Neues Projekt erstellen"
-                  className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+                {(canAdmin || allowSelfServiceBoardCreation) && (
+                  <button
+                    onClick={() => setShowCreateProject(true)}
+                    title="Neues Projekt / Board erstellen"
+                    className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1728,6 +1779,9 @@ export default function App() {
       <CreateProjectModal
         isOpen={showCreateProject}
         onClose={() => setShowCreateProject(false)}
+        workspaces={workspaces}
+        projects={projects}
+        activeWorkspaceId={activeWorkspaceId || null}
         onCreate={handleCreateProject}
       />
 
