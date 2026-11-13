@@ -4,9 +4,16 @@ on:
   push:
     branches:
       - main
+      - develop
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release_tag:
+        description: 'Semver release tag (e.g. v0.2.0) triggered by release-please'
+        required: false
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -35,10 +42,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag != '' && inputs.release_tag || github.ref }}
 
       - name: Normalize repository owner
         id: owner
         run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Compute release tags
+        id: release_tags
+        if: ${{ inputs.release_tag != '' }}
+        run: |
+          ver="${{ inputs.release_tag }}"
+          ver="${ver#v}"
+          minor="${ver%.*}"
+          major="${ver%%.*}"
+          {
+            echo "tags<<EOF"
+            echo "type=raw,value=${ver}"
+            echo "type=raw,value=${minor}"
+            echo "type=raw,value=${major}"
+            echo "type=raw,value=latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -59,13 +85,15 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.owner.outputs.owner }}/${{ matrix.image_name }}
           flavor: |
-            latest=auto
+            latest=${{ startsWith(github.ref, 'refs/tags/v') && 'true' || 'false' }}
           tags: |
-            type=ref,event=branch
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' && inputs.release_tag == '' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,prefix=sha-
+            ${{ steps.release_tags.outputs.tags }}
 
       - name: Build and push ${{ matrix.image_name }}
         uses: docker/build-push-action@v6
