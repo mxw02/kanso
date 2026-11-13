@@ -18,6 +18,7 @@ import { computeReadiness } from '../utils/readiness';
 import type { GoalItem } from './GoalsModal';
 import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
 import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
+import { MentionTextarea } from './MentionTextarea';
 
 interface Column {
   id: string;
@@ -261,11 +262,14 @@ export const CreateIssueModal: React.FC<Props> = ({
               dragOverDesc ? 'bg-teal-50/40 ring-2 ring-teal-500/30 p-2' : ''
             }`}
           >
-            <textarea
+            <MentionTextarea
               rows={5}
-              placeholder="Beschreibung, Akzeptanzkriterien oder Bilder/Dateien per Paste (⌘V) & Drag-and-Drop einfügen..."
+              placeholder="Beschreibung, Akzeptanzkriterien, @Mentions oder Bilder/Dateien per Paste (⌘V) & Drag-and-Drop einfügen..."
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={setDescription}
+              users={users}
+              projectId={projectId}
+              apiUrl={API_URL}
               onPaste={(e) => {
                 const files = extractFilesFromClipboard(e.clipboardData);
                 if (files.length > 0) {

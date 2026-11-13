@@ -39,6 +39,7 @@ import { computeReadiness, ProofOfWorkCheck } from '../utils/readiness';
 import type { GoalItem } from './GoalsModal';
 import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
 import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
+import { MentionTextarea } from './MentionTextarea';
 
 interface Issue {
   id: string;
@@ -741,10 +742,12 @@ export const IssueDetailModal: React.FC<Props> = ({
                     }
                   }}
                 >
-                  <textarea
+                  <MentionTextarea
                     rows={6}
                     value={descText}
-                    onChange={(e) => setDescText(e.target.value)}
+                    onChange={setDescText}
+                    users={users}
+                    apiUrl={API_URL}
                     onPaste={(e) => {
                       const files = extractFilesFromClipboard(e.clipboardData);
                       if (files.length > 0) {
@@ -752,7 +755,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                         handleFileUpload(files, 'desc', e.currentTarget);
                       }
                     }}
-                    placeholder="Markdown, Paste (⌘V) oder Drag & Drop für Bilder & Dateien..."
+                    placeholder="Markdown, @Mentions, Paste (⌘V) oder Drag & Drop für Bilder & Dateien..."
                     className={`w-full bg-white border rounded-lg p-3 text-xs text-zinc-900 focus:outline-none font-mono transition ${
                       dragTarget === 'desc' ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20' : 'border-teal-600'
                     }`}
@@ -1399,10 +1402,12 @@ export const IssueDetailModal: React.FC<Props> = ({
                       }
                     }}
                   >
-                    <textarea
+                    <MentionTextarea
                       rows={3}
                       value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
+                      onChange={setNewComment}
+                      users={users}
+                      apiUrl={API_URL}
                       onPaste={(e) => {
                         const files = extractFilesFromClipboard(e.clipboardData);
                         if (files.length > 0) {
@@ -1410,7 +1415,7 @@ export const IssueDetailModal: React.FC<Props> = ({
                           handleFileUpload(files, 'comment', e.currentTarget);
                         }
                       }}
-                      placeholder={`Comment as ${currentUser.name}... (Paste & Drop für Bilder/Dateien)`}
+                      placeholder={`Comment as ${currentUser.name}... (@Mentions, Paste & Drop für Bilder/Dateien)`}
                       className={`w-full bg-white border rounded-xl p-3 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none transition ${
                         dragTarget === 'comment' ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20' : 'border-zinc-300 focus:border-teal-600'
                       }`}
