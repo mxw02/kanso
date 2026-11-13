@@ -19,6 +19,17 @@ export const MarkdownViewer: React.FC<Props> = ({ content, className = '' }) => 
           ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0 space-y-1 text-xs text-zinc-700" {...props} />,
           li: ({ node, ...props }) => <li className="text-xs leading-relaxed" {...props} />,
           a: ({ node, ...props }) => <a className="text-teal-700 hover:underline font-medium" target="_blank" rel="noreferrer" {...props} />,
+          img: ({ node, alt, src, ...props }) => (
+            <a href={src} target="_blank" rel="noreferrer" className="block my-2">
+              <img
+                src={src}
+                alt={alt || 'Bild'}
+                loading="lazy"
+                className="max-h-96 rounded-xl border border-zinc-200 bg-zinc-50 object-contain shadow-2xs hover:border-teal-400 transition"
+                {...props}
+              />
+            </a>
+          ),
           code: ({ node, className, children, ...props }: any) => {
             const match = /language-(\w+)/.exec(className || '');
             const isInline = !match && !String(children).includes('\n');
