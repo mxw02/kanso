@@ -408,8 +408,16 @@ function createMcpServer(): Server {
         };
       }
 
+      const resolveIdentifier = (toolArgs: Record<string, unknown>): string => {
+        const raw = toolArgs.identifier ?? toolArgs.issueId ?? toolArgs.id;
+        if (typeof raw !== 'string' || !raw.trim()) {
+          throw new Error('Missing required parameter: identifier (e.g. "KANS-1" or issue UUID)');
+        }
+        return raw.trim();
+      };
+
       if (name === 'kanso_get_issue') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const issue = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}`);
         return {
           content: [
@@ -437,13 +445,15 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_update_issue') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const updatePayload: Record<string, unknown> = {
           actorType: 'AGENT',
           actorName: args.actorName || 'MCP Agent',
           ...args,
         };
         delete updatePayload.identifier;
+        delete updatePayload.issueId;
+        delete updatePayload.id;
 
         const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}`, {
           method: 'PATCH',
@@ -461,7 +471,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_add_comment') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const comment = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/comments`, {
           method: 'POST',
           body: JSON.stringify({
@@ -482,7 +492,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_record_agent_run') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const run = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/agent-runs`, {
           method: 'POST',
           body: JSON.stringify({
@@ -503,7 +513,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_claim_issue') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const [run, readiness] = await Promise.all([
           fetchApi(`/api/issues/${encodeURIComponent(identifier)}/agent-runs`, {
             method: 'POST',
@@ -525,7 +535,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_report_trace') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const trace = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/traces`, {
           method: 'POST',
           body: JSON.stringify(args),
@@ -536,7 +546,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_request_hitl') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/hitl/request`, {
           method: 'POST',
           body: JSON.stringify(args),
@@ -547,7 +557,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_update_proof_of_work') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/proof-of-work`, {
           method: 'PATCH',
           body: JSON.stringify({
@@ -563,7 +573,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_set_preview') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/preview`, {
           method: 'POST',
           body: JSON.stringify({
@@ -607,7 +617,7 @@ function createMcpServer(): Server {
       }
 
       if (name === 'kanso_check_transitions') {
-        const identifier = String(args.identifier);
+        const identifier = resolveIdentifier(args);
         const actorType = args.actorType ? String(args.actorType) : 'AGENT';
         const res = await fetchApi(
           `/api/issues/${encodeURIComponent(identifier)}/allowed-transitions?actorType=${encodeURIComponent(actorType)}`
@@ -717,7 +727,6 @@ async function main() {
   } else {
     // Run SSE HTTP server
     const app = express();
-    app.use(express.json());
 
     // CORS for web client access
     app.use((req, res, next) => {
@@ -740,20 +749,26 @@ async function main() {
       });
     });
 
-    let transport: SSEServerTransport | null = null;
-    const server = createMcpServer();
+    const transports = new Map<string, SSEServerTransport>();
 
     app.get('/sse', async (req: Request, res: Response) => {
       console.log('🔗 Client connected to MCP SSE transport');
-      transport = new SSEServerTransport('/messages', res);
+      const transport = new SSEServerTransport('/messages', res);
+      transports.set(transport.sessionId, transport);
+      res.on('close', () => {
+        transports.delete(transport.sessionId);
+      });
+      const server = createMcpServer();
       await server.connect(transport);
     });
 
     app.post('/messages', async (req: Request, res: Response) => {
+      const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : '';
+      const transport = transports.get(sessionId);
       if (transport) {
         await transport.handlePostMessage(req, res);
       } else {
-        res.status(400).send('SSE connection not yet established');
+        res.status(400).send('No active SSE transport found for sessionId');
       }
     });
 

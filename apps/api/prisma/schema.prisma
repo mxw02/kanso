@@ -100,9 +100,11 @@ model Project {
   gitBranch   String?    @default("main")
   gitWebhookSecret String?
 
-  issues      Issue[]
-  sprints     Sprint[]
-  createdAt   DateTime   @default(now())
+  issues          Issue[]
+  sprints         Sprint[]
+  goals           Goal[]
+  jiraIntegration JiraIntegration?
+  createdAt       DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   @@map("projects")
@@ -121,6 +123,10 @@ model Issue {
   assigneeId    String?
   assigneeName  String?
   labels        String[]      @default([])
+  dueDate       DateTime?
+  externalSource String?
+  externalKey   String?
+  externalUrl   String?
   agentMetadata Json?
 
   // Agent-First Board Fields
@@ -139,6 +145,9 @@ model Issue {
 
   sprintId      String?
   sprint        Sprint?       @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
+  goalId        String?
+  goal          Goal?         @relation(fields: [goalId], references: [id], onDelete: SetNull)
   
   parentId      String?
   parent        Issue?        @relation("SubIssues", fields: [parentId], references: [id])
@@ -156,9 +165,11 @@ model Issue {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  @@unique([projectId, externalSource, externalKey])
   @@index([projectId, status])
   @@index([identifier])
   @@index([sprintId])
+  @@index([goalId])
   @@map("issues")
 }
 
@@ -244,6 +255,34 @@ model Sprint {
   @@map("sprints")
 }
 
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model Goal {
+  id          String     @id @default(uuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?    @db.Text
+  status      GoalStatus @default(ACTIVE)
+  color       String     @default("#0f766e")
+  startDate      DateTime?
+  targetDate     DateTime?
+  externalSource String?
+  externalKey    String?
+  issues         Issue[]
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([projectId, externalSource, externalKey])
+  @@index([projectId, status])
+  @@map("goals")
+}
+
 model IssueRelation {
   id              String            @id @default(uuid())
   sourceIssueId   String
@@ -308,4 +347,23 @@ model OAuthProviderConfig {
   updatedAt       DateTime @updatedAt
 
   @@map("oauth_provider_configs")
+}
+
+model JiraIntegration {
+  id            String    @id @default(uuid())
+  projectId     String    @unique
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  baseUrl       String
+  email         String
+  apiTokenEnc   String    @db.Text
+  jql           String?
+  statusMapping Json?
+  webhookSecret String?
+  autoSync      Boolean   @default(false)
+  lastSyncedAt  DateTime?
+  lastSyncStats Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("jira_integrations")
 }

@@ -17,9 +17,16 @@ import {
   Users,
   LogOut,
   KeyRound,
+  BarChart3,
+  Target,
+  ArrowDownToLine,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
+import { SummaryView } from './components/SummaryView';
+import { CalendarView } from './components/CalendarView';
+import { GoalsModal, GoalItem } from './components/GoalsModal';
+import { ImportModal } from './components/ImportModal';
 import { IssueDetailModal } from './components/IssueDetailModal';
 import { CreateIssueModal } from './components/CreateIssueModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
@@ -92,7 +99,7 @@ export default function App() {
   });
 
   // Views & Modals
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list' | 'calendar'>('board');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showHitlInbox, setShowHitlInbox] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -102,10 +109,13 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [oauthToast, setOauthToast] = useState<string | null>(null);
   const [sprints, setSprints] = useState<any[]>([]);
+  const [goals, setGoals] = useState<GoalItem[]>([]);
   const [focusedIssueIndex, setFocusedIssueIndex] = useState<number>(-1);
   const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
 
@@ -115,6 +125,7 @@ export default function App() {
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterAssignee, setFilterAssignee] = useState<'ALL' | 'AGENT' | 'HUMAN' | 'UNASSIGNED'>('ALL');
   const [filterSprint, setFilterSprint] = useState('ALL');
+  const [filterGoal, setFilterGoal] = useState('ALL');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const API_URL = import.meta.env.VITE_API_URL || '';
@@ -209,6 +220,18 @@ export default function App() {
     }
   };
 
+  const fetchGoals = async () => {
+    if (!activeProject?.id) return;
+    try {
+      const res = await fetch(`${API_URL}/api/goals?projectId=${activeProject.id}`);
+      if (res.ok) {
+        setGoals(await res.json());
+      }
+    } catch (err) {
+      console.error('Failed to fetch goals:', err);
+    }
+  };
+
   // Fetch Issues with active filters
   const fetchIssues = async () => {
     try {
@@ -218,6 +241,7 @@ export default function App() {
       if (filterPriority !== 'ALL') params.set('priority', filterPriority);
       if (filterAssignee !== 'ALL') params.set('assigneeType', filterAssignee);
       if (filterSprint !== 'ALL') params.set('sprintId', filterSprint);
+      if (filterGoal !== 'ALL') params.set('goalId', filterGoal);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
       const res = await fetch(`${API_URL}/api/issues?${params.toString()}`);
@@ -264,7 +288,8 @@ export default function App() {
   useEffect(() => {
     fetchIssues();
     fetchSprints();
-  }, [activeProject, filterStatus, filterPriority, filterAssignee, filterSprint, searchQuery]);
+    fetchGoals();
+  }, [activeProject, filterStatus, filterPriority, filterAssignee, filterSprint, filterGoal, searchQuery]);
 
   // Realtime SSE Event Stream
   useEffect(() => {
@@ -286,6 +311,9 @@ export default function App() {
             'sprint_started',
             'sprint_completed',
             'sprint_deleted',
+            'goal_created',
+            'goal_updated',
+            'goal_deleted',
             'relation_created',
             'relation_deleted',
             'git_link_added',
@@ -299,6 +327,7 @@ export default function App() {
         ) {
           fetchIssues();
           fetchSprints();
+          fetchGoals();
           if (data.type === 'project_created' || data.type === 'project_updated') {
             fetchData();
           }
@@ -661,7 +690,7 @@ export default function App() {
     : DEFAULT_COLUMNS;
 
   const activeSprint = sprints.find((s) => s.status === 'ACTIVE');
-  const hasActiveFilters = searchQuery || filterStatus !== 'ALL' || filterPriority !== 'ALL' || filterAssignee !== 'ALL' || filterSprint !== 'ALL';
+  const hasActiveFilters = searchQuery || filterStatus !== 'ALL' || filterPriority !== 'ALL' || filterAssignee !== 'ALL' || filterSprint !== 'ALL' || filterGoal !== 'ALL';
 
   if (!currentUser) {
     return (
@@ -679,7 +708,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 flex flex-col font-sans">
       {/* OAuth Toast Notification */}
       {oauthToast && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
@@ -698,18 +727,18 @@ export default function App() {
       {/* ======================================================== */}
       {/* REFINED ZEN HEADER                                       */}
       {/* ======================================================== */}
-      <header className="h-14 border-b border-slate-200/80 bg-white/95 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+      <header className="h-14 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         {/* Left: Brand Breadcrumb & Project Selector */}
         <div className="flex items-center gap-3">
           {/* Logo */}
           <div className="flex items-center gap-2 pr-1">
-            <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center font-bold text-white text-xs shadow-xs">
+            <div className="w-6 h-6 rounded-md bg-teal-700 flex items-center justify-center font-bold text-white text-xs shadow-xs">
               簡
             </div>
-            <span className="font-bold tracking-tight text-slate-900 text-sm">Kanso</span>
+            <span className="font-bold tracking-tight text-zinc-900 text-sm">Kanso</span>
           </div>
 
-          <span className="text-slate-300 font-light select-none">/</span>
+          <span className="text-zinc-300 font-light select-none">/</span>
 
           {/* Project Breadcrumb with Styled Dropdown */}
           <div className="flex items-center gap-1.5">
@@ -720,7 +749,7 @@ export default function App() {
                   const found = projects.find((p) => p.id === e.target.value);
                   if (found) setActiveProject(found);
                 }}
-                className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer transition shadow-2xs"
+                className="appearance-none bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer transition shadow-2xs"
               >
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -728,17 +757,17 @@ export default function App() {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 pointer-events-none" />
             </div>
 
             {/* Project Quick Actions (Settings, Setup Wizard, Git, New Project) */}
             {canEdit && (
-              <div className="flex items-center gap-0.5 text-slate-400">
+              <div className="flex items-center gap-0.5 text-zinc-400">
                 {activeProject && (
                   <button
                     onClick={() => setShowProjectSettings(true)}
                     title="Projekteinstellungen"
-                    className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-700 transition"
+                    className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
                   >
                     <Settings className="w-3.5 h-3.5" />
                   </button>
@@ -746,21 +775,21 @@ export default function App() {
                 <button
                   onClick={() => setShowGitModal(true)}
                   title="Git-Integration & Versionskontrolle"
-                  className="p-1.5 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition"
+                  className="p-1.5 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition"
                 >
-                  <FolderGit2 className="w-3.5 h-3.5 text-indigo-600" />
+                  <FolderGit2 className="w-3.5 h-3.5 text-teal-700" />
                 </button>
                 <button
                   onClick={() => setShowOnboarding(true)}
                   title="Projekt Setup-Wizard"
-                  className="p-1.5 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition"
+                  className="p-1.5 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={() => setShowCreateProject(true)}
                   title="Neues Projekt erstellen"
-                  className="p-1.5 rounded-lg hover:bg-slate-100 hover:text-slate-700 transition"
+                  className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -771,7 +800,7 @@ export default function App() {
 
         {/* Center: Search & Command Palette Bar */}
         <div className="relative w-72 md:w-80">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-2.5 pointer-events-none" />
           <input
             ref={searchInputRef}
             type="text"
@@ -784,13 +813,13 @@ export default function App() {
                 setShowCommandPalette(true);
               }
             }}
-            className="w-full bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg pl-8 pr-16 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition shadow-2xs"
+            className="w-full bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200 rounded-lg pl-8 pr-16 py-1.5 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none focus:bg-white focus:border-teal-600 focus:ring-1 focus:ring-teal-600 transition shadow-2xs"
           />
           <div className="absolute right-2 top-1.5 flex items-center gap-1 pointer-events-none">
-            <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-400 font-semibold shadow-2xs">
+            <kbd className="px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-[10px] font-mono text-zinc-400 font-semibold shadow-2xs">
               /
             </kbd>
-            <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-400 font-semibold shadow-2xs">
+            <kbd className="px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-[10px] font-mono text-zinc-400 font-semibold shadow-2xs">
               ⌘K
             </kbd>
           </div>
@@ -802,17 +831,17 @@ export default function App() {
           <button
             onClick={() => setShowShortcuts(true)}
             title="Tastenkürzel anzeigen (?)"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition"
           >
             <HelpCircle className="w-4 h-4" />
           </button>
 
-          <div className="h-4 w-px bg-slate-200" />
+          <div className="h-4 w-px bg-zinc-200" />
 
           {/* User Persona & Management Switcher */}
           <div className="relative group">
-            <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-100 cursor-pointer transition border border-transparent hover:border-slate-200">
-              <div className="w-6 h-6 rounded-full bg-indigo-100 border border-indigo-200/80 flex items-center justify-center text-[11px] font-bold text-indigo-700 overflow-hidden shrink-0">
+            <div className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-zinc-100 cursor-pointer transition border border-transparent hover:border-zinc-200">
+              <div className="w-6 h-6 rounded-full bg-teal-100 border border-teal-200/80 flex items-center justify-center text-[11px] font-bold text-teal-800 overflow-hidden shrink-0">
                 {currentUser.avatarUrl ? (
                   <img src={currentUser.avatarUrl} alt={currentUser.name} className="w-full h-full object-cover" />
                 ) : (
@@ -820,39 +849,39 @@ export default function App() {
                 )}
               </div>
               <div className="flex flex-col text-left">
-                <span className="text-xs font-semibold text-slate-800 leading-none flex items-center gap-1">
+                <span className="text-xs font-semibold text-zinc-800 leading-none flex items-center gap-1">
                   <span>{currentUser.name}</span>
                   {currentUser.gitUsername && (
-                    <span className="text-[10px] text-slate-400 font-mono font-normal">
+                    <span className="text-[10px] text-zinc-400 font-mono font-normal">
                       (@{currentUser.gitUsername})
                     </span>
                   )}
                 </span>
-                <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5 flex items-center gap-1">
+                <span className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mt-0.5 flex items-center gap-1">
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${
                       currentUser.role === 'ADMIN'
                         ? 'bg-rose-500'
                         : currentUser.role === 'MEMBER'
-                        ? 'bg-indigo-500'
-                        : 'bg-slate-400'
+                        ? 'bg-teal-600'
+                        : 'bg-zinc-400'
                     }`}
                   />
                   {currentUser.role}
                 </span>
               </div>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-zinc-400" />
             </div>
 
             {/* Dropdown Menu */}
-            <div className="absolute right-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-xl p-2 hidden group-hover:block z-40 animate-in fade-in zoom-in-95 duration-100">
+            <div className="absolute right-0 mt-1 w-64 bg-white border border-zinc-200 rounded-xl shadow-xl p-2 hidden group-hover:block z-40 animate-in fade-in zoom-in-95 duration-100">
               {/* Profile Card Header */}
-              <div className="px-2.5 py-2 border-b border-slate-100 mb-1.5">
-                <div className="font-semibold text-xs text-slate-800 truncate">{currentUser.name}</div>
-                <div className="text-[11px] text-slate-400 font-mono truncate">{currentUser.email}</div>
+              <div className="px-2.5 py-2 border-b border-zinc-100 mb-1.5">
+                <div className="font-semibold text-xs text-zinc-800 truncate">{currentUser.name}</div>
+                <div className="text-[11px] text-zinc-400 font-mono truncate">{currentUser.email}</div>
                 {currentUser.gitUsername && (
-                  <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-mono text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-mono text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
                     <span>{currentUser.gitProvider || 'git'}: @{currentUser.gitUsername}</span>
                   </div>
                 )}
@@ -863,18 +892,18 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setShowUserManagement(true)}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition cursor-pointer"
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-teal-700 transition cursor-pointer"
                 >
-                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <Users className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Nutzerverwaltung & Rollen</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowGitModal(true)}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition cursor-pointer"
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-teal-700 transition cursor-pointer"
                 >
-                  <FolderGit2 className="w-3.5 h-3.5 text-slate-500" />
+                  <FolderGit2 className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Git-Integration & Repos</span>
                 </button>
 
@@ -882,9 +911,9 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setShowProjectSettings(true)}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-indigo-600 transition cursor-pointer"
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-teal-700 transition cursor-pointer"
                   >
-                    <Settings className="w-3.5 h-3.5 text-slate-500" />
+                    <Settings className="w-3.5 h-3.5 text-zinc-500" />
                     <span>Projekteinstellungen</span>
                   </button>
                 )}
@@ -892,8 +921,8 @@ export default function App() {
 
               {/* Persona Switcher (Multi-User testing) */}
               {users.length > 1 && (
-                <div className="mt-2 pt-1.5 border-t border-slate-100">
-                  <div className="text-[10px] font-semibold text-slate-400 px-2 py-0.5 uppercase tracking-wider">
+                <div className="mt-2 pt-1.5 border-t border-zinc-100">
+                  <div className="text-[10px] font-semibold text-zinc-400 px-2 py-0.5 uppercase tracking-wider">
                     Benutzer wechseln
                   </div>
                   <div className="space-y-0.5 max-h-28 overflow-y-auto">
@@ -917,12 +946,12 @@ export default function App() {
                         }}
                         className={`w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs transition cursor-pointer ${
                           currentUser.id === u.id
-                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                            : 'hover:bg-slate-100 text-slate-700'
+                            ? 'bg-teal-50 text-teal-800 font-semibold'
+                            : 'hover:bg-zinc-100 text-zinc-700'
                         }`}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <div className="w-4 h-4 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-[9px] font-bold overflow-hidden shrink-0">
+                          <div className="w-4 h-4 rounded-full bg-zinc-200 text-zinc-700 flex items-center justify-center text-[9px] font-bold overflow-hidden shrink-0">
                             {u.avatarUrl ? (
                               <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
                             ) : (
@@ -931,7 +960,7 @@ export default function App() {
                           </div>
                           <span className="truncate">{u.name}</span>
                         </div>
-                        <span className="text-[9px] font-mono uppercase text-slate-400">
+                        <span className="text-[9px] font-mono uppercase text-zinc-400">
                           {u.role}
                         </span>
                       </button>
@@ -941,7 +970,7 @@ export default function App() {
               )}
 
               {/* Logout */}
-              <div className="mt-2 pt-1 border-t border-slate-100">
+              <div className="mt-2 pt-1 border-t border-zinc-100">
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -964,12 +993,12 @@ export default function App() {
                 className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition ${
                   hitlCount > 0
                     ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
                 }`}
               >
                 <span
                   className={`w-2 h-2 rounded-full ${
-                    hitlCount > 0 ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'
+                    hitlCount > 0 ? 'bg-amber-500 animate-pulse' : 'bg-zinc-300'
                   }`}
                 />
                 <span className="hidden md:inline">Inbox</span>
@@ -989,11 +1018,11 @@ export default function App() {
                 setCreateIssueDefaultStatus(undefined);
                 setShowCreateIssue(true);
               }}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white shadow-xs transition"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>New Issue</span>
-              <kbd className="hidden sm:inline-block ml-0.5 text-[9px] font-mono bg-indigo-500/80 px-1 py-0.2 rounded text-indigo-100">
+              <kbd className="hidden sm:inline-block ml-0.5 text-[9px] font-mono bg-teal-600/80 px-1 py-0.2 rounded text-teal-100">
                 C
               </kbd>
             </button>
@@ -1005,17 +1034,30 @@ export default function App() {
       {/* SECONDARY TOOLBAR & FILTER BAR                           */}
       {/* ======================================================== */}
       {!showProjectSettings && (
-      <section className="px-6 py-2 border-b border-slate-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
+      <section className="px-6 py-2 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
         <div className="flex items-center gap-3">
-          {/* View Toggle: Board vs List */}
-          <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200/80">
+          {/* View Toggle: Summary vs Board vs List */}
+          <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80">
+            <button
+              onClick={() => setViewMode('summary')}
+              title="Projekt-Zusammenfassung"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                viewMode === 'summary'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Summary</span>
+            </button>
+
             <button
               onClick={() => setViewMode('board')}
               title="Kanban Board (B)"
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
                 viewMode === 'board'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -1027,28 +1069,61 @@ export default function App() {
               title="Table View (L)"
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
                 viewMode === 'list'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
               <Table className="w-3.5 h-3.5" />
               <span>List</span>
             </button>
+
+            <button
+              onClick={() => setViewMode('calendar')}
+              title="Kalender-Ansicht"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                viewMode === 'calendar'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Kalender</span>
+            </button>
           </div>
 
-          <div className="h-4 w-px bg-slate-200" />
+          <div className="h-4 w-px bg-zinc-200" />
 
           {/* Sprints Manager Pill */}
           {activeProject && (
             <button
               onClick={() => setShowSprintModal(true)}
               title="Sprint & Cycle Management (S)"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition shadow-2xs"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 transition shadow-2xs"
             >
               <Calendar className="w-3.5 h-3.5 text-emerald-600" />
               <span>{activeSprint ? activeSprint.name : 'Sprints'}</span>
               {activeSprint && (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              )}
+            </button>
+          )}
+
+          {/* Goals Manager Pill */}
+          {activeProject && (
+            <button
+              onClick={() => {
+                fetchGoals();
+                setShowGoalsModal(true);
+              }}
+              title="Übergeordnete Ziele verwalten"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 transition shadow-2xs"
+            >
+              <Target className="w-3.5 h-3.5 text-teal-700" />
+              <span>Ziele</span>
+              {goals.filter((g) => g.status === 'ACTIVE').length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-teal-50 text-teal-700 border border-teal-200 text-[10px] font-mono">
+                  {goals.filter((g) => g.status === 'ACTIVE').length}
+                </span>
               )}
             </button>
           )}
@@ -1059,18 +1134,30 @@ export default function App() {
             title={activeProject?.gitRepo ? `Verbunden mit ${activeProject.gitRepo} (${activeProject.gitBranch || 'main'}) - Klicken für Details & Webhook` : 'Git-Repository verbinden'}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition shadow-2xs border ${
               activeProject?.gitRepo
-                ? 'bg-indigo-50/70 border-indigo-200 text-indigo-700 hover:bg-indigo-100/70'
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                ? 'bg-teal-50/70 border-teal-200 text-teal-800 hover:bg-teal-100/70'
+                : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
             }`}
           >
-            <FolderGit2 className="w-3.5 h-3.5 text-indigo-600" />
+            <FolderGit2 className="w-3.5 h-3.5 text-teal-700" />
             <span>{activeProject?.gitRepo ? activeProject.gitRepo : '+ Versionskontrolle'}</span>
             {activeProject?.gitBranch && (
-              <span className="text-[10px] font-mono text-indigo-500 font-normal">
+              <span className="text-[10px] font-mono text-teal-600 font-normal">
                 :{activeProject.gitBranch}
               </span>
             )}
           </button>
+
+          {/* Jira / CSV Import & Sync Pill */}
+          {activeProject && canEdit && (
+            <button
+              onClick={() => setShowImportModal(true)}
+              title="Tickets aus Jira oder CSV importieren & synchronisieren"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 transition shadow-2xs"
+            >
+              <ArrowDownToLine className="w-3.5 h-3.5 text-teal-700" />
+              <span>Import</span>
+            </button>
+          )}
 
           {/* Filter Group */}
           <div className="flex items-center gap-1.5">
@@ -1078,7 +1165,7 @@ export default function App() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+              className="bg-white border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-700 font-medium focus:outline-none focus:border-teal-600 cursor-pointer hover:bg-zinc-50 transition shadow-2xs"
             >
               <option value="ALL">Status: All</option>
               {activeColumns.map((c) => (
@@ -1092,7 +1179,7 @@ export default function App() {
             <select
               value={filterPriority}
               onChange={(e) => setFilterPriority(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+              className="bg-white border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-700 font-medium focus:outline-none focus:border-teal-600 cursor-pointer hover:bg-zinc-50 transition shadow-2xs"
             >
               <option value="ALL">Priority: All</option>
               <option value="URGENT">Urgent</option>
@@ -1105,7 +1192,7 @@ export default function App() {
             <select
               value={filterAssignee}
               onChange={(e: any) => setFilterAssignee(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+              className="bg-white border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-700 font-medium focus:outline-none focus:border-teal-600 cursor-pointer hover:bg-zinc-50 transition shadow-2xs"
             >
               <option value="ALL">Assignee: All</option>
               <option value="AGENT">🤖 AI Agents</option>
@@ -1117,7 +1204,7 @@ export default function App() {
             <select
               value={filterSprint}
               onChange={(e) => setFilterSprint(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:border-indigo-500 cursor-pointer hover:bg-slate-50 transition shadow-2xs"
+              className="bg-white border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-700 font-medium focus:outline-none focus:border-teal-600 cursor-pointer hover:bg-zinc-50 transition shadow-2xs"
             >
               <option value="ALL">Sprint: All</option>
               <option value="ACTIVE">🏃 Aktiver Sprint</option>
@@ -1129,6 +1216,23 @@ export default function App() {
               ))}
             </select>
 
+            {/* Goal Filter */}
+            {goals.length > 0 && (
+              <select
+                value={filterGoal}
+                onChange={(e) => setFilterGoal(e.target.value)}
+                className="bg-white border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-700 font-medium focus:outline-none focus:border-teal-600 cursor-pointer hover:bg-zinc-50 transition shadow-2xs max-w-[170px]"
+              >
+                <option value="ALL">Ziel: Alle</option>
+                <option value="NONE">Ohne Ziel</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+            )}
+
             {/* Reset Filters */}
             {hasActiveFilters && (
               <button
@@ -1138,8 +1242,9 @@ export default function App() {
                   setFilterPriority('ALL');
                   setFilterAssignee('ALL');
                   setFilterSprint('ALL');
+                  setFilterGoal('ALL');
                 }}
-                className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 px-2 py-1 rounded hover:bg-slate-100 transition"
+                className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-100 transition"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Reset</span>
@@ -1149,8 +1254,8 @@ export default function App() {
         </div>
 
         {/* Right count with subtle dot */}
-        <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+        <div className="flex items-center gap-2 text-[11px] text-zinc-400 font-mono">
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
           <span>{issues.length} {issues.length === 1 ? 'ticket' : 'tickets'}</span>
         </div>
       </section>
@@ -1172,24 +1277,40 @@ export default function App() {
           />
         ) : projects.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto py-12">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-5 shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 mb-5 shadow-xs">
               <Layers className="w-8 h-8" />
             </div>
-            <h2 className="text-lg font-bold text-slate-900 mb-2">
+            <h2 className="text-lg font-bold text-zinc-900 mb-2">
               Kein Board vorhanden
             </h2>
-            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+            <p className="text-xs text-zinc-500 leading-relaxed mb-6">
               Aktuell ist kein Projekt oder Board in deinem Workspace eingerichtet. Starte das Onboarding, um dein erstes Board einzurichten.
             </p>
             <button
               type="button"
               onClick={() => setShowOnboarding(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold shadow-sm transition cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
               <span>Onboarding starten</span>
             </button>
           </div>
+        ) : viewMode === 'summary' && activeProject ? (
+          <SummaryView
+            project={activeProject}
+            columns={activeColumns}
+            issues={issues}
+            users={users}
+            onSelectIssue={async (issue) => {
+              const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
+              if (res.ok) setSelectedIssue(await res.json());
+              else setSelectedIssue(issue);
+            }}
+            onFilterStatus={(status) => {
+              setFilterStatus(status);
+              setViewMode('board');
+            }}
+          />
         ) : viewMode === 'board' ? (
           <KanbanBoard
             columns={activeColumns}
@@ -1205,6 +1326,19 @@ export default function App() {
             onOpenCreateInColumn={(colId) => {
               setCreateIssueDefaultStatus(colId);
               setShowCreateIssue(true);
+            }}
+          />
+        ) : viewMode === 'calendar' ? (
+          <CalendarView
+            issues={issues}
+            canEdit={canEdit}
+            onSelectIssue={async (issue) => {
+              const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
+              if (res.ok) setSelectedIssue(await res.json());
+              else setSelectedIssue(issue);
+            }}
+            onUpdateDueDate={async (issueId, dueDate) => {
+              await handleUpdateIssue(issueId, { dueDate });
             }}
           />
         ) : (
@@ -1276,6 +1410,62 @@ export default function App() {
         }}
       />
 
+      {/* Import Modal (Jira & CSV) */}
+      {activeProject && (
+        <ImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          projectId={activeProject.id}
+          projectName={activeProject.name}
+          columns={activeColumns}
+          onImported={async () => {
+            await fetchGoals();
+            await fetchIssues();
+          }}
+        />
+      )}
+
+      {/* Goals Modal */}
+      <GoalsModal
+        isOpen={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
+        goals={goals}
+        canEdit={canEdit}
+        onCreateGoal={async (data) => {
+          if (!activeProject?.id) return;
+          const res = await fetch(`${API_URL}/api/goals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...data, projectId: activeProject.id }),
+          });
+          if (res.ok) {
+            await fetchGoals();
+            await fetchIssues();
+          }
+        }}
+        onUpdateGoal={async (goalId, data) => {
+          const res = await fetch(`${API_URL}/api/goals/${goalId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          if (res.ok) {
+            await fetchGoals();
+            await fetchIssues();
+          }
+        }}
+        onDeleteGoal={async (goalId) => {
+          const res = await fetch(`${API_URL}/api/goals/${goalId}`, {
+            method: 'DELETE',
+          });
+          if (res.ok) {
+            if (filterGoal === goalId) setFilterGoal('ALL');
+            await fetchGoals();
+            await fetchIssues();
+          }
+        }}
+      />
+
       {/* Issue Detail Modal */}
       <IssueDetailModal
         issue={selectedIssue}
@@ -1284,6 +1474,7 @@ export default function App() {
         currentUser={currentUser}
         allIssues={issues}
         sprints={sprints}
+        goals={goals}
         canEdit={canEdit}
         onClose={() => setSelectedIssue(null)}
         onUpdate={handleUpdateIssue}
@@ -1304,6 +1495,7 @@ export default function App() {
         users={users}
         defaultStatus={createIssueDefaultStatus}
         projectId={activeProject?.id}
+        goals={goals}
         onCreate={handleCreateIssue}
       />
 

@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole, SprintStatus, IssueRelationType } from '@prisma/client';
+import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole, SprintStatus, GoalStatus, IssueRelationType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import Redis from 'ioredis';
@@ -14,6 +14,7 @@ import {
   validateWorkflowTransition,
 } from './agent-features';
 import { decryptSecret, encryptSecret } from './crypto';
+import { registerImportRoutes } from './jira-import';
 
 dotenv.config();
 
@@ -588,6 +589,7 @@ async function buildServer(): Promise<FastifyInstance> {
     Querystring: {
       projectId?: string;
       sprintId?: string;
+      goalId?: string;
       status?: string;
       priority?: IssuePriority;
       assigneeType?: AssigneeType;
@@ -598,10 +600,18 @@ async function buildServer(): Promise<FastifyInstance> {
       sortOrder?: 'asc' | 'desc';
     };
   }>) => {
-    const { projectId, sprintId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
+    const { projectId, sprintId, goalId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
     const where: any = {};
 
     if (projectId) where.projectId = projectId;
+
+    if (goalId) {
+      if (goalId === 'NONE') {
+        where.goalId = null;
+      } else if (goalId !== 'ALL') {
+        where.goalId = goalId;
+      }
+    }
 
     if (sprintId) {
       if (sprintId === 'ACTIVE') {
@@ -652,6 +662,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: { select: { id: true, key: true, name: true, columns: true, stageAgents: true } },
         sprint: { select: { id: true, name: true, status: true } },
+        goal: { select: { id: true, title: true, color: true, status: true, startDate: true, targetDate: true } },
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 5 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
@@ -684,6 +695,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: true,
         sprint: true,
+        goal: true,
         comments: { orderBy: { createdAt: 'asc' } },
         activities: { orderBy: { createdAt: 'desc' } },
         agentRuns: { orderBy: { startedAt: 'desc' } },
@@ -716,6 +728,7 @@ async function buildServer(): Promise<FastifyInstance> {
       projectId?: string;
       projectKey?: string;
       sprintId?: string;
+      goalId?: string | null;
       title: string;
       description?: string;
       status?: string;
@@ -725,6 +738,7 @@ async function buildServer(): Promise<FastifyInstance> {
       assigneeId?: string;
       assigneeName?: string;
       labels?: string[];
+      dueDate?: string | null;
       parentId?: string;
       agentMetadata?: any;
       proofOfWork?: any;
@@ -778,8 +792,10 @@ async function buildServer(): Promise<FastifyInstance> {
         assigneeName: stageHandoff ? stageHandoff.agentName : (body.assigneeName || null),
         agentStatus: stageHandoff ? 'THINKING' : undefined,
         labels: body.labels || [],
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
         parentId: body.parentId || null,
         sprintId: body.sprintId || null,
+        goalId: body.goalId || null,
         agentMetadata: body.agentMetadata || undefined,
         proofOfWork: body.proofOfWork || undefined,
         targetFiles: body.targetFiles || [],
@@ -800,6 +816,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: true,
         sprint: true,
+        goal: true,
         activities: true,
       },
     });
@@ -820,7 +837,9 @@ async function buildServer(): Promise<FastifyInstance> {
       assigneeId?: string;
       assigneeName?: string;
       labels?: string[];
+      dueDate?: string | null;
       sprintId?: string | null;
+      goalId?: string | null;
       agentMetadata?: any;
       proofOfWork?: any;
       ciStatus?: string;
@@ -923,8 +942,28 @@ async function buildServer(): Promise<FastifyInstance> {
       });
     }
 
+    if (body.goalId !== undefined && body.goalId !== existing.goalId) {
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'UPDATED',
+        details: body.goalId ? 'Übergeordnetes Ziel zugeordnet' : 'Übergeordnetes Ziel entfernt',
+      });
+    }
+
     // Clean up update payload (exclude non-db fields)
     const updateData: any = { ...body };
+    if (body.dueDate !== undefined) {
+      updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'UPDATED',
+        details: body.dueDate
+          ? `Fälligkeitsdatum gesetzt auf ${new Date(body.dueDate).toLocaleDateString('de-DE')}`
+          : 'Fälligkeitsdatum entfernt',
+      });
+    }
     delete updateData.actorName;
     delete updateData.actorType;
     delete updateData.forceDone;
@@ -957,6 +996,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: true,
         sprint: true,
+        goal: true,
         gitLinks: true,
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -1203,6 +1243,115 @@ async function buildServer(): Promise<FastifyInstance> {
   });
 
   // ==========================================
+  // ÜBERGEORDNETE ZIELE (GOALS)
+  // ==========================================
+  app.get('/api/goals', async (request: FastifyRequest<{
+    Querystring: { projectId?: string };
+  }>) => {
+    const { projectId } = request.query;
+    const where: any = {};
+    if (projectId) where.projectId = projectId;
+
+    return prisma.goal.findMany({
+      where,
+      include: {
+        _count: { select: { issues: true } },
+        issues: {
+          select: { id: true, identifier: true, title: true, status: true, priority: true, dueDate: true },
+        },
+      },
+      orderBy: [{ status: 'asc' }, { targetDate: 'asc' }, { createdAt: 'desc' }],
+    });
+  });
+
+  app.post('/api/goals', async (request: FastifyRequest<{
+    Body: {
+      projectId: string;
+      title: string;
+      description?: string;
+      color?: string;
+      startDate?: string | null;
+      targetDate?: string | null;
+    };
+  }>, reply: FastifyReply) => {
+    const { projectId, title, description, color, startDate, targetDate } = request.body;
+    if (!projectId || !title?.trim()) {
+      return reply.status(400).send({ error: 'Projekt und Ziel-Titel sind erforderlich.' });
+    }
+
+    const goal = await prisma.goal.create({
+      data: {
+        projectId,
+        title: title.trim(),
+        description: description?.trim() || null,
+        color: color || '#0f766e',
+        status: GoalStatus.ACTIVE,
+        startDate: startDate ? new Date(startDate) : null,
+        targetDate: targetDate ? new Date(targetDate) : null,
+      },
+      include: {
+        _count: { select: { issues: true } },
+        issues: {
+          select: { id: true, identifier: true, title: true, status: true, priority: true, dueDate: true },
+        },
+      },
+    });
+
+    broadcastEvent('goal_created', goal);
+    return reply.status(201).send(goal);
+  });
+
+  app.patch('/api/goals/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: {
+      title?: string;
+      description?: string | null;
+      status?: GoalStatus;
+      color?: string;
+      startDate?: string | null;
+      targetDate?: string | null;
+    };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { title, description, status, color, startDate, targetDate } = request.body;
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description?.trim() || null;
+    if (status !== undefined) updateData.status = status;
+    if (color !== undefined) updateData.color = color;
+    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
+    if (targetDate !== undefined) updateData.targetDate = targetDate ? new Date(targetDate) : null;
+
+    const updated = await prisma.goal.update({
+      where: { id },
+      data: updateData,
+      include: {
+        _count: { select: { issues: true } },
+        issues: {
+          select: { id: true, identifier: true, title: true, status: true, priority: true, dueDate: true },
+        },
+      },
+    });
+
+    broadcastEvent('goal_updated', updated);
+    return updated;
+  });
+
+  app.delete('/api/goals/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+  }>) => {
+    const { id } = request.params;
+    await prisma.issue.updateMany({
+      where: { goalId: id },
+      data: { goalId: null },
+    });
+
+    await prisma.goal.delete({ where: { id } });
+    broadcastEvent('goal_deleted', { id });
+    return { success: true, id };
+  });
+
+  // ==========================================
   // TICKET RELATIONS & BLOCKERS
   // ==========================================
   app.post('/api/issues/:id/relations', async (request: FastifyRequest<{
@@ -1329,18 +1478,32 @@ async function buildServer(): Promise<FastifyInstance> {
     });
   }
 
-  app.get('/api/git/oauth/config', async () => {
+  function getRequestOrigins(request: FastifyRequest) {
+    const rawProto = (request.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim();
+    const proto = rawProto || request.protocol || 'http';
+    const rawHost = (request.headers['x-forwarded-host'] as string | undefined)?.split(',')[0]?.trim();
+    const host = rawHost || request.headers.host || 'localhost:4001';
+    const apiBaseUrl = (process.env.PUBLIC_API_URL || `${proto}://${host}`).replace(/\/$/, '');
+    const inferredWeb = /:(4000|4001)$/.test(host)
+      ? `${proto}://${host.replace(/:(4000|4001)$/, ':3000')}`
+      : `${proto}://${host}`;
+    const webBaseUrl = (process.env.PUBLIC_WEB_URL || inferredWeb).replace(/\/$/, '');
+    return { apiBaseUrl, webBaseUrl };
+  }
+
+  app.get('/api/git/oauth/config', async (request: FastifyRequest) => {
+    const { apiBaseUrl } = getRequestOrigins(request);
     return {
       github: {
         configured: Boolean(customOAuthConfig.githubClientId && customOAuthConfig.githubClientSecret),
         clientId: customOAuthConfig.githubClientId,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/github',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/github`,
       },
       gitlab: {
         configured: Boolean(customOAuthConfig.gitlabClientId && customOAuthConfig.gitlabClientSecret),
         clientId: customOAuthConfig.gitlabClientId,
         instanceUrl: customOAuthConfig.gitlabInstanceUrl,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/gitlab`,
       },
     };
   });
@@ -1354,6 +1517,7 @@ async function buildServer(): Promise<FastifyInstance> {
       gitlabInstanceUrl?: string;
     };
   }>) => {
+    const { apiBaseUrl } = getRequestOrigins(request);
     const { githubClientId, githubClientSecret, gitlabClientId, gitlabClientSecret, gitlabInstanceUrl } = request.body || {};
     if (githubClientId !== undefined) customOAuthConfig.githubClientId = githubClientId.trim();
     if (githubClientSecret !== undefined) customOAuthConfig.githubClientSecret = githubClientSecret.trim();
@@ -1378,13 +1542,13 @@ async function buildServer(): Promise<FastifyInstance> {
       github: {
         configured: Boolean(customOAuthConfig.githubClientId && customOAuthConfig.githubClientSecret),
         clientId: customOAuthConfig.githubClientId,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/github',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/github`,
       },
       gitlab: {
         configured: Boolean(customOAuthConfig.gitlabClientId && customOAuthConfig.gitlabClientSecret),
         clientId: customOAuthConfig.gitlabClientId,
         instanceUrl: customOAuthConfig.gitlabInstanceUrl,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/gitlab`,
       },
     };
   });
@@ -1396,12 +1560,13 @@ async function buildServer(): Promise<FastifyInstance> {
   }>, reply: FastifyReply) => {
     const { provider } = request.params;
     const { instanceUrl } = request.query;
+    const { apiBaseUrl, webBaseUrl } = getRequestOrigins(request);
 
     if (provider === 'github') {
       if (customOAuthConfig.githubClientId) {
         const ghAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
           customOAuthConfig.githubClientId
-        )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/github')}&scope=repo,read:user,user:email&state=kanso_${Date.now()}`;
+        )}&redirect_uri=${encodeURIComponent(`${apiBaseUrl}/api/git/oauth/callback/github`)}&scope=repo,read:user,user:email&state=kanso_${Date.now()}`;
         return reply.redirect(ghAuthUrl);
       } else {
         // Seamless 1-Click GitHub Manifest Flow:
@@ -1409,14 +1574,14 @@ async function buildServer(): Promise<FastifyInstance> {
         // and returns the OAuth credentials back to Kanso without manual copy-pasting!
         const randomSuffix = Math.floor(1000 + Math.random() * 9000);
         const manifestObj = {
-          name: `Kanso-Local-${randomSuffix}`,
-          url: 'http://localhost:3000',
+          name: `Kanso-${randomSuffix}`,
+          url: webBaseUrl,
           hook_attributes: {
             url: '',
             active: false,
           },
-          redirect_url: 'http://localhost:4001/api/git/oauth/manifest-callback',
-          callback_urls: ['http://localhost:4001/api/git/oauth/callback/github'],
+          redirect_url: `${apiBaseUrl}/api/git/oauth/manifest-callback`,
+          callback_urls: [`${apiBaseUrl}/api/git/oauth/callback/github`],
           public: false,
           default_permissions: {
             issues: 'write',
@@ -1460,14 +1625,15 @@ async function buildServer(): Promise<FastifyInstance> {
 
     if (provider === 'gitlab') {
       const base = instanceUrl || customOAuthConfig.gitlabInstanceUrl || 'https://gitlab.com';
+      const gitlabCallback = `${apiBaseUrl}/api/git/oauth/callback/gitlab`;
       if (customOAuthConfig.gitlabClientId) {
         const glAuthUrl = `${base.replace(/\/$/, '')}/oauth/authorize?client_id=${encodeURIComponent(
           customOAuthConfig.gitlabClientId
-        )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/gitlab')}&response_type=code&scope=api+read_user+read_repository&state=kanso_${Date.now()}`;
+        )}&redirect_uri=${encodeURIComponent(gitlabCallback)}&response_type=code&scope=api+read_user+read_repository&state=kanso_${Date.now()}`;
         return reply.redirect(glAuthUrl);
       } else {
         // Direct forward to GitLab Application creation with pre-filled redirect URI
-        const glAppUrl = `${base.replace(/\/$/, '')}/-/profile/applications?name=Kanso&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/gitlab')}&scopes=api,read_user,read_repository`;
+        const glAppUrl = `${base.replace(/\/$/, '')}/-/profile/applications?name=Kanso&redirect_uri=${encodeURIComponent(gitlabCallback)}&scopes=api,read_user,read_repository`;
         return reply.redirect(glAppUrl);
       }
     }
@@ -1480,8 +1646,9 @@ async function buildServer(): Promise<FastifyInstance> {
     Querystring: { code?: string };
   }>, reply: FastifyReply) => {
     const { code } = request.query;
+    const { webBaseUrl } = getRequestOrigins(request);
     if (!code) {
-      return reply.redirect('http://localhost:3000/?oauth_error=Kein+Code+übergeben');
+      return reply.redirect(`${webBaseUrl}/?oauth_error=Kein+Code+übergeben`);
     }
 
     try {
@@ -1496,7 +1663,7 @@ async function buildServer(): Promise<FastifyInstance> {
       if (!convertRes.ok) {
         const errText = await convertRes.text();
         console.error('Manifest conversion failed:', errText);
-        return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent('GitHub App Registrierung fehlgeschlagen')}`);
+        return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent('GitHub App Registrierung fehlgeschlagen')}`);
       }
 
       const appData: any = await convertRes.json();
@@ -1546,11 +1713,11 @@ async function buildServer(): Promise<FastifyInstance> {
       });
 
       return reply.redirect(
-        `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(accountName)}`
+        `${webBaseUrl}/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(accountName)}`
       );
     } catch (err: any) {
       console.error('Manifest callback error:', err);
-      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(err.message || 'Manifest-Fehler')}`);
+      return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(err.message || 'Manifest-Fehler')}`);
     }
   });
 
@@ -1561,9 +1728,10 @@ async function buildServer(): Promise<FastifyInstance> {
   }>, reply: FastifyReply) => {
     const { provider } = request.params;
     const { code, error, error_description } = request.query;
+    const { apiBaseUrl, webBaseUrl } = getRequestOrigins(request);
 
     if (error || !code) {
-      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(error_description || error || 'Abgebrochen')}`);
+      return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(error_description || error || 'Abgebrochen')}`);
     }
 
     try {
@@ -1583,7 +1751,7 @@ async function buildServer(): Promise<FastifyInstance> {
 
         const tokenData: any = await tokenRes.json();
         if (!tokenData.access_token) {
-          return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
+          return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
         }
 
         const userRes = await fetch('https://api.github.com/user', {
@@ -1636,7 +1804,7 @@ async function buildServer(): Promise<FastifyInstance> {
         });
 
         return reply.redirect(
-          `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(userData.login)}`
+          `${webBaseUrl}/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(userData.login)}`
         );
       }
 
@@ -1653,13 +1821,13 @@ async function buildServer(): Promise<FastifyInstance> {
             client_secret: customOAuthConfig.gitlabClientSecret,
             code,
             grant_type: 'authorization_code',
-            redirect_uri: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+            redirect_uri: `${apiBaseUrl}/api/git/oauth/callback/gitlab`,
           }),
         });
 
         const tokenData: any = await tokenRes.json();
         if (!tokenData.access_token) {
-          return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
+          return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
         }
 
         const userRes = await fetch(`${base.replace(/\/$/, '')}/api/v4/user`, {
@@ -1710,12 +1878,12 @@ async function buildServer(): Promise<FastifyInstance> {
         });
 
         return reply.redirect(
-          `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=gitlab&account=${encodeURIComponent(userData.username)}`
+          `${webBaseUrl}/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=gitlab&account=${encodeURIComponent(userData.username)}`
         );
       }
     } catch (err: any) {
       console.error('OAuth callback error:', err);
-      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(err.message || 'OAuth-Fehler')}`);
+      return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(err.message || 'OAuth-Fehler')}`);
     }
   });
 
@@ -2483,6 +2651,7 @@ async function buildServer(): Promise<FastifyInstance> {
   });
 
   registerAgentFeatureRoutes(app, prisma, broadcastEvent);
+  registerImportRoutes(app, prisma, broadcastEvent);
 
   return app;
 }

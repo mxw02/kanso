@@ -1,0 +1,77 @@
+name: Kanso PR Stage Sync
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+    types:
+      - opened
+      - reopened
+      - closed
+
+jobs:
+  sync-kanso-stage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync ticket stages to Kanso
+        env:
+          KANSO_API_URL: ${{ secrets.KANSO_API_URL || vars.KANSO_API_URL }}
+          KANSO_API_TOKEN: ${{ secrets.KANSO_API_TOKEN }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_ACTION: ${{ github.event.action }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+        run: |
+          node - <<'EOF'
+          const baseUrl = (process.env.KANSO_API_URL || '').replace(/\/$/, '');
+          if (!baseUrl) process.exit(0);
+
+          const text = [process.env.HEAD_REF, process.env.PR_TITLE, process.env.PR_BODY].join('\n');
+          const matches = [...new Set((text.match(/\b[A-Za-z]{2,10}-\d+\b/g) || []).map((k) => k.toUpperCase()))];
+          if (matches.length === 0) {
+            console.log('No Kanso ticket keys found in PR.');
+            process.exit(0);
+          }
+
+          let targetStatus = null;
+          if (process.env.PR_ACTION === 'opened' || process.env.PR_ACTION === 'reopened') {
+            targetStatus = 'REVIEW';
+          } else if (process.env.PR_ACTION === 'closed' && process.env.PR_MERGED === 'true') {
+            targetStatus = 'DONE';
+          }
+          if (!targetStatus) process.exit(0);
+
+          const headers = { 'Content-Type': 'application/json' };
+          if (process.env.KANSO_API_TOKEN) {
+            headers['Authorization'] = `Bearer ${process.env.KANSO_API_TOKEN}`;
+          }
+
+          (async () => {
+            for (const key of matches) {
+              const res = await fetch(`${baseUrl}/api/issues/${encodeURIComponent(key)}`, {
+                method: 'PATCH',
+                headers,
+                body: JSON.stringify({
+                  status: targetStatus,
+                  actorType: 'AGENT',
+                  actorName: 'GitHub PR Sync',
+                }),
+              });
+              console.log(`${key} -> ${targetStatus}: HTTP ${res.status}`);
+              if (res.ok && targetStatus === 'REVIEW' && process.env.PR_URL) {
+                await fetch(`${baseUrl}/api/issues/${encodeURIComponent(key)}/comments`, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    authorName: 'GitHub PR Sync',
+                    authorType: 'AGENT',
+                    content: `Pull Request eröffnet: ${process.env.PR_URL}`,
+                  }),
+                });
+              }
+            }
+          })();
+          EOF

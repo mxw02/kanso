@@ -29,8 +29,8 @@ const HITL_META: Record<string, { label: string; icon: React.ReactNode; badgeCla
   },
   PLAN_APPROVAL: {
     label: 'Plan-Freigabe',
-    icon: <FileCheck2 className="w-4 h-4 text-indigo-600" />,
-    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    icon: <FileCheck2 className="w-4 h-4 text-teal-700" />,
+    badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
   },
   RISK_APPROVAL: {
     label: 'Risiko-Freigabe',
@@ -66,21 +66,21 @@ export const HitlInboxModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 backdrop-blur-[2px] p-4">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col max-h-[85vh]">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/35 backdrop-blur-[2px] p-4">
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-zinc-200/80 overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+            <h2 className="text-base font-semibold text-zinc-900 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
               Entscheidungs-Inbox (Human-in-the-Loop)
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5">
               Agenten warten bei diesen Tickets auf deine Freigabe oder Rückmeldung.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -90,8 +90,8 @@ export const HitlInboxModal: React.FC<Props> = ({
           {issues.length === 0 ? (
             <div className="py-12 text-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-500/80 mx-auto mb-3" />
-              <p className="text-sm font-medium text-slate-700">Alles geklärt</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-sm font-medium text-zinc-700">Alles geklärt</p>
+              <p className="text-xs text-zinc-400 mt-1">
                 Aktuell wartet kein Agent auf eine menschliche Entscheidung.
               </p>
             </div>
@@ -104,12 +104,12 @@ export const HitlInboxModal: React.FC<Props> = ({
               return (
                 <div
                   key={issue.id}
-                  className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3"
+                  className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/50 space-y-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-mono font-semibold text-slate-500">
+                        <span className="text-[11px] font-mono font-semibold text-zinc-500">
                           {issue.identifier}
                         </span>
                         <span
@@ -119,12 +119,12 @@ export const HitlInboxModal: React.FC<Props> = ({
                           {meta.label}
                         </span>
                         {issue.assigneeName && (
-                          <span className="text-[11px] text-slate-500">
-                            Agent: <span className="font-medium text-slate-700">{issue.assigneeName}</span>
+                          <span className="text-[11px] text-zinc-500">
+                            Agent: <span className="font-medium text-zinc-700">{issue.assigneeName}</span>
                           </span>
                         )}
                       </div>
-                      <h3 className="text-sm font-semibold text-slate-900 mt-1 truncate">
+                      <h3 className="text-sm font-semibold text-zinc-900 mt-1 truncate">
                         {issue.title}
                       </h3>
                     </div>
@@ -133,14 +133,14 @@ export const HitlInboxModal: React.FC<Props> = ({
                         onClose();
                         onOpenIssue(issue.id);
                       }}
-                      className="text-xs text-slate-500 hover:text-indigo-600 inline-flex items-center gap-1 shrink-0"
+                      className="text-xs text-zinc-500 hover:text-teal-700 inline-flex items-center gap-1 shrink-0"
                     >
                       Öffnen <ExternalLink className="w-3 h-3" />
                     </button>
                   </div>
 
                   {issue.hitlPrompt && (
-                    <div className="p-3 rounded-lg bg-white border border-slate-200/80 text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    <div className="p-3 rounded-lg bg-white border border-zinc-200/80 text-xs text-zinc-700 whitespace-pre-wrap leading-relaxed">
                       {issue.hitlPrompt}
                     </div>
                   )}
@@ -155,14 +155,14 @@ export const HitlInboxModal: React.FC<Props> = ({
                           ? 'Antwort für den Agenten eingeben...'
                           : 'Optionale Notiz zur Entscheidung...'
                       }
-                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600/20 focus:border-teal-500"
                     />
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isClarification ? (
                         <button
                           disabled={isBusy || !responses[issue.id]?.trim()}
                           onClick={() => handleAction(issue.id, 'ANSWER')}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-50 transition-colors"
                         >
                           <Send className="w-3.5 h-3.5" />
                           Antworten
