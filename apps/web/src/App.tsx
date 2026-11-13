@@ -22,6 +22,7 @@ import {
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
 import { SummaryView } from './components/SummaryView';
+import { CalendarView } from './components/CalendarView';
 import { IssueDetailModal } from './components/IssueDetailModal';
 import { CreateIssueModal } from './components/CreateIssueModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
@@ -94,7 +95,7 @@ export default function App() {
   });
 
   // Views & Modals
-  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list'>('board');
+  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list' | 'calendar'>('board');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showHitlInbox, setShowHitlInbox] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -1049,6 +1050,19 @@ export default function App() {
               <Table className="w-3.5 h-3.5" />
               <span>List</span>
             </button>
+
+            <button
+              onClick={() => setViewMode('calendar')}
+              title="Kalender-Ansicht"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                viewMode === 'calendar'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Kalender</span>
+            </button>
           </div>
 
           <div className="h-4 w-px bg-zinc-200" />
@@ -1236,6 +1250,19 @@ export default function App() {
             onOpenCreateInColumn={(colId) => {
               setCreateIssueDefaultStatus(colId);
               setShowCreateIssue(true);
+            }}
+          />
+        ) : viewMode === 'calendar' ? (
+          <CalendarView
+            issues={issues}
+            canEdit={canEdit}
+            onSelectIssue={async (issue) => {
+              const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
+              if (res.ok) setSelectedIssue(await res.json());
+              else setSelectedIssue(issue);
+            }}
+            onUpdateDueDate={async (issueId, dueDate) => {
+              await handleUpdateIssue(issueId, { dueDate });
             }}
           />
         ) : (

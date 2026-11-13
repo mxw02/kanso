@@ -46,6 +46,7 @@ interface Issue {
   assigneeId?: string | null;
   assigneeName?: string | null;
   labels: string[];
+  dueDate?: string | null;
   sprintId?: string | null;
   sprint?: { id: string; name: string; status: string } | null;
   comments?: any[];
@@ -1632,6 +1633,44 @@ export const IssueDetailModal: React.FC<Props> = ({
               ) : (
                 <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800 font-medium">
                   {issue.type || 'TASK'}
+                </div>
+              )}
+            </div>
+
+            {/* Due Date */}
+            <div>
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                <Calendar className="w-3 h-3 text-zinc-400" />
+                <span>Fälligkeitsdatum</span>
+              </label>
+              {canEdit ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={issue.dueDate ? issue.dueDate.slice(0, 10) : ''}
+                    onChange={(e) =>
+                      onUpdate(issue.id, {
+                        dueDate: e.target.value ? `${e.target.value}T12:00:00.000Z` : null,
+                      })
+                    }
+                    className="flex-1 bg-white border border-zinc-300 rounded-lg px-2.5 py-1.5 text-zinc-900 font-medium focus:outline-none focus:border-teal-600"
+                  />
+                  {issue.dueDate && (
+                    <button
+                      type="button"
+                      onClick={() => onUpdate(issue.id, { dueDate: null })}
+                      title="Datum entfernen"
+                      className="p-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-400 hover:text-rose-600 hover:border-rose-200 transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800 font-medium">
+                  {issue.dueDate
+                    ? new Date(issue.dueDate).toLocaleDateString('de-DE')
+                    : 'Kein Datum'}
                 </div>
               )}
             </div>

@@ -725,6 +725,7 @@ async function buildServer(): Promise<FastifyInstance> {
       assigneeId?: string;
       assigneeName?: string;
       labels?: string[];
+      dueDate?: string | null;
       parentId?: string;
       agentMetadata?: any;
       proofOfWork?: any;
@@ -778,6 +779,7 @@ async function buildServer(): Promise<FastifyInstance> {
         assigneeName: stageHandoff ? stageHandoff.agentName : (body.assigneeName || null),
         agentStatus: stageHandoff ? 'THINKING' : undefined,
         labels: body.labels || [],
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
         parentId: body.parentId || null,
         sprintId: body.sprintId || null,
         agentMetadata: body.agentMetadata || undefined,
@@ -820,6 +822,7 @@ async function buildServer(): Promise<FastifyInstance> {
       assigneeId?: string;
       assigneeName?: string;
       labels?: string[];
+      dueDate?: string | null;
       sprintId?: string | null;
       agentMetadata?: any;
       proofOfWork?: any;
@@ -925,6 +928,17 @@ async function buildServer(): Promise<FastifyInstance> {
 
     // Clean up update payload (exclude non-db fields)
     const updateData: any = { ...body };
+    if (body.dueDate !== undefined) {
+      updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'UPDATED',
+        details: body.dueDate
+          ? `Fälligkeitsdatum gesetzt auf ${new Date(body.dueDate).toLocaleDateString('de-DE')}`
+          : 'Fälligkeitsdatum entfernt',
+      });
+    }
     delete updateData.actorName;
     delete updateData.actorType;
     delete updateData.forceDone;
