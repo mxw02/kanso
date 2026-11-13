@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, User, MessageSquare, CheckSquare, Plus } from 'lucide-react';
+import { Bot, MessageSquare, CheckSquare, Plus, Lock, ExternalLink, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 interface Column {
   id: string;
@@ -21,6 +21,13 @@ interface Issue {
   comments?: any[];
   subIssues?: any[];
   agentRuns?: any[];
+  hitlState?: string | null;
+  agentStatus?: string | null;
+  proofOfWork?: { id: string; title: string; status: string }[] | null;
+  ciStatus?: string | null;
+  previewUrl?: string | null;
+  incomingRelations?: { type: string; sourceIssue?: { identifier: string; status: string } }[];
+  outgoingRelations?: { type: string; targetIssue?: { identifier: string; status: string } }[];
 }
 
 interface Props {
@@ -148,6 +155,97 @@ export const KanbanBoard: React.FC<Props> = ({
                   <h4 className="text-xs font-semibold text-slate-900 group-hover:text-indigo-950 mb-2 leading-snug line-clamp-2">
                     {issue.title}
                   </h4>
+
+                  {/* Agent-First Micro Badges (HITL, Live Status, Blockers, PoW, Preview) */}
+                  {(() => {
+                    const closed = new Set(['DONE', 'CANCELLED']);
+                    const openBlockers = [
+                      ...(issue.incomingRelations || [])
+                        .filter((r) => r.type === 'BLOCKS' && r.sourceIssue && !closed.has(r.sourceIssue.status.toUpperCase()))
+                        .map((r) => r.sourceIssue!.identifier),
+                      ...(issue.outgoingRelations || [])
+                        .filter((r) => r.type === 'IS_BLOCKED_BY' && r.targetIssue && !closed.has(r.targetIssue.status.toUpperCase()))
+                        .map((r) => r.targetIssue!.identifier),
+                    ];
+                    const powList = Array.isArray(issue.proofOfWork) ? issue.proofOfWork : [];
+                    const powPassed = powList.filter((c) => c.status === 'PASSED').length;
+                    const hasActiveAgentStatus =
+                      issue.agentStatus && !['IDLE', 'BLOCKED'].includes(issue.agentStatus);
+
+                    if (
+                      !issue.hitlState &&
+                      !hasActiveAgentStatus &&
+                      openBlockers.length === 0 &&
+                      powList.length === 0 &&
+                      !issue.previewUrl &&
+                      (!issue.ciStatus || issue.ciStatus === 'NONE')
+                    ) {
+                      return null;
+                    }
+
+                    return (
+                      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                        {issue.hitlState && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[9px] font-semibold">
+                            <ShieldAlert className="w-2.5 h-2.5" />
+                            Entscheidung nötig
+                          </span>
+                        )}
+                        {hasActiveAgentStatus && !issue.hitlState && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200/80 text-indigo-700 text-[9px] font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                            {issue.agentStatus}
+                          </span>
+                        )}
+                        {openBlockers.length > 0 && (
+                          <span
+                            title={`Blockiert durch: ${openBlockers.join(', ')}`}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-700 text-[9px] font-medium"
+                          >
+                            <Lock className="w-2.5 h-2.5" />
+                            {openBlockers[0]}
+                            {openBlockers.length > 1 ? ` +${openBlockers.length - 1}` : ''}
+                          </span>
+                        )}
+                        {powList.length > 0 && (
+                          <span
+                            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border text-[9px] font-mono ${
+                              powPassed === powList.length
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                : 'bg-slate-50 border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                            {powPassed}/{powList.length}
+                          </span>
+                        )}
+                        {issue.ciStatus && issue.ciStatus !== 'NONE' && (
+                          <span
+                            title={`CI: ${issue.ciStatus}`}
+                            className={`w-2 h-2 rounded-full ${
+                              issue.ciStatus === 'SUCCESS'
+                                ? 'bg-emerald-500'
+                                : issue.ciStatus === 'FAILURE'
+                                  ? 'bg-rose-500'
+                                  : 'bg-amber-400 animate-pulse'
+                            }`}
+                          />
+                        )}
+                        {issue.previewUrl && (
+                          <a
+                            href={issue.previewUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 text-[9px] font-medium"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5" />
+                            Preview
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Footer: Tags, Counts, Assignee */}
                   <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 mt-2 text-[10px]">

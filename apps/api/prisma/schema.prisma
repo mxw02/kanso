@@ -92,6 +92,8 @@ model Project {
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
   
   columns     Json?      // Customizable status columns: [{ id: "BACKLOG", title: "Backlog", color: "..." }]
+  stageAgents Json?      // Stage-based Multi-Agent Pipeline: { [columnId]: { agentName, autoAssign, promptTemplate? } }
+  workflowRules Json?    // Workflow transition rules: { name, enforceStrictTransitions, transitions: [...] }
   
   gitProvider String?    // "github" or "gitlab"
   gitRepo     String?    // e.g. "mxw02/kanso"
@@ -120,6 +122,17 @@ model Issue {
   assigneeName  String?
   labels        String[]      @default([])
   agentMetadata Json?
+
+  // Agent-First Board Fields
+  hitlState            String?   // null | NEEDS_CLARIFICATION | PLAN_APPROVAL | RISK_APPROVAL
+  hitlPrompt           String?   @db.Text
+  hitlResponse         String?   @db.Text
+  agentStatus          String?   // IDLE | THINKING | CODING | TESTING | BLOCKED | AWAITING_HUMAN
+  proofOfWork          Json?     // [{ id, title, command?, status: PENDING|PASSED|FAILED, output?, updatedAt? }]
+  ciStatus             String?   // NONE | PENDING | SUCCESS | FAILURE
+  previewUrl           String?
+  previewScreenshotUrl String?
+  targetFiles          String[]  @default([])
   
   projectId     String
   project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -138,6 +151,7 @@ model Issue {
   comments      Comment[]
   activities    ActivityLog[]
   agentRuns     AgentRun[]
+  traceEvents   AgentTraceEvent[]
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -190,6 +204,24 @@ model AgentRun {
 
   @@index([issueId])
   @@map("agent_runs")
+}
+
+model AgentTraceEvent {
+  id         String   @id @default(uuid())
+  issueId    String
+  issue      Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  agentName  String
+  phase      String   @default("INFO") // THINKING, TOOL_CALL, FILE_EDIT, TEST_RUN, ERROR, INFO
+  title      String
+  detail     String?  @db.Text
+  filePath   String?
+  status     String   @default("INFO") // RUNNING, SUCCESS, FAILED, INFO
+  tokensUsed Int?
+  durationMs Int?
+  createdAt  DateTime @default(now())
+
+  @@index([issueId, createdAt])
+  @@map("agent_trace_events")
 }
 
 model Sprint {
@@ -264,4 +296,16 @@ model GitConnection {
   updatedAt   DateTime @updatedAt
 
   @@map("git_connections")
+}
+
+model OAuthProviderConfig {
+  id              String   @id @default(uuid())
+  provider        String   @unique // "github" or "gitlab"
+  clientId        String
+  clientSecretEnc String   @db.Text // AES-256-GCM encrypted client secret
+  instanceUrl     String?  @default("https://gitlab.com")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("oauth_provider_configs")
 }

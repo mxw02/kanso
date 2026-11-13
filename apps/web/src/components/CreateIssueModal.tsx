@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Check,
 } from 'lucide-react';
+import { computeReadiness } from '../utils/readiness';
 
 interface Column {
   id: string;
@@ -520,13 +521,29 @@ export const CreateIssueModal: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Footer: Keyboard Hint & Primary Action */}
-        <div className="px-6 py-3.5 border-t border-slate-200 flex items-center justify-between bg-white rounded-b-2xl">
-          <div className="text-[11px] text-slate-400 flex items-center gap-1 font-mono">
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-500">⌘</kbd>
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-500">↵</kbd>
-            <span className="text-slate-400 ml-1 font-sans">to create</span>
-          </div>
+        {/* Footer: Agent-Readiness + Keyboard Hint & Primary Action */}
+        <div className="px-6 py-3.5 border-t border-slate-200 flex items-center justify-between bg-white rounded-b-2xl gap-3">
+          {(() => {
+            const readiness = computeReadiness({ description });
+            return (
+              <div className="flex items-center gap-2 text-[11px]">
+                <span
+                  title={readiness.missing.join(' • ')}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold border ${
+                    readiness.level === 'READY'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : readiness.level === 'NEEDS_CONTEXT'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}
+                >
+                  <Sparkles className="w-3 h-3" />
+                  Readiness {readiness.score}%
+                </span>
+                <span className="hidden sm:inline text-slate-400 font-mono">⌘↵</span>
+              </div>
+            );
+          })()}
 
           <div className="flex items-center gap-2">
             <button

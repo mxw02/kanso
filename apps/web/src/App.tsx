@@ -31,6 +31,7 @@ import { SprintModal } from './components/SprintModal';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
 import { UserManagementModal } from './components/UserManagementModal';
 import { AuthScreen } from './components/AuthScreen';
+import { HitlInboxModal } from './components/HitlInboxModal';
 
 interface StatusColumn {
   id: string;
@@ -93,6 +94,7 @@ export default function App() {
   // Views & Modals
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showHitlInbox, setShowHitlInbox] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCreateIssue, setShowCreateIssue] = useState(false);
   const [createIssueDefaultStatus, setCreateIssueDefaultStatus] = useState<string | undefined>(undefined);
@@ -125,7 +127,15 @@ export default function App() {
     localStorage.removeItem('kanso_auth_token');
     setCurrentUser(null);
     setAuthToken(null);
+    setOauthToast(null);
   };
+
+  // Auto-dismiss OAuth toast after 4 seconds
+  useEffect(() => {
+    if (!oauthToast) return;
+    const timer = setTimeout(() => setOauthToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [oauthToast]);
 
   // Check URL params for OAuth redirect on mount
   useEffect(() => {
@@ -279,12 +289,23 @@ export default function App() {
             'relation_created',
             'relation_deleted',
             'git_link_added',
+            'agent_trace_added',
+            'hitl_requested',
+            'hitl_resolved',
+            'issue_unblocked',
+            'agent_handoff',
+            'project_updated',
           ].includes(data.type)
         ) {
           fetchIssues();
           fetchSprints();
-          if (data.type === 'project_created') {
+          if (data.type === 'project_created' || data.type === 'project_updated') {
             fetchData();
+          }
+          if (selectedIssue && (data.payload?.id === selectedIssue.id || data.payload?.issueId === selectedIssue.id)) {
+            fetch(`${API_URL}/api/issues/${selectedIssue.id}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((d) => d && setSelectedIssue(d));
           }
         }
       } catch (e) {
@@ -360,7 +381,7 @@ export default function App() {
   const handleUpdateIssueStatus = async (issueId: string, newStatus: string) => {
     if (!canEdit) return;
     try {
-      await fetch(`${API_URL}/api/issues/${issueId}`, {
+      const res = await fetch(`${API_URL}/api/issues/${issueId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -369,6 +390,11 @@ export default function App() {
           actorType: 'HUMAN',
         }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Statuswechsel durch Workflow-Regel blockiert.');
+        return;
+      }
       fetchIssues();
     } catch (err) {
       console.error('Failed to update status', err);
@@ -391,6 +417,9 @@ export default function App() {
         const updated = await res.json();
         setSelectedIssue(updated);
         fetchIssues();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Aktualisierung durch Workflow-Regel blockiert.');
       }
     } catch (err) {
       console.error('Failed to update issue', err);
@@ -653,9 +682,17 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* OAuth Toast Notification */}
       {oauthToast && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4 duration-200">
-          <Sparkles className="w-4 h-4 text-emerald-200" />
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
+          <Sparkles className="w-4 h-4 text-emerald-200 shrink-0" />
           <span>{oauthToast}</span>
+          <button
+            type="button"
+            onClick={() => setOauthToast(null)}
+            className="ml-1 text-emerald-100 hover:text-white leading-none cursor-pointer"
+            aria-label="Schließen"
+          >
+            ✕
+          </button>
         </div>
       )}
       {/* ======================================================== */}
@@ -917,6 +954,34 @@ export default function App() {
             </div>
           </div>
 
+          {/* 1B: HITL Decision Inbox Pill */}
+          {(() => {
+            const hitlCount = issues.filter((i) => i.hitlState || i.agentStatus === 'AWAITING_HUMAN').length;
+            return (
+              <button
+                onClick={() => setShowHitlInbox(true)}
+                title="Human-in-the-Loop Entscheidungs-Inbox"
+                className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition ${
+                  hitlCount > 0
+                    ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    hitlCount > 0 ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'
+                  }`}
+                />
+                <span className="hidden md:inline">Inbox</span>
+                {hitlCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-600 text-white text-[10px] font-bold">
+                    {hitlCount}
+                  </span>
+                )}
+              </button>
+            );
+          })()}
+
           {/* New Issue Button (Primary CTA) */}
           {canEdit && (
             <button
@@ -939,6 +1004,7 @@ export default function App() {
       {/* ======================================================== */}
       {/* SECONDARY TOOLBAR & FILTER BAR                           */}
       {/* ======================================================== */}
+      {!showProjectSettings && (
       <section className="px-6 py-2 border-b border-slate-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
         <div className="flex items-center gap-3">
           {/* View Toggle: Board vs List */}
@@ -1088,12 +1154,23 @@ export default function App() {
           <span>{issues.length} {issues.length === 1 ? 'ticket' : 'tickets'}</span>
         </div>
       </section>
+      )}
 
       {/* ======================================================== */}
       {/* MAIN VIEW CONTENT                                        */}
       {/* ======================================================== */}
-      <main className="flex-1 p-6 overflow-hidden flex flex-col">
-        {projects.length === 0 ? (
+      <main className={showProjectSettings && activeProject ? 'flex-1 overflow-hidden flex flex-col' : 'flex-1 p-6 overflow-hidden flex flex-col'}>
+        {showProjectSettings && activeProject ? (
+          <ProjectSettingsModal
+            isOpen={showProjectSettings}
+            onClose={() => setShowProjectSettings(false)}
+            project={activeProject}
+            onUpdateProject={handleUpdateProject}
+            onDeleteProject={handleDeleteProject}
+            canEdit={canEdit}
+            canAdmin={canAdmin}
+          />
+        ) : projects.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto py-12">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-5 shadow-xs">
               <Layers className="w-8 h-8" />
@@ -1186,17 +1263,6 @@ export default function App() {
         onComplete={handleOnboardingComplete}
       />
 
-      {/* Project Settings Modal */}
-      <ProjectSettingsModal
-        isOpen={showProjectSettings}
-        onClose={() => setShowProjectSettings(false)}
-        project={activeProject}
-        onUpdateProject={handleUpdateProject}
-        onDeleteProject={handleDeleteProject}
-        canEdit={canEdit}
-        canAdmin={canAdmin}
-      />
-
       {/* Sprint Modal */}
       <SprintModal
         isOpen={showSprintModal}
@@ -1267,6 +1333,29 @@ export default function App() {
         currentUser={currentUser}
         onUserUpdated={fetchData}
         apiBaseUrl={API_URL}
+      />
+
+      {/* 1B: HITL Decision Inbox Modal */}
+      <HitlInboxModal
+        isOpen={showHitlInbox}
+        onClose={() => setShowHitlInbox(false)}
+        issues={issues.filter((i) => i.hitlState || i.agentStatus === 'AWAITING_HUMAN')}
+        onResolve={async (issueId, action, response) => {
+          await fetch(`${API_URL}/api/issues/${issueId}/hitl/resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action,
+              response,
+              actorName: currentUser.name,
+            }),
+          });
+          await fetchIssues();
+        }}
+        onOpenIssue={async (issueId) => {
+          const res = await fetch(`${API_URL}/api/issues/${issueId}`);
+          if (res.ok) setSelectedIssue(await res.json());
+        }}
       />
     </div>
   );

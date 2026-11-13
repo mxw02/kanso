@@ -35,6 +35,27 @@ export interface ProjectSettingsData {
   name: string;
   description?: string;
   columns?: StatusColumn[];
+  stageAgents?: Record<string, { agentName: string; autoAssign: boolean }> | null;
+  workflowRules?: {
+    name: string;
+    enforceStrictTransitions: boolean;
+    transitions: {
+      id: string;
+      name?: string;
+      from: string;
+      to: string;
+      enabled: boolean;
+      conditions: {
+        requireNoOpenBlockers?: boolean;
+        requireProofOfWorkPassed?: boolean;
+        requireCiSuccess?: boolean;
+        requireAssignee?: boolean;
+        requireNoHitlPause?: boolean;
+        minReadinessScore?: number;
+        allowedActors?: ('HUMAN' | 'AGENT' | 'SYSTEM')[];
+      };
+    }[];
+  } | null;
   gitProvider?: string;
   gitRepo?: string;
   gitBranch?: string;
@@ -60,6 +81,8 @@ interface Props {
       key?: string;
       description?: string;
       columns?: StatusColumn[];
+      stageAgents?: Record<string, { agentName: string; autoAssign: boolean }> | null;
+      workflowRules?: any;
       gitProvider?: string;
       gitRepo?: string;
       gitBranch?: string;
@@ -70,7 +93,7 @@ interface Props {
   canAdmin: boolean;
 }
 
-type TabKey = 'general' | 'stages' | 'agents' | 'git' | 'danger';
+type TabKey = 'general' | 'stages' | 'workflow' | 'agents' | 'git' | 'danger';
 
 const DEFAULT_STAGES: StatusColumn[] = [
   { id: 'BACKLOG', title: 'Backlog' },
@@ -126,6 +149,11 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
   const [columns, setColumns] = useState<StatusColumn[]>([]);
+  const [stageAgents, setStageAgents] = useState<Record<string, { agentName: string; autoAssign: boolean }>>({});
+  const [workflowName, setWorkflowName] = useState('Standard Agent-First Workflow');
+  const [enforceStrictTransitions, setEnforceStrictTransitions] = useState(false);
+  const [transitions, setTransitions] = useState<any[]>([]);
+  const [selectedWorkflowStageId, setSelectedWorkflowStageId] = useState<string>('');
   const [newStageTitle, setNewStageTitle] = useState('');
 
   // Agent settings (local project configuration state)
@@ -157,9 +185,13 @@ export const ProjectSettingsModal: React.FC<Props> = ({
       setName(project.name || '');
       setKey(project.key || '');
       setDescription(project.description || '');
-      setColumns(
-        project.columns && project.columns.length > 0 ? [...project.columns] : [...DEFAULT_STAGES]
-      );
+      const cols = project.columns && project.columns.length > 0 ? [...project.columns] : [...DEFAULT_STAGES];
+      setColumns(cols);
+      setStageAgents(project.stageAgents ? { ...project.stageAgents } : {});
+      setWorkflowName(project.workflowRules?.name || 'Standard Agent-First Workflow');
+      setEnforceStrictTransitions(Boolean(project.workflowRules?.enforceStrictTransitions));
+      setTransitions(Array.isArray(project.workflowRules?.transitions) ? [...project.workflowRules!.transitions] : []);
+      setSelectedWorkflowStageId(cols[Math.min(1, cols.length - 1)]?.id || cols[0]?.id || '');
       setGitProvider((project.gitProvider as any) || 'GITHUB');
       setGitRepo(project.gitRepo || '');
       setGitBranch(project.gitBranch || 'main');
@@ -242,6 +274,12 @@ export const ProjectSettingsModal: React.FC<Props> = ({
         key: key.toUpperCase().trim(),
         description: description.trim(),
         columns,
+        stageAgents,
+        workflowRules: {
+          name: workflowName.trim() || 'Custom Workflow',
+          enforceStrictTransitions,
+          transitions,
+        },
         gitProvider: gitRepo.trim() ? gitProvider : undefined,
         gitRepo: gitRepo.trim() || undefined,
         gitBranch: gitRepo.trim() ? (gitBranch.trim() || 'main') : undefined,
@@ -275,42 +313,53 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-      <div
-        className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-4xl h-[680px] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
-              <Settings className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-900">Projekteinstellungen</h2>
-                <span className="font-mono text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
-                  {project.key}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500">{project.name}</p>
-            </div>
+    <div className="flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0">
+      {/* Page Header */}
+      <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60 shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition"
+          >
+            <span>← Zurück zum Board</span>
+          </button>
+          <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+            <Settings className="w-4 h-4" />
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-slate-900">Projekteinstellungen</h2>
+              <span className="font-mono text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100">
+                {project.key}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">{project.name}</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          {saveSuccess && (
+            <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5 mr-2">
+              <Check className="w-3.5 h-3.5" />
+              Gespeichert
+            </span>
+          )}
+          {canEdit && activeTab !== 'danger' && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5"
+            >
+              {isSaving ? 'Speichern...' : 'Änderungen speichern'}
+            </button>
+          )}
+        </div>
+      </div>
 
-        {/* Body: Left Sidebar Tabs + Right Content */}
+      {/* Body: Left Sidebar Tabs + Right Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Navigation Tabs */}
-          <aside className="w-56 border-r border-slate-200 bg-slate-50/70 p-3 space-y-1 shrink-0 flex flex-col justify-between">
+          <aside className="w-64 border-r border-slate-200 bg-slate-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between">
             <div className="space-y-1">
               <button
                 onClick={() => setActiveTab('general')}
@@ -334,6 +383,18 @@ export const ProjectSettingsModal: React.FC<Props> = ({
               >
                 <Layers className="w-4 h-4 text-slate-400" />
                 <span>Board Stages ({columns.length})</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('workflow')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                  activeTab === 'workflow'
+                    ? 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-semibold'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`}
+              >
+                <GitBranch className="w-4 h-4 text-slate-400" />
+                <span>Workflow & Regeln ({transitions.length})</span>
               </button>
 
               <button
@@ -586,6 +647,457 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             )}
 
             {/* TAB 3: KI & AGENTEN */}
+            {activeTab === 'workflow' && (() => {
+              const activeStage = columns.find((c) => c.id === selectedWorkflowStageId) || columns[0];
+              const stageId = activeStage?.id || '';
+              const stageRules = transitions.filter((t) => t.to === stageId && t.enabled !== false);
+              const isAnySource = stageRules.some((t) => t.from === '*');
+              const allowedSources = stageRules.map((t) => t.from);
+              const primaryCond = stageRules[0]?.conditions || {};
+
+              const updateStageRules = (updater: (rulesForStage: any[]) => any[]) => {
+                setTransitions((prev) => {
+                  const others = prev.filter((t) => t.to !== stageId);
+                  const current = prev.filter((t) => t.to === stageId);
+                  return [...others, ...updater(current)];
+                });
+              };
+
+              const updateStageCondition = (patch: Record<string, any>) => {
+                updateStageRules((current) => {
+                  const base =
+                    current.length > 0
+                      ? current
+                      : [{ id: `rule-any-${stageId}-${Date.now()}`, from: '*', to: stageId, enabled: true, conditions: {} }];
+                  return base.map((r) => ({
+                    ...r,
+                    enabled: true,
+                    conditions: { ...(r.conditions || {}), ...patch },
+                  }));
+                });
+              };
+
+              const toggleSourceStage = (fromId: string) => {
+                updateStageRules((current) => {
+                  if (fromId === '*') {
+                    return [
+                      {
+                        id: `rule-any-${stageId}-${Date.now()}`,
+                        from: '*',
+                        to: stageId,
+                        enabled: true,
+                        conditions: primaryCond,
+                      },
+                    ];
+                  }
+                  const withoutAny = current.filter((r) => r.from !== '*');
+                  const exists = withoutAny.some((r) => r.from === fromId);
+                  if (exists) {
+                    return withoutAny.filter((r) => r.from !== fromId);
+                  }
+                  return [
+                    ...withoutAny,
+                    {
+                      id: `rule-${fromId}-${stageId}-${Date.now()}`,
+                      from: fromId,
+                      to: stageId,
+                      enabled: true,
+                      conditions: primaryCond,
+                    },
+                  ];
+                });
+              };
+
+              const countGates = (cond: any) => {
+                if (!cond) return 0;
+                let n = 0;
+                if (cond.requireNoOpenBlockers) n++;
+                if (cond.requireProofOfWorkPassed) n++;
+                if (cond.requireCiSuccess) n++;
+                if (cond.requireAssignee) n++;
+                if (cond.requireNoHitlPause) n++;
+                if (cond.minReadinessScore) n++;
+                if (cond.allowedActors?.length) n++;
+                if (cond.allowedTypes?.length) n++;
+                return n;
+              };
+
+              const summaryParts: string[] = [];
+              if (primaryCond.requireNoOpenBlockers) summaryParts.push('keine offenen Blocker');
+              if (primaryCond.requireProofOfWorkPassed) summaryParts.push('Proof-of-Work bestanden');
+              if (primaryCond.requireCiSuccess) summaryParts.push('CI grün');
+              if (primaryCond.requireAssignee) summaryParts.push('Ticket zugewiesen');
+              if (primaryCond.requireNoHitlPause) summaryParts.push('keine HITL-Pause');
+              if (primaryCond.minReadinessScore) summaryParts.push(`Readiness ≥ ${primaryCond.minReadinessScore}%`);
+              if (primaryCond.allowedActors?.length === 1) {
+                summaryParts.push(primaryCond.allowedActors[0] === 'HUMAN' ? 'nur Menschen' : 'nur Agenten');
+              }
+              if (primaryCond.allowedTypes?.length) {
+                summaryParts.push(`Typen: ${primaryCond.allowedTypes.join(', ')}`);
+              }
+
+              return (
+                <div className="space-y-5 max-w-4xl">
+                  {/* Header + Presets */}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Workflow & Stage-Regeln</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Klicke eine Stage an und definiere, wann ein Ticket dort hinein darf.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const generated: any[] = [];
+                          for (let i = 0; i < columns.length - 1; i++) {
+                            const from = columns[i].id;
+                            const to = columns[i + 1].id;
+                            const isLast = i === columns.length - 2;
+                            generated.push({
+                              id: `rule-${from}-${to}-${Date.now()}-${i}`,
+                              from,
+                              to,
+                              enabled: true,
+                              conditions: {
+                                requireNoOpenBlockers: i >= 1,
+                                requireProofOfWorkPassed: isLast,
+                                requireNoHitlPause: isLast || i === columns.length - 3,
+                                minReadinessScore: i === 1 ? 50 : undefined,
+                              },
+                            });
+                          }
+                          setTransitions(generated);
+                          setEnforceStrictTransitions(true);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-semibold hover:bg-indigo-100"
+                      >
+                        Agent-First Preset
+                      </button>
+                      {transitions.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTransitions([]);
+                            setEnforceStrictTransitions(false);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-white text-slate-600 border border-slate-200 text-[11px] font-medium hover:bg-slate-50"
+                        >
+                          Zurücksetzen
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mode Selector Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setEnforceStrictTransitions(false)}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        !enforceStrictTransitions
+                          ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="text-xs font-semibold text-slate-900">Flexibel mit Quality-Gates</div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Jede Stage ist erreichbar, aber definierte Eingangs-Regeln werden erzwungen.
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEnforceStrictTransitions(true)}
+                      className={`p-3 rounded-xl border text-left transition ${
+                        enforceStrictTransitions
+                          ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="text-xs font-semibold text-slate-900">Strikte Pipeline</div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Tickets dürfen nur über explizit erlaubte Vorgänger-Stages wandern.
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Visual Pipeline Selector */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                      1. Stage auswählen
+                    </span>
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                      {columns.map((col, idx) => {
+                        const rulesForCol = transitions.filter((t) => t.to === col.id && t.enabled !== false);
+                        const gateCount = countGates(rulesForCol[0]?.conditions);
+                        const isSelected = col.id === stageId;
+                        return (
+                          <React.Fragment key={col.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedWorkflowStageId(col.id)}
+                              className={`px-3 py-2 rounded-xl border text-left shrink-0 transition min-w-[115px] ${
+                                isSelected
+                                  ? 'border-indigo-500 bg-indigo-600 text-white shadow-sm'
+                                  : 'border-slate-200 bg-white text-slate-800 hover:border-indigo-300'
+                              }`}
+                            >
+                              <div className="text-xs font-semibold truncate">{col.title}</div>
+                              <div
+                                className={`text-[10px] mt-0.5 ${
+                                  isSelected ? 'text-indigo-100' : 'text-slate-400'
+                                }`}
+                              >
+                                {rulesForCol.length === 0
+                                  ? enforceStrictTransitions
+                                    ? 'Gesperrt'
+                                    : 'Offen'
+                                  : gateCount > 0
+                                    ? `${gateCount} Gate${gateCount > 1 ? 's' : ''}`
+                                    : 'Pfad aktiv'}
+                              </div>
+                            </button>
+                            {idx < columns.length - 1 && (
+                              <span className="text-slate-300 text-xs font-bold shrink-0">→</span>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Selected Stage Inspector */}
+                  {activeStage && (
+                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900">
+                            Regeln für Eingang in „{activeStage.title}“
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Gilt für Drag & Drop, Status-Menü und MCP-Agenten.
+                          </p>
+                        </div>
+                        {stageRules.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => updateStageRules(() => [])}
+                            className="text-[11px] text-rose-600 hover:underline"
+                          >
+                            Regeln für Stage löschen
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Source Stages */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-semibold text-slate-700">
+                          Erlaubt aus Stage(s):
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => toggleSourceStage('*')}
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition ${
+                              isAnySource || stageRules.length === 0
+                                ? 'bg-slate-900 text-white border-slate-900'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            Überall (*)
+                          </button>
+                          {columns
+                            .filter((c) => c.id !== stageId)
+                            .map((c) => {
+                              const active = !isAnySource && allowedSources.includes(c.id);
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onClick={() => toggleSourceStage(c.id)}
+                                  className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition ${
+                                    active
+                                      ? 'bg-indigo-600 text-white border-indigo-600'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                                  }`}
+                                >
+                                  {c.title}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+
+                      {/* Entry Gate Toggles */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-semibold text-slate-700">
+                          Erforderliche Checks (Entry Gates):
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { key: 'requireNoOpenBlockers', label: 'Keine offenen Blocker' },
+                            { key: 'requireProofOfWorkPassed', label: 'Proof-of-Work bestanden' },
+                            { key: 'requireCiSuccess', label: 'CI-Pipeline grün' },
+                            { key: 'requireAssignee', label: 'Ticket zugewiesen' },
+                            { key: 'requireNoHitlPause', label: 'Keine HITL-Rückfrage offen' },
+                          ].map((gate) => {
+                            const active = Boolean(primaryCond[gate.key]);
+                            return (
+                              <button
+                                key={gate.key}
+                                type="button"
+                                onClick={() => updateStageCondition({ [gate.key]: !active })}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition ${
+                                  active
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                <Check className={`w-3 h-3 ${active ? 'opacity-100 text-emerald-600' : 'opacity-25'}`} />
+                                {gate.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Readiness, Actor, Types */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-semibold text-slate-700">
+                            Mindest-Readiness Score:
+                          </label>
+                          <div className="flex gap-1.5">
+                            {[
+                              { label: 'Aus', val: undefined },
+                              { label: '50%', val: 50 },
+                              { label: '75%', val: 75 },
+                              { label: '90%', val: 90 },
+                            ].map((opt) => {
+                              const active = (primaryCond.minReadinessScore || undefined) === opt.val;
+                              return (
+                                <button
+                                  key={opt.label}
+                                  type="button"
+                                  onClick={() => updateStageCondition({ minReadinessScore: opt.val })}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition ${
+                                    active
+                                      ? 'bg-indigo-600 text-white border-indigo-600'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="block text-[11px] font-semibold text-slate-700">
+                            Wer darf verschieben?
+                          </label>
+                          <div className="flex gap-1.5">
+                            {[
+                              { label: 'Alle', val: undefined },
+                              { label: 'Nur Mensch', val: ['HUMAN'] },
+                              { label: 'Nur Agent', val: ['AGENT'] },
+                            ].map((opt) => {
+                              const currentActor =
+                                primaryCond.allowedActors?.length === 1 ? primaryCond.allowedActors[0] : undefined;
+                              const active = currentActor === (opt.val ? opt.val[0] : undefined);
+                              return (
+                                <button
+                                  key={opt.label}
+                                  type="button"
+                                  onClick={() => updateStageCondition({ allowedActors: opt.val })}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition ${
+                                    active
+                                      ? 'bg-indigo-600 text-white border-indigo-600'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Ticket Types */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-semibold text-slate-700">
+                          Gilt für Ticket-Typen:
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(['TASK', 'BUG', 'STORY', 'EPIC'] as const).map((t) => {
+                            const selectedTypes: string[] = primaryCond.allowedTypes || [];
+                            const active = selectedTypes.includes(t);
+                            return (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => {
+                                  const next = active
+                                    ? selectedTypes.filter((x) => x !== t)
+                                    : [...selectedTypes, t];
+                                  updateStageCondition({ allowedTypes: next.length > 0 ? next : undefined });
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition ${
+                                  active
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                }`}
+                              >
+                                {t}
+                              </button>
+                            );
+                          })}
+                          {(!primaryCond.allowedTypes || primaryCond.allowedTypes.length === 0) && (
+                            <span className="text-[10px] text-slate-400 self-center ml-1">
+                              (Alle Typen erlaubt)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Plain-language live summary */}
+                      <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 text-[11px] text-slate-600">
+                        <span className="font-semibold text-slate-800">Zusammenfassung: </span>
+                        {stageRules.length === 0 && enforceStrictTransitions ? (
+                          <span className="text-rose-600">
+                            Im strikten Modus ist der Eingang in „{activeStage.title}“ aktuell gesperrt (wähle mindestens eine Quell-Stage).
+                          </span>
+                        ) : summaryParts.length === 0 ? (
+                          <span>
+                            Tickets dürfen{' '}
+                            {!isAnySource && allowedSources.length > 0
+                              ? `aus ${allowedSources
+                                  .map((id) => columns.find((c) => c.id === id)?.title || id)
+                                  .join(', ')} `
+                              : ''}
+                            ohne weitere Einschränkung in „{activeStage.title}“ wechseln.
+                          </span>
+                        ) : (
+                          <span>
+                            Wechsel in „{activeStage.title}“{' '}
+                            {!isAnySource && allowedSources.length > 0
+                              ? `(aus ${allowedSources
+                                  .map((id) => columns.find((c) => c.id === id)?.title || id)
+                                  .join(', ')}) `
+                              : ''}
+                            erfordert: <strong className="text-slate-800">{summaryParts.join(' · ')}</strong>.
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {activeTab === 'agents' && (
               <div className="space-y-6 max-w-xl">
                 <div>
@@ -615,6 +1127,51 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       }`}
                     />
                   </button>
+                </div>
+
+                {/* Stage-based Multi-Agent Pipeline (2.1) */}
+                <div className="space-y-3 pt-2 border-t border-slate-200">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900">
+                      Stage-basierte Multi-Agent-Pipeline (Auto-Handoff)
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Weise jeder Board-Spalte einen spezialisierten Agenten zu. Beim Verschieben eines Tickets übernimmt dieser Agent automatisch.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {columns.map((col) => {
+                      const cfg = stageAgents[col.id] || { agentName: '', autoAssign: false };
+                      return (
+                        <div
+                          key={col.id}
+                          className="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3"
+                        >
+                          <div className="min-w-[110px]">
+                            <span className="text-xs font-semibold text-slate-800">{col.title}</span>
+                            <span className="block text-[10px] font-mono text-slate-400">{col.id}</span>
+                          </div>
+                          <select
+                            value={cfg.agentName}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setStageAgents((prev) => ({
+                                ...prev,
+                                [col.id]: { agentName: val, autoAssign: Boolean(val) },
+                              }));
+                            }}
+                            className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-indigo-400"
+                          >
+                            <option value="">Kein Auto-Handoff</option>
+                            <option value="agent-triage-v1">🤖 Triage Agent (agent-triage-v1)</option>
+                            <option value="agent-coder-v1">🤖 Coder Agent (agent-coder-v1)</option>
+                            <option value="agent-reviewer-v1">🤖 Reviewer Agent (agent-reviewer-v1)</option>
+                            <option value="agent-security-v1">🤖 Security Agent (agent-security-v1)</option>
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Allowed Agents */}
@@ -858,38 +1415,6 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             )}
           </main>
         </div>
-
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/70 flex items-center justify-between shrink-0">
-          <div className="text-xs text-slate-500">
-            {saveSuccess && (
-              <span className="text-emerald-600 font-semibold flex items-center gap-1.5">
-                <Check className="w-3.5 h-3.5" />
-                Einstellungen erfolgreich gespeichert!
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-200/60 transition"
-            >
-              Schließen
-            </button>
-
-            {canEdit && activeTab !== 'danger' && (
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5"
-              >
-                {isSaving ? 'Speichern...' : 'Änderungen speichern'}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
