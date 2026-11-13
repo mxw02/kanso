@@ -252,27 +252,27 @@ export const GitIntegrationModal: React.FC<Props> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
+      className="fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-100"
       onClick={onClose}
     >
       <div
-        className="bg-white border border-slate-200 rounded-2xl max-w-3xl w-full h-[620px] shadow-2xl flex flex-col overflow-hidden"
+        className="bg-white border border-zinc-200 rounded-2xl max-w-3xl w-full h-[620px] shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+            <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700">
               <FolderGit2 className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-bold text-slate-900">Versionskontrolle (GitHub & GitLab)</h2>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <h2 className="text-sm font-bold text-zinc-900">Versionskontrolle (GitHub & GitLab)</h2>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200">
                   Git Sync
                 </span>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-zinc-500">
                 Verknüpfe Git Repositories, erstelle dedizierte Boards und synchronisiere Commits & PRs.
               </p>
             </div>
@@ -280,20 +280,20 @@ export const GitIntegrationModal: React.FC<Props> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition"
+            className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 rounded-lg transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 border-b border-slate-200 bg-white flex items-center gap-6 text-xs font-semibold shrink-0">
+        <div className="px-6 border-b border-zinc-200 bg-white flex items-center gap-6 text-xs font-semibold shrink-0">
           <button
             onClick={() => setActiveTab('create_board')}
             className={`py-3 border-b-2 transition flex items-center gap-2 ${
               activeTab === 'create_board'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-teal-700 text-teal-700'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900'
             }`}
           >
             <Layers className="w-4 h-4" />
@@ -304,8 +304,8 @@ export const GitIntegrationModal: React.FC<Props> = ({
             onClick={() => setActiveTab('accounts')}
             className={`py-3 border-b-2 transition flex items-center gap-2 ${
               activeTab === 'accounts'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-teal-700 text-teal-700'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900'
             }`}
           >
             <GitBranch className="w-4 h-4" />
@@ -316,8 +316,8 @@ export const GitIntegrationModal: React.FC<Props> = ({
             onClick={() => setActiveTab('webhooks')}
             className={`py-3 border-b-2 transition flex items-center gap-2 ${
               activeTab === 'webhooks'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-teal-700 text-teal-700'
+                : 'border-transparent text-zinc-500 hover:text-zinc-900'
             }`}
           >
             <GitPullRequest className="w-4 h-4" />
@@ -332,13 +332,13 @@ export const GitIntegrationModal: React.FC<Props> = ({
             <div className="space-y-5">
               {/* Provider Picker */}
               <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-700">Git Provider:</span>
-                <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200">
+                <span className="text-xs font-semibold text-zinc-700">Git Provider:</span>
+                <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200">
                   <button
                     type="button"
                     onClick={() => setProvider('github')}
                     className={`px-3 py-1 text-xs font-semibold rounded-md transition flex items-center gap-1.5 ${
-                      provider === 'github' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                      provider === 'github' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
                     }`}
                   >
                     <span>GitHub</span>
@@ -347,7 +347,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                     type="button"
                     onClick={() => setProvider('gitlab')}
                     className={`px-3 py-1 text-xs font-semibold rounded-md transition flex items-center gap-1.5 ${
-                      provider === 'gitlab' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                      provider === 'gitlab' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
                     }`}
                   >
                     <span>GitLab</span>
@@ -358,12 +358,12 @@ export const GitIntegrationModal: React.FC<Props> = ({
               {/* Repositories List */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
                     Repository für das Board auswählen
                   </label>
                   <button
                     onClick={fetchData}
-                    className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                    className="text-xs text-teal-700 hover:text-teal-800 flex items-center gap-1"
                   >
                     <RefreshCw className={`w-3 h-3 ${loadingRepos ? 'animate-spin' : ''}`} />
                     <span>Aktualisieren</span>
@@ -371,16 +371,16 @@ export const GitIntegrationModal: React.FC<Props> = ({
                 </div>
 
                 {repos.length === 0 ? (
-                  <div className="p-6 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center space-y-2">
-                    <FolderGit2 className="w-8 h-8 text-slate-400 mx-auto" />
-                    <p className="text-xs font-semibold text-slate-700">Kein Git-Account verbunden</p>
-                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                  <div className="p-6 rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 text-center space-y-2">
+                    <FolderGit2 className="w-8 h-8 text-zinc-400 mx-auto" />
+                    <p className="text-xs font-semibold text-zinc-700">Kein Git-Account verbunden</p>
+                    <p className="text-[11px] text-zinc-500 max-w-sm mx-auto">
                       Verbinde deinen GitHub- oder GitLab-Account im Tab „Verbundene Accounts“, um deine Repositories hier aufzulisten.
                     </p>
                     <button
                       type="button"
                       onClick={() => setActiveTab('accounts')}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+                      className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold shadow-xs transition"
                     >
                       Jetzt Account verbinden →
                     </button>
@@ -395,24 +395,24 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           onClick={() => handleSelectRepo(r)}
                           className={`p-3 rounded-xl border text-left cursor-pointer transition flex flex-col justify-between ${
                             isSelected
-                              ? 'border-indigo-500 bg-indigo-50/40 ring-1 ring-indigo-500'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                              ? 'border-teal-600 bg-teal-50/40 ring-1 ring-teal-600'
+                              : 'border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50/50'
                           }`}
                         >
                           <div>
                             <div className="flex items-center justify-between text-xs">
-                              <span className="font-bold text-slate-900 truncate">{r.fullName}</span>
+                              <span className="font-bold text-zinc-900 truncate">{r.fullName}</span>
                               {r.isPrivate ? (
-                                <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                                <Lock className="w-3 h-3 text-zinc-400 shrink-0" />
                               ) : (
-                                <Globe className="w-3 h-3 text-slate-400 shrink-0" />
+                                <Globe className="w-3 h-3 text-zinc-400 shrink-0" />
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-500 line-clamp-1 mt-1">{r.description}</p>
+                            <p className="text-[11px] text-zinc-500 line-clamp-1 mt-1">{r.description}</p>
                           </div>
 
-                          <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-400 font-mono">
-                            <span className="font-semibold text-slate-600">{r.language}</span>
+                          <div className="flex items-center gap-2 mt-2 text-[10px] text-zinc-400 font-mono">
+                            <span className="font-semibold text-zinc-600">{r.language}</span>
                             <span>·</span>
                             <span>Branch: {r.defaultBranch}</span>
                           </div>
@@ -424,15 +424,15 @@ export const GitIntegrationModal: React.FC<Props> = ({
               </div>
 
               {/* Board Configuration Form */}
-              <form onSubmit={handleCreateBoardFromRepo} className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-                <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <form onSubmit={handleCreateBoardFromRepo} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50 space-y-3">
+                <h3 className="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-700" />
                   <span>Neues Board konfigurieren</span>
                 </h3>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
                       Board- & Projektname *
                     </label>
                     <input
@@ -441,12 +441,12 @@ export const GitIntegrationModal: React.FC<Props> = ({
                       value={boardName}
                       onChange={(e) => setBoardName(e.target.value)}
                       placeholder="z. B. Kanso Core Platform"
-                      className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-200 bg-white focus:outline-none focus:border-teal-600"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                    <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
                       Projekt-Key (Kürzel) *
                     </label>
                     <input
@@ -456,7 +456,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                       value={boardKey}
                       onChange={(e) => setBoardKey(e.target.value.toUpperCase())}
                       placeholder="KAN"
-                      className="w-full px-3 py-1.5 text-xs font-mono font-bold uppercase rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-1.5 text-xs font-mono font-bold uppercase rounded-lg border border-zinc-200 bg-white focus:outline-none focus:border-teal-600"
                     />
                   </div>
                 </div>
@@ -466,9 +466,9 @@ export const GitIntegrationModal: React.FC<Props> = ({
                     type="checkbox"
                     checked={seedIssues}
                     onChange={(e) => setSeedIssues(e.target.checked)}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                    className="w-4 h-4 rounded text-teal-700 focus:ring-teal-600"
                   />
-                  <span className="text-xs text-slate-700 font-medium">
+                  <span className="text-xs text-zinc-700 font-medium">
                     Initial-Tickets für CI/CD, Branch-Regeln und MCP-Automation generieren
                   </span>
                 </label>
@@ -477,7 +477,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                   <button
                     type="submit"
                     disabled={creatingBoard || !selectedRepo || !boardName.trim()}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
+                    className="px-4 py-2 bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{creatingBoard ? 'Erstelle Board...' : `Board für ${selectedRepo} anlegen`}</span>
@@ -492,10 +492,10 @@ export const GitIntegrationModal: React.FC<Props> = ({
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
                     Git-Authentifizierung & OAuth Apps
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-zinc-500 mt-0.5">
                     Melde dich direkt per 1-Klick OAuth mit GitHub oder GitLab an für maximale Benutzerfreundlichkeit.
                   </p>
                 </div>
@@ -503,7 +503,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setShowOAuthConfigModal(!showOAuthConfigModal)}
-                  className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-indigo-600 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition flex items-center gap-1.5 shadow-2xs"
+                  className="px-2.5 py-1 text-xs font-semibold text-zinc-700 hover:text-teal-700 bg-white hover:bg-zinc-50 border border-zinc-200 rounded-lg transition flex items-center gap-1.5 shadow-2xs"
                 >
                   <Settings className="w-3.5 h-3.5" />
                   <span>OAuth App einrichten</span>
@@ -514,33 +514,33 @@ export const GitIntegrationModal: React.FC<Props> = ({
               {showOAuthConfigModal && (
                 <form
                   onSubmit={handleSaveOAuthConfig}
-                  className="p-4 rounded-xl border border-indigo-200 bg-indigo-50/30 space-y-4 animate-in fade-in duration-150"
+                  className="p-4 rounded-xl border border-teal-200 bg-teal-50/30 space-y-4 animate-in fade-in duration-150"
                 >
-                  <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                  <div className="flex items-center justify-between border-b border-teal-100 pb-2">
                     <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                      <span className="text-xs font-bold text-indigo-950">
+                      <ShieldCheck className="w-4 h-4 text-teal-700" />
+                      <span className="text-xs font-bold text-teal-950">
                         OAuth App Konfiguration (GitHub & GitLab)
                       </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setShowOAuthConfigModal(false)}
-                      className="text-xs text-slate-400 hover:text-slate-600"
+                      className="text-xs text-zinc-400 hover:text-zinc-600"
                     >
                       Schließen
                     </button>
                   </div>
 
-                  <p className="text-[11px] text-slate-600">
+                  <p className="text-[11px] text-zinc-600">
                     Erstelle deine eigene OAuth App bei GitHub (unter <em>Settings → Developer settings → OAuth Apps</em>) oder GitLab und trage hier Client ID & Secret ein.
                   </p>
 
                   <div className="grid grid-cols-2 gap-4">
                     {/* GitHub OAuth Fields */}
-                    <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                    <div className="p-3 bg-white rounded-lg border border-zinc-200 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">GitHub OAuth App</span>
+                        <span className="text-xs font-bold text-zinc-800">GitHub OAuth App</span>
                         {oauthConfig?.github.configured && (
                           <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                             Konfiguriert
@@ -548,34 +548,34 @@ export const GitIntegrationModal: React.FC<Props> = ({
                         )}
                       </div>
                       <div>
-                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Client ID</label>
+                        <label className="block text-[10px] text-zinc-600 font-semibold mb-0.5">Client ID</label>
                         <input
                           type="text"
                           value={ghClientIdInput}
                           onChange={(e) => setGhClientIdInput(e.target.value)}
                           placeholder="z. B. Iv1.xxxxxxxxxxxx"
-                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-zinc-200 focus:outline-none focus:border-teal-600"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Client Secret</label>
+                        <label className="block text-[10px] text-zinc-600 font-semibold mb-0.5">Client Secret</label>
                         <input
                           type="password"
                           value={ghClientSecretInput}
                           onChange={(e) => setGhClientSecretInput(e.target.value)}
                           placeholder="••••••••••••••••••••••••"
-                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-zinc-200 focus:outline-none focus:border-teal-600"
                         />
                       </div>
-                      <div className="text-[10px] text-slate-500">
-                        Callback URL: <code className="text-indigo-600 bg-slate-50 px-1 rounded select-all font-mono">http://localhost:4001/api/git/oauth/callback/github</code>
+                      <div className="text-[10px] text-zinc-500">
+                        Callback URL: <code className="text-teal-700 bg-zinc-50 px-1 rounded select-all font-mono">http://localhost:4001/api/git/oauth/callback/github</code>
                       </div>
                     </div>
 
                     {/* GitLab OAuth Fields */}
-                    <div className="p-3 bg-white rounded-lg border border-slate-200 space-y-2">
+                    <div className="p-3 bg-white rounded-lg border border-zinc-200 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800">GitLab OAuth App</span>
+                        <span className="text-xs font-bold text-zinc-800">GitLab OAuth App</span>
                         {oauthConfig?.gitlab.configured && (
                           <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                             Konfiguriert
@@ -583,27 +583,27 @@ export const GitIntegrationModal: React.FC<Props> = ({
                         )}
                       </div>
                       <div>
-                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Application ID (Client ID)</label>
+                        <label className="block text-[10px] text-zinc-600 font-semibold mb-0.5">Application ID (Client ID)</label>
                         <input
                           type="text"
                           value={glClientIdInput}
                           onChange={(e) => setGlClientIdInput(e.target.value)}
                           placeholder="z. B. gl_app_xxxxxxxxxxxx"
-                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-zinc-200 focus:outline-none focus:border-teal-600"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] text-slate-600 font-semibold mb-0.5">Secret</label>
+                        <label className="block text-[10px] text-zinc-600 font-semibold mb-0.5">Secret</label>
                         <input
                           type="password"
                           value={glClientSecretInput}
                           onChange={(e) => setGlClientSecretInput(e.target.value)}
                           placeholder="••••••••••••••••••••••••"
-                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-slate-200 focus:outline-none focus:border-indigo-500"
+                          className="w-full px-2.5 py-1 text-xs font-mono rounded border border-zinc-200 focus:outline-none focus:border-teal-600"
                         />
                       </div>
-                      <div className="text-[10px] text-slate-500">
-                        Callback URL: <code className="text-indigo-600 bg-slate-50 px-1 rounded select-all font-mono">http://localhost:4001/api/git/oauth/callback/gitlab</code>
+                      <div className="text-[10px] text-zinc-500">
+                        Callback URL: <code className="text-teal-700 bg-zinc-50 px-1 rounded select-all font-mono">http://localhost:4001/api/git/oauth/callback/gitlab</code>
                       </div>
                     </div>
                   </div>
@@ -615,7 +615,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                         <span>OAuth Konfiguration erfolgreich gespeichert!</span>
                       </span>
                     ) : (
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-zinc-500">
                         Änderungen sind sofort aktiv – kein Container-Neustart erforderlich.
                       </span>
                     )}
@@ -623,7 +623,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                     <button
                       type="submit"
                       disabled={isSavingOAuthConfig}
-                      className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+                      className="px-4 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold shadow-xs transition"
                     >
                       {isSavingOAuthConfig ? 'Speichern...' : 'OAuth Einstellungen speichern'}
                     </button>
@@ -637,15 +637,15 @@ export const GitIntegrationModal: React.FC<Props> = ({
                 {(() => {
                   const ghConn = connections.find((c) => c.provider === 'github');
                   return (
-                    <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition">
+                    <div className="p-4 rounded-2xl border border-zinc-200 bg-white shadow-2xs flex flex-col justify-between space-y-4 hover:border-zinc-300 transition">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                          <div className="w-10 h-10 rounded-xl bg-zinc-900 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                             <FolderGit2 className="w-5 h-5 text-white" />
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-bold text-slate-900">GitHub</h4>
+                              <h4 className="text-xs font-bold text-zinc-900">GitHub</h4>
                               {ghConn && (
                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                                   <Check className="w-3 h-3 text-emerald-600" />
@@ -653,7 +653,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
+                            <p className="text-[11px] text-zinc-500 mt-0.5">
                               {ghConn
                                 ? `Angemeldet als @${ghConn.accountName}`
                                 : 'Automatischer OAuth 2.0 Login'}
@@ -665,7 +665,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           <button
                             onClick={() => handleDeleteConnection(ghConn.id)}
                             title="Verbindung trennen"
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -673,19 +673,19 @@ export const GitIntegrationModal: React.FC<Props> = ({
                       </div>
 
                       {ghConn ? (
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs">
+                        <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-2.5 text-xs">
                           {ghConn.avatarUrl ? (
-                            <img src={ghConn.avatarUrl} alt="" className="w-7 h-7 rounded-full border border-slate-200" />
+                            <img src={ghConn.avatarUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-200" />
                           ) : (
-                            <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
+                            <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs">
                               {ghConn.accountName.charAt(0).toUpperCase()}
                             </div>
                           )}
                           <div className="flex-1 truncate">
-                            <span className="font-semibold text-slate-800 block truncate">
+                            <span className="font-semibold text-zinc-800 block truncate">
                               {ghConn.displayName || ghConn.accountName}
                             </span>
-                            <span className="text-[10px] font-mono text-slate-500">
+                            <span className="text-[10px] font-mono text-zinc-500">
                               GitHub · {ghConn.authType === 'pat' ? 'Personal Access Token' : 'OAuth App Token'}
                             </span>
                           </div>
@@ -695,7 +695,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           <button
                             type="button"
                             onClick={() => handleOAuthConnect('github')}
-                            className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
+                            className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-black text-white text-xs font-semibold shadow-xs transition flex items-center justify-center gap-2"
                           >
                             <FolderGit2 className="w-4 h-4" />
                             <span>Zu GitHub weiterleiten & autorisieren →</span>
@@ -710,7 +710,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                 {(() => {
                   const glConn = connections.find((c) => c.provider === 'gitlab');
                   return (
-                    <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition">
+                    <div className="p-4 rounded-2xl border border-zinc-200 bg-white shadow-2xs flex flex-col justify-between space-y-4 hover:border-zinc-300 transition">
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
@@ -718,7 +718,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-bold text-slate-900">GitLab</h4>
+                              <h4 className="text-xs font-bold text-zinc-900">GitLab</h4>
                               {glConn && (
                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                                   <Check className="w-3 h-3 text-emerald-600" />
@@ -726,7 +726,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                                 </span>
                               )}
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-0.5">
+                            <p className="text-[11px] text-zinc-500 mt-0.5">
                               {glConn
                                 ? `Angemeldet als @${glConn.accountName}`
                                 : 'GitLab.com oder Self-Hosted'}
@@ -738,7 +738,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           <button
                             onClick={() => handleDeleteConnection(glConn.id)}
                             title="Verbindung trennen"
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                            className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -746,19 +746,19 @@ export const GitIntegrationModal: React.FC<Props> = ({
                       </div>
 
                       {glConn ? (
-                        <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5 text-xs">
+                        <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center gap-2.5 text-xs">
                           {glConn.avatarUrl ? (
-                            <img src={glConn.avatarUrl} alt="" className="w-7 h-7 rounded-full border border-slate-200" />
+                            <img src={glConn.avatarUrl} alt="" className="w-7 h-7 rounded-full border border-zinc-200" />
                           ) : (
                             <div className="w-7 h-7 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center font-bold text-xs">
                               {glConn.accountName.charAt(0).toUpperCase()}
                             </div>
                           )}
                           <div className="flex-1 truncate">
-                            <span className="font-semibold text-slate-800 block truncate">
+                            <span className="font-semibold text-zinc-800 block truncate">
                               {glConn.displayName || glConn.accountName}
                             </span>
-                            <span className="text-[10px] font-mono text-slate-500 truncate block">
+                            <span className="text-[10px] font-mono text-zinc-500 truncate block">
                               {glConn.instanceUrl || 'https://gitlab.com'}
                             </span>
                           </div>
@@ -781,15 +781,15 @@ export const GitIntegrationModal: React.FC<Props> = ({
               </div>
 
               {/* Secondary Option: Manual PAT Connection */}
-              <div className="pt-2 border-t border-slate-200">
+              <div className="pt-2 border-t border-zinc-200">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-600">
+                  <span className="text-xs font-semibold text-zinc-600">
                     Erweiterte Option: Personal Access Token (PAT)
                   </span>
                   <button
                     type="button"
                     onClick={() => setShowAddAccount(!showAddAccount)}
-                    className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                    className="text-xs text-teal-700 hover:text-teal-800 font-medium"
                   >
                     {showAddAccount ? 'Abbrechen' : '+ Token manuell hinterlegen'}
                   </button>
@@ -798,15 +798,15 @@ export const GitIntegrationModal: React.FC<Props> = ({
                 {showAddAccount && (
                   <form
                     onSubmit={handleAddAccount}
-                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3 mt-3 animate-in fade-in duration-100 text-xs"
+                    className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/70 space-y-3 mt-3 animate-in fade-in duration-100 text-xs"
                   >
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">Provider</label>
+                        <label className="block text-[11px] font-semibold text-zinc-700 mb-1">Provider</label>
                         <select
                           value={provider}
                           onChange={(e: any) => setProvider(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white"
+                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-200 bg-white"
                         >
                           <option value="github">GitHub</option>
                           <option value="gitlab">GitLab</option>
@@ -814,7 +814,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
                           Account / Organisation *
                         </label>
                         <input
@@ -823,13 +823,13 @@ export const GitIntegrationModal: React.FC<Props> = ({
                           value={accountName}
                           onChange={(e) => setAccountName(e.target.value)}
                           placeholder="z. B. mxw02"
-                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                          className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-200 bg-white focus:outline-none focus:border-teal-600"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      <label className="block text-[11px] font-semibold text-zinc-700 mb-1">
                         Personal Access Token (PAT)
                       </label>
                       <input
@@ -837,7 +837,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                         value={accessToken}
                         onChange={(e) => setAccessToken(e.target.value)}
                         placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                        className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-1.5 text-xs font-mono rounded-lg border border-zinc-200 bg-white focus:outline-none focus:border-teal-600"
                       />
                     </div>
 
@@ -845,14 +845,14 @@ export const GitIntegrationModal: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => setShowAddAccount(false)}
-                        className="px-3 py-1 text-xs text-slate-500"
+                        className="px-3 py-1 text-xs text-zinc-500"
                       >
                         Abbrechen
                       </button>
                       <button
                         type="submit"
                         disabled={!accountName.trim()}
-                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold"
+                        className="px-3 py-1 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold"
                       >
                         PAT hinterlegen
                       </button>
@@ -865,21 +865,21 @@ export const GitIntegrationModal: React.FC<Props> = ({
 
           {/* TAB 3: WEBHOOKS & AUTO-CLOSE */}
           {activeTab === 'webhooks' && (
-            <div className="space-y-5 text-xs text-slate-700">
+            <div className="space-y-5 text-xs text-zinc-700">
               <div>
-                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">
                   Webhook-Konfiguration für GitHub & GitLab
                 </h3>
-                <p className="text-slate-500 mt-0.5">
+                <p className="text-zinc-500 mt-0.5">
                   Füge diesen Webhook in den Repository-Einstellungen deines Git-Providers ein, um automatisches Ticket-Closing und PR-Reviews zu aktivieren.
                 </p>
               </div>
 
               {/* Webhook URL Box */}
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
-                <label className="block text-[11px] font-semibold text-slate-600">Payload URL:</label>
+              <div className="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50 space-y-1.5">
+                <label className="block text-[11px] font-semibold text-zinc-600">Payload URL:</label>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-mono text-[11px] text-indigo-700">
+                  <code className="flex-1 px-3 py-1.5 bg-white border border-zinc-200 rounded-lg font-mono text-[11px] text-teal-800">
                     {webhookUrl}
                   </code>
                   <button
@@ -888,7 +888,7 @@ export const GitIntegrationModal: React.FC<Props> = ({
                       setCopiedWebhook(true);
                       setTimeout(() => setCopiedWebhook(false), 2000);
                     }}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg font-semibold text-slate-700 flex items-center gap-1 shadow-xs transition"
+                    className="px-3 py-1.5 bg-white hover:bg-zinc-100 border border-zinc-200 rounded-lg font-semibold text-zinc-700 flex items-center gap-1 shadow-xs transition"
                   >
                     {copiedWebhook ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedWebhook ? 'Kopiert' : 'Kopieren'}</span>
@@ -897,26 +897,26 @@ export const GitIntegrationModal: React.FC<Props> = ({
               </div>
 
               {/* Smart Keyword Guide */}
-              <div className="p-4 rounded-xl border border-indigo-100 bg-indigo-50/30 space-y-2">
-                <h4 className="font-bold text-indigo-950">Unterstützte Smart Commit Keywords</h4>
-                <div className="space-y-1 text-slate-600">
+              <div className="p-4 rounded-xl border border-teal-100 bg-teal-50/30 space-y-2">
+                <h4 className="font-bold text-teal-950">Unterstützte Smart Commit Keywords</h4>
+                <div className="space-y-1 text-zinc-600">
                   <div>
-                    <strong className="text-slate-900">Auto-Close auf DONE:</strong>{' '}
-                    <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-700">
+                    <strong className="text-zinc-900">Auto-Close auf DONE:</strong>{' '}
+                    <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-teal-200 text-teal-800">
                       Fixes #KEY-12
                     </code>
-                    , <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-700">Closes KEY-12</code>
-                    , <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-700">Resolves #KEY-12</code>
+                    , <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-teal-200 text-teal-800">Closes KEY-12</code>
+                    , <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-teal-200 text-teal-800">Resolves #KEY-12</code>
                   </div>
                   <div>
-                    <strong className="text-slate-900">Verknüpfen & Referenzieren:</strong>{' '}
-                    <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-700">
+                    <strong className="text-zinc-900">Verknüpfen & Referenzieren:</strong>{' '}
+                    <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-teal-200 text-teal-800">
                       Refs #KEY-12
                     </code>
-                    , <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-700">See KEY-12</code>
+                    , <code className="font-mono bg-white px-1.5 py-0.5 rounded border border-teal-200 text-teal-800">See KEY-12</code>
                   </div>
                   <div>
-                    <strong className="text-slate-900">Pull Request Auto-Review:</strong> PRs mit Ticket-Referenz setzen den Status automatisch auf <code className="font-mono text-slate-900">IN_REVIEW</code>.
+                    <strong className="text-zinc-900">Pull Request Auto-Review:</strong> PRs mit Ticket-Referenz setzen den Status automatisch auf <code className="font-mono text-zinc-900">IN_REVIEW</code>.
                   </div>
                 </div>
               </div>
@@ -925,10 +925,10 @@ export const GitIntegrationModal: React.FC<Props> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end shrink-0">
+        <div className="px-6 py-3 border-t border-zinc-200 bg-zinc-50 flex justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-200/60 transition"
+            className="px-4 py-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-800 rounded-lg hover:bg-zinc-200/60 transition"
           >
             Schließen
           </button>

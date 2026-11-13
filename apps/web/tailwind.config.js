@@ -17,9 +17,9 @@ export default {
           50: '#f8f9fc',
         },
         kanso: {
-          accent: '#6366f1',
-          agent: '#10b981',
-          human: '#3b82f6',
+          accent: '#0f766e',
+          agent: '#047857',
+          human: '#3f3f46',
         },
       },
     },

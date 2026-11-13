@@ -39,11 +39,11 @@ export const ListView: React.FC<Props> = ({
   canEdit,
 }) => {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+    <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-xs">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+            <tr className="border-b border-zinc-200 bg-zinc-50 text-zinc-500 font-semibold uppercase tracking-wider text-[10px]">
               <th className="py-3 px-4 w-28">Key</th>
               <th className="py-3 px-4">Title</th>
               <th className="py-3 px-4 w-36">Status</th>
@@ -53,26 +53,26 @@ export const ListView: React.FC<Props> = ({
               <th className="py-3 px-4 w-28 text-right">Updated</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-zinc-100">
             {issues.map((issue) => (
               <tr
                 key={issue.id}
                 onClick={() => onSelectIssue(issue)}
-                className="hover:bg-slate-50 cursor-pointer transition duration-100 group"
+                className="hover:bg-zinc-50 cursor-pointer transition duration-100 group"
               >
                 {/* Identifier */}
-                <td className="py-3.5 px-4 font-mono font-semibold text-indigo-600 group-hover:text-indigo-700">
+                <td className="py-3.5 px-4 font-mono font-semibold text-teal-700 group-hover:text-teal-800">
                   {issue.identifier}
                 </td>
 
                 {/* Title */}
                 <td className="py-3.5 px-4">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-slate-900 group-hover:text-indigo-950 line-clamp-1">
+                    <span className="font-medium text-zinc-900 group-hover:text-teal-950 line-clamp-1">
                       {issue.title}
                     </span>
                     {issue.comments && issue.comments.length > 0 && (
-                      <span className="flex items-center gap-0.5 text-slate-400 text-[10px]">
+                      <span className="flex items-center gap-0.5 text-zinc-400 text-[10px]">
                         <MessageSquare className="w-3 h-3" />
                         {issue.comments.length}
                       </span>
@@ -87,7 +87,7 @@ export const ListView: React.FC<Props> = ({
                       <select
                         value={issue.status}
                         onChange={(e) => onUpdateStatus(issue.id, e.target.value)}
-                        className="appearance-none bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium py-1 pl-2.5 pr-6 rounded border border-slate-200 focus:outline-none cursor-pointer"
+                        className="appearance-none bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-[11px] font-medium py-1 pl-2.5 pr-6 rounded border border-zinc-200 focus:outline-none cursor-pointer"
                       >
                         {columns.map((col) => (
                           <option key={col.id} value={col.id}>
@@ -95,10 +95,10 @@ export const ListView: React.FC<Props> = ({
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="w-3 h-3 text-slate-500 absolute right-1.5 top-2 pointer-events-none" />
+                      <ChevronDown className="w-3 h-3 text-zinc-500 absolute right-1.5 top-2 pointer-events-none" />
                     </div>
                   ) : (
-                    <span className="text-[11px] text-slate-700 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-medium">
+                    <span className="text-[11px] text-zinc-700 px-2 py-0.5 rounded bg-zinc-100 border border-zinc-200 font-medium">
                       {columns.find((c) => c.id === issue.status)?.title || issue.status}
                     </span>
                   )}
@@ -114,7 +114,7 @@ export const ListView: React.FC<Props> = ({
                         ? 'bg-amber-50 text-amber-700 border-amber-200'
                         : issue.priority === 'LOW'
                         ? 'bg-blue-50 text-blue-700 border-blue-200'
-                        : 'bg-slate-50 text-slate-600 border-slate-200'
+                        : 'bg-zinc-50 text-zinc-600 border-zinc-200'
                     }`}
                   >
                     {issue.priority}
@@ -132,7 +132,7 @@ export const ListView: React.FC<Props> = ({
                     (() => {
                       const assignedUser = users?.find((u) => u.name === issue.assigneeName);
                       return (
-                        <div className="flex items-center gap-2 text-slate-700 text-[11px] font-medium">
+                        <div className="flex items-center gap-2 text-zinc-700 text-[11px] font-medium">
                           {assignedUser?.avatarUrl ? (
                             <img
                               src={assignedUser.avatarUrl}
@@ -140,7 +140,7 @@ export const ListView: React.FC<Props> = ({
                               className="w-4 h-4 rounded-full object-cover shrink-0"
                             />
                           ) : (
-                            <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                            <div className="w-4 h-4 rounded-full bg-teal-700 text-white flex items-center justify-center text-[9px] font-bold shrink-0">
                               {(issue.assigneeName || 'U').charAt(0)}
                             </div>
                           )}
@@ -149,7 +149,7 @@ export const ListView: React.FC<Props> = ({
                       );
                     })()
                   ) : (
-                    <span className="text-slate-400 text-[11px]">Unassigned</span>
+                    <span className="text-zinc-400 text-[11px]">Unassigned</span>
                   )}
                 </td>
 
@@ -159,7 +159,7 @@ export const ListView: React.FC<Props> = ({
                     {issue.labels?.map((label) => (
                       <span
                         key={label}
-                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200/80"
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200/80"
                       >
                         #{label}
                       </span>
@@ -168,7 +168,7 @@ export const ListView: React.FC<Props> = ({
                 </td>
 
                 {/* Date */}
-                <td className="py-3.5 px-4 text-right text-slate-400 text-[11px] font-mono">
+                <td className="py-3.5 px-4 text-right text-zinc-400 text-[11px] font-mono">
                   {new Date(issue.updatedAt || issue.createdAt).toLocaleDateString(undefined, {
                     month: 'short',
                     day: 'numeric',
@@ -179,7 +179,7 @@ export const ListView: React.FC<Props> = ({
 
             {issues.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                <td colSpan={7} className="py-12 text-center text-zinc-400 text-xs">
                   No issues found matching the criteria.
                 </td>
               </tr>
