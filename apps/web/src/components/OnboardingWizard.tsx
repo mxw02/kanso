@@ -35,7 +35,6 @@ interface Props {
     key: string;
     description: string;
     columns: { id: string; title: string }[];
-    seedSampleIssues: boolean;
     selectedAgents: string[];
     gitProvider?: string;
     gitRepo?: string;
@@ -160,7 +159,6 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
     'agent-coder-v1',
     'agent-reviewer-v1',
   ]);
-  const [seedSampleIssues, setSeedSampleIssues] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -230,7 +228,6 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
         key: projectKey.trim().toUpperCase(),
         description: projectDescription.trim(),
         columns,
-        seedSampleIssues,
         selectedAgents,
         gitProvider: creationMode === 'git' ? gitProvider : undefined,
         gitRepo: creationMode === 'git' && gitRepo.trim() ? gitRepo.trim() : undefined,
@@ -733,22 +730,6 @@ export const OnboardingWizard: React.FC<Props> = ({ isOpen, onClose, onComplete 
                 })}
               </div>
 
-              {/* Sample issues toggle */}
-              <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-200/80 flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="seedSampleIssues"
-                  checked={seedSampleIssues}
-                  onChange={(e) => setSeedSampleIssues(e.target.checked)}
-                  className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-                <label htmlFor="seedSampleIssues" className="text-xs text-slate-700 cursor-pointer">
-                  <span className="font-bold text-slate-900 block mb-0.5">
-                    Beispieltickets mit Agenten-Workflows generieren
-                  </span>
-                  Erstellt initial 3 auf deinen Workflow abgestimmte Tickets (inkl. Agenten-Zuweisung, Subtasks und Aktivitätslog), damit das Board sofort erlebbar ist.
-                </label>
-              </div>
             </div>
           )}
         </div>

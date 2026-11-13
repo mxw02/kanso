@@ -535,7 +535,7 @@ export default function App() {
     key: string;
     description: string;
     columns: { id: string; title: string }[];
-    seedSampleIssues: boolean;
+    seedSampleIssues?: boolean;
     selectedAgents: string[];
     gitProvider?: string;
     gitRepo?: string;
