@@ -311,6 +311,9 @@ export default function App() {
             'sprint_started',
             'sprint_completed',
             'sprint_deleted',
+            'goal_created',
+            'goal_updated',
+            'goal_deleted',
             'relation_created',
             'relation_deleted',
             'git_link_added',
@@ -324,6 +327,7 @@ export default function App() {
         ) {
           fetchIssues();
           fetchSprints();
+          fetchGoals();
           if (data.type === 'project_created' || data.type === 'project_updated') {
             fetchData();
           }
@@ -1107,7 +1111,10 @@ export default function App() {
           {/* Goals Manager Pill */}
           {activeProject && (
             <button
-              onClick={() => setShowGoalsModal(true)}
+              onClick={() => {
+                fetchGoals();
+                setShowGoalsModal(true);
+              }}
               title="Übergeordnete Ziele verwalten"
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 transition shadow-2xs"
             >
