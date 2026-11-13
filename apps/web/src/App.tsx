@@ -17,9 +17,11 @@ import {
   Users,
   LogOut,
   KeyRound,
+  BarChart3,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
+import { SummaryView } from './components/SummaryView';
 import { IssueDetailModal } from './components/IssueDetailModal';
 import { CreateIssueModal } from './components/CreateIssueModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
@@ -92,7 +94,7 @@ export default function App() {
   });
 
   // Views & Modals
-  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
+  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list'>('board');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showHitlInbox, setShowHitlInbox] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -1007,8 +1009,21 @@ export default function App() {
       {!showProjectSettings && (
       <section className="px-6 py-2 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
         <div className="flex items-center gap-3">
-          {/* View Toggle: Board vs List */}
+          {/* View Toggle: Summary vs Board vs List */}
           <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80">
+            <button
+              onClick={() => setViewMode('summary')}
+              title="Projekt-Zusammenfassung"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+                viewMode === 'summary'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Summary</span>
+            </button>
+
             <button
               onClick={() => setViewMode('board')}
               title="Kanban Board (B)"
@@ -1190,6 +1205,22 @@ export default function App() {
               <span>Onboarding starten</span>
             </button>
           </div>
+        ) : viewMode === 'summary' && activeProject ? (
+          <SummaryView
+            project={activeProject}
+            columns={activeColumns}
+            issues={issues}
+            users={users}
+            onSelectIssue={async (issue) => {
+              const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
+              if (res.ok) setSelectedIssue(await res.json());
+              else setSelectedIssue(issue);
+            }}
+            onFilterStatus={(status) => {
+              setFilterStatus(status);
+              setViewMode('board');
+            }}
+          />
         ) : viewMode === 'board' ? (
           <KanbanBoard
             columns={activeColumns}

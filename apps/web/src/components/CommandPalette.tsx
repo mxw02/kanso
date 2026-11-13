@@ -30,7 +30,7 @@ interface Props {
   onOpenProjectSettings?: () => void;
   onOpenSprintManager?: () => void;
   onFilterSprint?: (sprintId: string) => void;
-  onSetView: (view: 'board' | 'list') => void;
+  onSetView: (view: 'summary' | 'board' | 'list') => void;
   onOpenShortcuts: () => void;
 }
 
