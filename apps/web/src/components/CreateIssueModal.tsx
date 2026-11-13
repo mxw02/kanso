@@ -144,19 +144,42 @@ export const CreateIssueModal: React.FC<Props> = ({
   }, [isOpen, defaultStatus, columns]);
 
   const applyTemplate = (tpl: IssueTemplate | null) => {
+    const prevTpl = availableTemplates.find((t) => t.id === selectedTemplateId) || null;
+    const prevPrefix = prevTpl?.titlePrefix || '';
+    let nextTitle = title;
+    if (prevPrefix) {
+      if (nextTitle.trim() === prevPrefix.trim()) {
+        nextTitle = '';
+      } else if (nextTitle.startsWith(prevPrefix)) {
+        nextTitle = nextTitle.slice(prevPrefix.length);
+      } else if (nextTitle.trimStart().startsWith(prevPrefix.trim())) {
+        nextTitle = nextTitle.trimStart().slice(prevPrefix.trim().length).trimStart();
+      }
+    }
+
     if (!tpl) {
       setSelectedTemplateId('');
       setIssueType('TASK');
+      setPriority('MEDIUM');
+      setSelectedLabels(['mcp']);
       setProofOfWorkChecks([]);
+      setTitle(nextTitle);
+      if (!description.trim() || (prevTpl?.body && description.trim() === prevTpl.body.trim())) {
+        setDescription('');
+      }
       return;
     }
+
     setSelectedTemplateId(tpl.id);
     setIssueType(tpl.type || 'TASK');
     setPriority(tpl.priority || 'MEDIUM');
     setSelectedLabels(tpl.labels || []);
     setProofOfWorkChecks(tpl.proofOfWorkChecks || []);
-    if (tpl.titlePrefix && !title.trim()) {
-      setTitle(tpl.titlePrefix);
+    const nextPrefix = tpl.titlePrefix || '';
+    if (nextPrefix && !nextTitle.startsWith(nextPrefix)) {
+      setTitle(nextTitle.trim() ? `${nextPrefix}${nextTitle}` : nextPrefix);
+    } else {
+      setTitle(nextTitle);
     }
     setDescription(tpl.body || '');
   };
