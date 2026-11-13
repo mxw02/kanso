@@ -1,0 +1,267 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum IssuePriority {
+  URGENT
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IssueType {
+  TASK
+  BUG
+  STORY
+  EPIC
+}
+
+enum AssigneeType {
+  HUMAN
+  AGENT
+  UNASSIGNED
+}
+
+enum AgentRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+enum IssueRelationType {
+  BLOCKS
+  IS_BLOCKED_BY
+  RELATES_TO
+  DUPLICATES
+}
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  name        String
+  password    String?
+  avatarUrl   String?
+  role        UserRole @default(MEMBER)
+  gitProvider String?  // "github" or "gitlab"
+  gitUsername String?  // e.g. "mxw02"
+  gitId       String?  // provider external ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Workspace {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  projects    Project[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("workspaces")
+}
+
+model Project {
+  id          String     @id @default(uuid())
+  key         String     @unique // e.g. "KAN"
+  name        String
+  description String?
+  
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  
+  columns     Json?      // Customizable status columns: [{ id: "BACKLOG", title: "Backlog", color: "..." }]
+  
+  gitProvider String?    // "github" or "gitlab"
+  gitRepo     String?    // e.g. "mxw02/kanso"
+  gitBranch   String?    @default("main")
+  gitWebhookSecret String?
+
+  issues      Issue[]
+  sprints     Sprint[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@map("projects")
+}
+
+model Issue {
+  id            String        @id @default(uuid())
+  identifier    String        @unique // e.g. "KAN-1"
+  number        Int
+  title         String
+  description   String?       @db.Text
+  status        String        @default("TODO")
+  priority      IssuePriority @default(MEDIUM)
+  type          IssueType     @default(TASK)
+  assigneeType  AssigneeType  @default(UNASSIGNED)
+  assigneeId    String?
+  assigneeName  String?
+  labels        String[]      @default([])
+  agentMetadata Json?
+  
+  projectId     String
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  sprintId      String?
+  sprint        Sprint?       @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  
+  parentId      String?
+  parent        Issue?        @relation("SubIssues", fields: [parentId], references: [id])
+  subIssues     Issue[]       @relation("SubIssues")
+
+  outgoingRelations IssueRelation[] @relation("SourceRelations")
+  incomingRelations IssueRelation[] @relation("TargetRelations")
+
+  gitLinks      GitLink[]
+  comments      Comment[]
+  activities    ActivityLog[]
+  agentRuns     AgentRun[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([projectId, status])
+  @@index([identifier])
+  @@index([sprintId])
+  @@map("issues")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  issueId   String
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  actorType String   @default("HUMAN") // HUMAN, AGENT, SYSTEM
+  actorName String
+  action    String   // CREATED, STATUS_CHANGED, PRIORITY_CHANGED, ASSIGNED, UPDATED, COMMENTED
+  details   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([issueId])
+  @@map("activity_logs")
+}
+
+model Comment {
+  id         String       @id @default(uuid())
+  issueId    String
+  issue      Issue        @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  authorType AssigneeType @default(HUMAN)
+  authorName String
+  content    String       @db.Text
+  createdAt  DateTime     @default(now())
+
+  @@index([issueId])
+  @@map("comments")
+}
+
+model AgentRun {
+  id            String         @id @default(uuid())
+  issueId       String
+  issue         Issue          @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  agentName     String         // e.g. "code-generator", "pr-reviewer", "triage-bot"
+  agentModel    String?        // e.g. "claude-3-5-sonnet", "gemini-1.5-pro"
+  status        AgentRunStatus @default(PENDING)
+  prompt        String?        @db.Text
+  resultSummary String?        @db.Text
+  tokensUsed    Int?
+  startedAt     DateTime       @default(now())
+  endedAt       DateTime?
+
+  @@index([issueId])
+  @@map("agent_runs")
+}
+
+model Sprint {
+  id          String       @id @default(uuid())
+  name        String
+  goal        String?      @db.Text
+  status      SprintStatus @default(PLANNED)
+  startDate   DateTime?
+  endDate     DateTime?
+
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  issues      Issue[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([projectId, status])
+  @@map("sprints")
+}
+
+model IssueRelation {
+  id              String            @id @default(uuid())
+  sourceIssueId   String
+  sourceIssue     Issue             @relation("SourceRelations", fields: [sourceIssueId], references: [id], onDelete: Cascade)
+  targetIssueId   String
+  targetIssue     Issue             @relation("TargetRelations", fields: [targetIssueId], references: [id], onDelete: Cascade)
+  type            IssueRelationType @default(RELATES_TO)
+
+  createdAt       DateTime          @default(now())
+
+  @@unique([sourceIssueId, targetIssueId, type])
+  @@index([sourceIssueId])
+  @@index([targetIssueId])
+  @@map("issue_relations")
+}
+
+model GitLink {
+  id          String   @id @default(uuid())
+  issueId     String
+  issue       Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  provider    String   @default("github") // github, gitlab
+  type        String   // commit, pull_request, branch
+  reference   String   // commit hash, PR #42, or branch name
+  title       String?  // Commit message or PR title
+  url         String?  // External web link
+  authorName  String?
+  authorUrl   String?
+  branch      String?
+  status      String?  // merged, open, closed
+
+  createdAt   DateTime @default(now())
+
+  @@index([issueId])
+  @@map("git_links")
+}
+
+model GitConnection {
+  id          String   @id @default(uuid())
+  provider    String   // "github" or "gitlab"
+  accountName String   // e.g. "mxw02"
+  displayName String?
+  avatarUrl   String?
+  accessToken String?
+  instanceUrl String?  @default("https://github.com")
+  authType    String   @default("oauth") // "oauth" or "pat"
+  isDefault   Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("git_connections")
+}
