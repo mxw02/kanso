@@ -13,7 +13,6 @@ on:
 jobs:
   sync-kanso-stage:
     runs-on: ubuntu-latest
-    if: ${{ vars.KANSO_API_URL != '' || secrets.KANSO_API_URL != '' }}
     steps:
       - name: Sync ticket stages to Kanso
         env:
