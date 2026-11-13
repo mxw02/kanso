@@ -19,6 +19,7 @@ import type { GoalItem } from './GoalsModal';
 import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
 import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
 import { MentionTextarea } from './MentionTextarea';
+import { IssueTemplate, resolveProjectTemplates } from '../utils/issueTemplates';
 
 interface Column {
   id: string;
@@ -42,6 +43,7 @@ interface Props {
   defaultStatus?: string;
   projectId?: string;
   goals?: GoalItem[];
+  templates?: IssueTemplate[] | null;
   onCreate: (payload: any) => Promise<void>;
 }
 
@@ -61,8 +63,13 @@ export const CreateIssueModal: React.FC<Props> = ({
   defaultStatus,
   projectId,
   goals = [],
+  templates,
   onCreate,
 }) => {
+  const availableTemplates = resolveProjectTemplates(templates);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [issueType, setIssueType] = useState<'TASK' | 'BUG' | 'FEATURE' | 'EPIC'>('TASK');
+  const [proofOfWorkChecks, setProofOfWorkChecks] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState(defaultStatus || (columns[1]?.id ?? 'TODO'));
@@ -119,6 +126,9 @@ export const CreateIssueModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setSelectedTemplateId('');
+      setIssueType('TASK');
+      setProofOfWorkChecks([]);
       setTitle('');
       setDescription('');
       setStatus(defaultStatus || (columns[1]?.id ?? 'TODO'));
@@ -132,6 +142,24 @@ export const CreateIssueModal: React.FC<Props> = ({
       setTimeout(() => titleInputRef.current?.focus(), 50);
     }
   }, [isOpen, defaultStatus, columns]);
+
+  const applyTemplate = (tpl: IssueTemplate | null) => {
+    if (!tpl) {
+      setSelectedTemplateId('');
+      setIssueType('TASK');
+      setProofOfWorkChecks([]);
+      return;
+    }
+    setSelectedTemplateId(tpl.id);
+    setIssueType(tpl.type || 'TASK');
+    setPriority(tpl.priority || 'MEDIUM');
+    setSelectedLabels(tpl.labels || []);
+    setProofOfWorkChecks(tpl.proofOfWorkChecks || []);
+    if (tpl.titlePrefix && !title.trim()) {
+      setTitle(tpl.titlePrefix);
+    }
+    setDescription(tpl.body || '');
+  };
 
   // Handle Cmd+Enter to submit
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -161,12 +189,20 @@ export const CreateIssueModal: React.FC<Props> = ({
         description: description.trim(),
         status,
         priority,
-        type: 'TASK',
+        type: issueType,
         assigneeType: selectedAssignee.type,
         assigneeId: selectedAssignee.type === 'HUMAN' ? selectedAssignee.id : null,
         assigneeName: selectedAssignee.name || null,
         labels: selectedLabels,
         goalId: goalId || null,
+        proofOfWork:
+          proofOfWorkChecks.length > 0
+            ? proofOfWorkChecks.map((checkTitle, idx) => ({
+                id: `pow-tpl-${Date.now()}-${idx}`,
+                title: checkTitle,
+                status: 'PENDING',
+              }))
+            : undefined,
       };
 
       await onCreate(payload);
@@ -231,6 +267,44 @@ export const CreateIssueModal: React.FC<Props> = ({
 
         {/* Seamless Editor (Linear-style) */}
         <div className="px-6 py-3 space-y-2">
+          {/* Template Selector Pills */}
+          {availableTemplates.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap pb-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mr-1">
+                Vorlage:
+              </span>
+              <button
+                type="button"
+                onClick={() => applyTemplate(null)}
+                className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition ${
+                  !selectedTemplateId
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                }`}
+              >
+                Leer
+              </button>
+              {availableTemplates.map((tpl) => {
+                const active = selectedTemplateId === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => applyTemplate(tpl)}
+                    title={tpl.description || tpl.name}
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition ${
+                      active
+                        ? 'bg-teal-700 text-white border-teal-700'
+                        : 'bg-white text-zinc-700 border-zinc-200 hover:border-teal-400'
+                    }`}
+                  >
+                    {tpl.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Title Input */}
           <input
             ref={titleInputRef}
@@ -305,6 +379,16 @@ export const CreateIssueModal: React.FC<Props> = ({
               </label>
               {uploadError && <span className="text-[11px] text-rose-600">{uploadError}</span>}
             </div>
+            {proofOfWorkChecks.length > 0 && (
+              <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-teal-50/70 border border-teal-200/80 text-[11px] text-teal-900 flex flex-wrap items-center gap-1.5">
+                <span className="font-semibold">Proof-of-Work-Checks aus Vorlage:</span>
+                {proofOfWorkChecks.map((c, idx) => (
+                  <span key={idx} className="px-1.5 py-0.2 rounded bg-white border border-teal-200 text-[10px]">
+                    • {c}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

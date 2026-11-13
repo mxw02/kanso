@@ -533,13 +533,14 @@ async function buildServer(): Promise<FastifyInstance> {
       columns?: any[];
       stageAgents?: Record<string, any> | null;
       workflowRules?: any | null;
+      issueTemplates?: any[] | null;
       gitProvider?: string | null;
       gitRepo?: string | null;
       gitBranch?: string | null;
     };
   }>, reply: FastifyReply) => {
     const { id } = request.params;
-    const { name, key, description, columns, stageAgents, workflowRules, gitProvider, gitRepo, gitBranch } = request.body;
+    const { name, key, description, columns, stageAgents, workflowRules, issueTemplates, gitProvider, gitRepo, gitBranch } = request.body;
     const updateData: any = {};
 
     if (name !== undefined) updateData.name = name.trim();
@@ -547,6 +548,7 @@ async function buildServer(): Promise<FastifyInstance> {
     if (columns !== undefined) updateData.columns = columns;
     if (stageAgents !== undefined) updateData.stageAgents = stageAgents;
     if (workflowRules !== undefined) updateData.workflowRules = workflowRules;
+    if (issueTemplates !== undefined) updateData.issueTemplates = issueTemplates;
     if (gitProvider !== undefined) updateData.gitProvider = gitProvider;
     if (gitRepo !== undefined) updateData.gitRepo = gitRepo;
     if (gitBranch !== undefined) updateData.gitBranch = gitBranch;

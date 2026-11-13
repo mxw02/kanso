@@ -59,6 +59,7 @@ interface Project {
   name: string;
   description?: string;
   columns?: StatusColumn[];
+  issueTemplates?: any[] | null;
   gitProvider?: string;
   gitRepo?: string;
   gitBranch?: string;
@@ -1719,6 +1720,7 @@ export default function App() {
         defaultStatus={createIssueDefaultStatus}
         projectId={activeProject?.id}
         goals={goals}
+        templates={activeProject?.issueTemplates}
         onCreate={handleCreateIssue}
       />
 

@@ -94,6 +94,7 @@ model Project {
   columns     Json?      // Customizable status columns: [{ id: "BACKLOG", title: "Backlog", color: "..." }]
   stageAgents Json?      // Stage-based Multi-Agent Pipeline: { [columnId]: { agentName, autoAssign, promptTemplate? } }
   workflowRules Json?    // Workflow transition rules: { name, enforceStrictTransitions, transitions: [...] }
+  issueTemplates Json?   // Configurable issue templates: [{ id, name, description, titlePrefix, body, type, priority, labels, proofOfWorkChecks }]
   
   gitProvider String?    // "github" or "gitlab"
   gitRepo     String?    // e.g. "mxw02/kanso"
