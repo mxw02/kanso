@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, X, GitBranch, Sparkles, ChevronDown, FolderGit2 } from 'lucide-react';
+import { buildProjectTree } from '../utils/projectTree';
 
 interface GitRepoItem {
   fullName: string;
@@ -356,7 +357,7 @@ export const CreateProjectModal: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-zinc-50 border border-zinc-200 rounded-xl p-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-zinc-50 border border-zinc-200 rounded-xl p-3">
           <div>
             <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1">
               Organisation
@@ -376,34 +377,19 @@ export const CreateProjectModal: React.FC<Props> = ({
           </div>
           <div>
             <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1">
-              Typ
-            </label>
-            <select
-              value={kind}
-              onChange={(e) => setKind(e.target.value as 'BOARD' | 'PROJECT')}
-              className="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1.5 text-xs text-zinc-800"
-            >
-              <option value="BOARD">Board</option>
-              <option value="PROJECT">Projekt (Ordner)</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1">
-              Übergeordnet
+              Übergeordnetes Projekt (für Unterprojekt)
             </label>
             <select
               value={parentId}
               onChange={(e) => setParentId(e.target.value)}
               className="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1.5 text-xs text-zinc-800"
             >
-              <option value="">Oberste Ebene</option>
-              {projects
-                .filter((p) => !workspaceId || p.workspaceId === workspaceId)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.key} · {p.name}
-                  </option>
-                ))}
+              <option value="">Oberste Ebene (Hauptprojekt mit eigenem Board)</option>
+              {buildProjectTree(projects, workspaceId || null).map(({ project: p, indentLabel }) => (
+                <option key={p.id} value={p.id}>
+                  {indentLabel}
+                </option>
+              ))}
             </select>
           </div>
         </div>

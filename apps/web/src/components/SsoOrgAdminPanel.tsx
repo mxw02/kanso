@@ -10,6 +10,7 @@ import {
   FolderTree,
   RefreshCw,
 } from 'lucide-react';
+import { buildProjectTree } from '../utils/projectTree';
 
 interface UserItem {
   id: string;
@@ -629,9 +630,9 @@ export const SsoOrgAdminPanel: React.FC<Props> = ({ mode, apiBaseUrl, users, onC
                 className="bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1 text-xs"
               >
                 <option value="">Board / Projekt wählen...</option>
-                {projects.map((p) => (
+                {buildProjectTree(projects).map(({ project: p, indentLabel }) => (
                   <option key={p.id} value={p.id}>
-                    {p.key} · {p.name}
+                    {indentLabel}
                   </option>
                 ))}
               </select>

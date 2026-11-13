@@ -45,6 +45,7 @@ import { SprintModal } from './components/SprintModal';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
 import { UserManagementModal } from './components/UserManagementModal';
 import { AuthScreen } from './components/AuthScreen';
+import { buildProjectTree } from './utils/projectTree';
 import { HitlInboxModal } from './components/HitlInboxModal';
 
 interface StatusColumn {
@@ -833,19 +834,11 @@ export default function App() {
                 }}
                 className="appearance-none bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer transition shadow-2xs"
               >
-                {projects
-                  .filter((p: any) => !activeWorkspaceId || p.workspaceId === activeWorkspaceId)
-                  .sort((a: any, b: any) => {
-                    const aParent = a.parentId || a.id;
-                    const bParent = b.parentId || b.id;
-                    if (aParent !== bParent) return aParent.localeCompare(bParent);
-                    return a.parentId ? 1 : -1;
-                  })
-                  .map((p: any) => (
-                    <option key={p.id} value={p.id}>
-                      {p.parentId ? '↳ ' : ''}{p.name} [{p.key}]
-                    </option>
-                  ))}
+                {buildProjectTree(projects as any[], activeWorkspaceId).map(({ project: p, indentLabel }) => (
+                  <option key={p.id} value={p.id}>
+                    {indentLabel}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 pointer-events-none" />
             </div>
