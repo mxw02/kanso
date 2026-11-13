@@ -128,6 +128,7 @@ export default function App() {
   const [filterGoal, setFilterGoal] = useState('ALL');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fetchIssuesSeqRef = useRef(0);
   const API_URL = import.meta.env.VITE_API_URL || '';
 
   const canEdit = currentUser ? currentUser.role === 'ADMIN' || currentUser.role === 'MEMBER' : false;
@@ -234,9 +235,14 @@ export default function App() {
 
   // Fetch Issues with active filters
   const fetchIssues = async () => {
+    if (!activeProject?.id) {
+      setIssues([]);
+      return;
+    }
+    const reqSeq = ++fetchIssuesSeqRef.current;
     try {
       const params = new URLSearchParams();
-      if (activeProject?.id) params.set('projectId', activeProject.id);
+      params.set('projectId', activeProject.id);
       if (filterStatus !== 'ALL') params.set('status', filterStatus);
       if (filterPriority !== 'ALL') params.set('priority', filterPriority);
       if (filterAssignee !== 'ALL') params.set('assigneeType', filterAssignee);
@@ -247,6 +253,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/issues?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
+        if (reqSeq !== fetchIssuesSeqRef.current) return;
         setIssues(data);
 
         if (selectedIssue) {
@@ -286,6 +293,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!activeProject?.id) return;
     fetchIssues();
     fetchSprints();
     fetchGoals();
@@ -325,9 +333,11 @@ export default function App() {
             'project_updated',
           ].includes(data.type)
         ) {
-          fetchIssues();
-          fetchSprints();
-          fetchGoals();
+          if (activeProject?.id) {
+            fetchIssues();
+            fetchSprints();
+            fetchGoals();
+          }
           if (data.type === 'project_created' || data.type === 'project_updated') {
             fetchData();
           }
