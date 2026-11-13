@@ -29,6 +29,7 @@ interface Props {
   workspaces?: WorkspaceItem[];
   projects?: ParentProjectOption[];
   activeWorkspaceId?: string | null;
+  defaultParentId?: string | null;
   onCreate: (payload: {
     key: string;
     name: string;
@@ -48,6 +49,7 @@ export const CreateProjectModal: React.FC<Props> = ({
   workspaces = [],
   projects = [],
   activeWorkspaceId,
+  defaultParentId,
   onCreate,
 }) => {
   const [mode, setMode] = useState<'manual' | 'git'>('git');
@@ -71,10 +73,10 @@ export const CreateProjectModal: React.FC<Props> = ({
   useEffect(() => {
     if (isOpen) {
       setWorkspaceId(activeWorkspaceId || '');
-      setParentId('');
+      setParentId(defaultParentId || '');
       setKind('BOARD');
     }
-  }, [isOpen, activeWorkspaceId]);
+  }, [isOpen, activeWorkspaceId, defaultParentId]);
 
   // Fetch Repositories from Git Provider
   useEffect(() => {

@@ -46,6 +46,7 @@ import { GitIntegrationModal } from './components/GitIntegrationModal';
 import { UserManagementModal } from './components/UserManagementModal';
 import { AuthScreen } from './components/AuthScreen';
 import { buildProjectTree } from './utils/projectTree';
+import { WorkspaceExplorerModal } from './components/WorkspaceExplorerModal';
 import { HitlInboxModal } from './components/HitlInboxModal';
 
 interface StatusColumn {
@@ -140,6 +141,8 @@ export default function App() {
   const [showCreateIssue, setShowCreateIssue] = useState(false);
   const [createIssueDefaultStatus, setCreateIssueDefaultStatus] = useState<string | undefined>(undefined);
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [createProjectParentId, setCreateProjectParentId] = useState<string | null>(null);
+  const [showWorkspaceExplorer, setShowWorkspaceExplorer] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
@@ -803,45 +806,29 @@ export default function App() {
 
           {/* Project Breadcrumb with Styled Dropdown */}
           <div className="flex items-center gap-1.5">
-            {workspaces.length > 0 && (
-              <select
-                value={activeWorkspaceId}
-                onChange={(e) => {
-                  const nextWs = e.target.value;
-                  setActiveWorkspaceId(nextWs);
-                  const filtered = nextWs
-                    ? projects.filter((p: any) => p.workspaceId === nextWs)
-                    : projects;
-                  if (filtered.length > 0) setActiveProject(filtered[0]);
-                }}
-                title="Organisation / Konto"
-                className="bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-700 cursor-pointer"
-              >
-                <option value="">Alle Orgs</option>
-                {workspaces.map((ws) => (
-                  <option key={ws.id} value={ws.id}>
-                    {ws.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <div className="relative flex items-center">
-              <select
-                value={activeProject?.id || ''}
-                onChange={(e) => {
-                  const found = projects.find((p) => p.id === e.target.value);
-                  if (found) setActiveProject(found);
-                }}
-                className="appearance-none bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer transition shadow-2xs"
-              >
-                {buildProjectTree(projects as any[], activeWorkspaceId).map(({ project: p, indentLabel }) => (
-                  <option key={p.id} value={p.id}>
-                    {indentLabel}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 pointer-events-none" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowWorkspaceExplorer(true)}
+              title="Organisationen, Projekte & Boards durchsuchen"
+              className="flex items-center gap-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs py-1.5 px-2.5 rounded-lg transition shadow-2xs cursor-pointer max-w-[340px]"
+            >
+              <FolderGit2 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <span className="truncate font-semibold">
+                {(() => {
+                  const tree = buildProjectTree(projects as any[]);
+                  const node = tree.find((n) => n.project.id === activeProject?.id);
+                  const wsName = workspaces.find((w) => w.id === (activeProject as any)?.workspaceId)?.name;
+                  if (!activeProject) return 'Projekt wählen...';
+                  return wsName ? `${wsName} / ${node?.pathLabel || activeProject.name}` : (node?.pathLabel || activeProject.name);
+                })()}
+              </span>
+              {activeProject && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-600 shrink-0">
+                  {activeProject.key}
+                </span>
+              )}
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            </button>
 
             {/* Project Quick Actions (Settings, Setup Wizard, Git, New Project) */}
             {canEdit && (
@@ -1768,13 +1755,35 @@ export default function App() {
         onCreate={handleCreateIssue}
       />
 
+      {/* Workspace & Project Tree Explorer Modal */}
+      <WorkspaceExplorerModal
+        isOpen={showWorkspaceExplorer}
+        onClose={() => setShowWorkspaceExplorer(false)}
+        workspaces={workspaces}
+        projects={projects as any[]}
+        activeWorkspaceId={activeWorkspaceId}
+        activeProjectId={activeProject?.id || null}
+        canCreate={canAdmin || (canEdit && allowSelfServiceBoardCreation)}
+        onSelectWorkspace={(wsId) => setActiveWorkspaceId(wsId)}
+        onSelectProject={(proj) => setActiveProject(proj as any)}
+        onCreateProject={(wsId, parentId) => {
+          if (wsId !== undefined) setActiveWorkspaceId(wsId);
+          setCreateProjectParentId(parentId || null);
+          setShowCreateProject(true);
+        }}
+      />
+
       {/* Create Project Modal */}
       <CreateProjectModal
         isOpen={showCreateProject}
-        onClose={() => setShowCreateProject(false)}
+        onClose={() => {
+          setShowCreateProject(false);
+          setCreateProjectParentId(null);
+        }}
         workspaces={workspaces}
         projects={projects}
         activeWorkspaceId={activeWorkspaceId || null}
+        defaultParentId={createProjectParentId}
         onCreate={handleCreateProject}
       />
 
