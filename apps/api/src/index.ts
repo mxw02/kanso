@@ -14,6 +14,7 @@ import {
   validateWorkflowTransition,
 } from './agent-features';
 import { decryptSecret, encryptSecret } from './crypto';
+import { registerImportRoutes } from './jira-import';
 
 dotenv.config();
 
@@ -2650,6 +2651,7 @@ async function buildServer(): Promise<FastifyInstance> {
   });
 
   registerAgentFeatureRoutes(app, prisma, broadcastEvent);
+  registerImportRoutes(app, prisma, broadcastEvent);
 
   return app;
 }
