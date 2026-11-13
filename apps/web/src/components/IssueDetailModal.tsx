@@ -23,8 +23,16 @@ import {
   Calendar,
   Layers,
   ChevronDown,
+  ShieldAlert,
+  Activity,
+  Terminal,
+  FileCode2,
+  CheckCircle2,
+  XCircle,
+  Globe,
 } from 'lucide-react';
 import { MarkdownViewer } from './MarkdownViewer';
+import { computeReadiness, ProofOfWorkCheck } from '../utils/readiness';
 
 interface Issue {
   id: string;
@@ -47,6 +55,16 @@ interface Issue {
   incomingRelations?: any[];
   gitLinks?: any[];
   agentRuns?: any[];
+  hitlState?: string | null;
+  hitlPrompt?: string | null;
+  hitlResponse?: string | null;
+  agentStatus?: string | null;
+  proofOfWork?: ProofOfWorkCheck[] | null;
+  ciStatus?: string | null;
+  previewUrl?: string | null;
+  previewScreenshotUrl?: string | null;
+  targetFiles?: string[];
+  traceEvents?: any[];
   createdAt: string;
   updatedAt: string;
 }
@@ -104,7 +122,14 @@ export const IssueDetailModal: React.FC<Props> = ({
   onCreateSubIssue,
   onSelectIssue,
 }) => {
-  const [activeTab, setActiveTab] = useState<'comments' | 'activity' | 'git'>('comments');
+  const [activeTab, setActiveTab] = useState<'comments' | 'activity' | 'git' | 'trace'>('comments');
+  const [hitlReply, setHitlReply] = useState('');
+  const [hitlBusy, setHitlBusy] = useState(false);
+  const [newPowTitle, setNewPowTitle] = useState('');
+  const [newPowCmd, setNewPowCmd] = useState('');
+  const [targetFilesInput, setTargetFilesInput] = useState('');
+  const [previewUrlInput, setPreviewUrlInput] = useState('');
+  const [editingPreview, setEditingPreview] = useState(false);
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [descText, setDescText] = useState('');
   const [titleText, setTitleText] = useState('');
@@ -137,6 +162,12 @@ export const IssueDetailModal: React.FC<Props> = ({
       setShowAddRelation(false);
       setShowSimulateGit(false);
       setAssigneeDropdownOpen(false);
+      setHitlReply('');
+      setNewPowTitle('');
+      setNewPowCmd('');
+      setTargetFilesInput((issue.targetFiles || []).join(', '));
+      setPreviewUrlInput(issue.previewUrl || '');
+      setEditingPreview(false);
       setGitMsg(`Fixes #${issue.identifier}: resolve implementation requirements`);
     }
   }, [issue]);
@@ -177,6 +208,103 @@ export const IssueDetailModal: React.FC<Props> = ({
   const handleSaveDescription = async () => {
     await onUpdate(issue.id, { description: descText });
     setIsEditingDesc(false);
+  };
+
+  const readiness = computeReadiness({
+    description: issue.description,
+    proofOfWork: issue.proofOfWork,
+    targetFiles: issue.targetFiles,
+    hasOpenBlockers: blockers.length > 0,
+  });
+
+  const handleResolveHitl = async (action: 'APPROVE' | 'REJECT' | 'ANSWER') => {
+    setHitlBusy(true);
+    try {
+      const res = await fetch(`${API_URL}/api/issues/${issue.id}/hitl/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          response: hitlReply.trim() || undefined,
+          actorName: currentUser.name,
+        }),
+      });
+      if (res.ok) {
+        setHitlReply('');
+        if (onSelectIssue) onSelectIssue(issue.id);
+      }
+    } finally {
+      setHitlBusy(false);
+    }
+  };
+
+  const powList: ProofOfWorkCheck[] = Array.isArray(issue.proofOfWork) ? issue.proofOfWork : [];
+
+  const savePowList = async (next: ProofOfWorkCheck[]) => {
+    await fetch(`${API_URL}/api/issues/${issue.id}/proof-of-work`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        proofOfWork: next,
+        actorName: currentUser.name,
+        actorType: 'HUMAN',
+      }),
+    });
+    if (onSelectIssue) onSelectIssue(issue.id);
+  };
+
+  const handleAddPow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPowTitle.trim()) return;
+    const next: ProofOfWorkCheck[] = [
+      ...powList,
+      {
+        id: `pow-${Date.now()}`,
+        title: newPowTitle.trim(),
+        command: newPowCmd.trim() || undefined,
+        status: 'PENDING',
+        updatedAt: new Date().toISOString(),
+      },
+    ];
+    setNewPowTitle('');
+    setNewPowCmd('');
+    await savePowList(next);
+  };
+
+  const handleCyclePow = async (checkId: string) => {
+    const order: ProofOfWorkCheck['status'][] = ['PENDING', 'PASSED', 'FAILED'];
+    const next = powList.map((c) => {
+      if (c.id !== checkId) return c;
+      const nextStatus = order[(order.indexOf(c.status) + 1) % order.length];
+      return { ...c, status: nextStatus, updatedAt: new Date().toISOString() };
+    });
+    await savePowList(next);
+  };
+
+  const handleRemovePow = async (checkId: string) => {
+    await savePowList(powList.filter((c) => c.id !== checkId));
+  };
+
+  const handleSaveTargetFiles = async () => {
+    const files = targetFilesInput
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    await onUpdate(issue.id, { targetFiles: files });
+  };
+
+  const handleSavePreview = async () => {
+    await fetch(`${API_URL}/api/issues/${issue.id}/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        previewUrl: previewUrlInput.trim() || null,
+        actorName: currentUser.name,
+        actorType: 'HUMAN',
+      }),
+    });
+    setEditingPreview(false);
+    if (onSelectIssue) onSelectIssue(issue.id);
   };
 
   const handleSaveTitle = async () => {
@@ -431,6 +559,111 @@ export const IssueDetailModal: React.FC<Props> = ({
               )}
             </div>
 
+            {/* 1B: Human-in-the-Loop Gate Banner */}
+            {issue.hitlState && (
+              <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/80 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-amber-900 text-xs font-bold">
+                    <ShieldAlert className="w-4 h-4 text-amber-600" />
+                    <span>
+                      Agent wartet auf Entscheidung:{' '}
+                      {issue.hitlState === 'PLAN_APPROVAL'
+                        ? 'Plan-Freigabe'
+                        : issue.hitlState === 'RISK_APPROVAL'
+                          ? 'Risiko-Freigabe'
+                          : 'Klärung nötig'}
+                    </span>
+                  </div>
+                </div>
+                {issue.hitlPrompt && (
+                  <p className="text-xs text-amber-950 bg-white/80 border border-amber-200 rounded-lg p-2.5 whitespace-pre-wrap">
+                    {issue.hitlPrompt}
+                  </p>
+                )}
+                {canEdit && (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={hitlReply}
+                      onChange={(e) => setHitlReply(e.target.value)}
+                      placeholder="Antwort oder Begründung..."
+                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-amber-200 rounded-lg focus:outline-none focus:border-indigo-400"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      {issue.hitlState === 'NEEDS_CLARIFICATION' ? (
+                        <button
+                          disabled={hitlBusy || !hitlReply.trim()}
+                          onClick={() => handleResolveHitl('ANSWER')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          Antwort senden
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            disabled={hitlBusy}
+                            onClick={() => handleResolveHitl('REJECT')}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                          >
+                            Ablehnen
+                          </button>
+                          <button
+                            disabled={hitlBusy}
+                            onClick={() => handleResolveHitl('APPROVE')}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                          >
+                            Freigeben
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2.2: Agent-Readiness Score Bar */}
+            <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  <span className="text-[11px] font-semibold text-slate-700">Agent-Readiness</span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      readiness.level === 'READY'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : readiness.level === 'NEEDS_CONTEXT'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
+                  >
+                    {readiness.score}% · {readiness.level === 'READY' ? 'Bereit' : readiness.level === 'NEEDS_CONTEXT' ? 'Kontext fehlt' : 'Zu vage'}
+                  </span>
+                </div>
+                {canEdit && (
+                  <div className="flex items-center gap-1.5 flex-1 max-w-xs">
+                    <FileCode2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={targetFilesInput}
+                      onChange={(e) => setTargetFilesInput(e.target.value)}
+                      onBlur={handleSaveTargetFiles}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTargetFiles()}
+                      placeholder="Ziel-Dateien (z. B. src/auth.ts, App.tsx)"
+                      className="w-full text-[11px] px-2 py-1 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
+                    />
+                  </div>
+                )}
+              </div>
+              {readiness.missing.length > 0 && (
+                <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                  {readiness.missing.map((m, idx) => (
+                    <span key={idx}>• {m}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Description (Markdown) */}
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200/80">
@@ -481,6 +714,162 @@ export const IssueDetailModal: React.FC<Props> = ({
                   className="min-h-[50px]"
                 />
               )}
+            </div>
+
+            {/* 1E: Proof of Work (Definition of Done) & 2.6: Ephemeral Preview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Proof of Work */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                      Proof of Work ({powList.filter((c) => c.status === 'PASSED').length}/{powList.length})
+                    </span>
+                  </div>
+                  {issue.ciStatus && issue.ciStatus !== 'NONE' && (
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                        issue.ciStatus === 'SUCCESS'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : issue.ciStatus === 'FAILURE'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}
+                    >
+                      CI: {issue.ciStatus}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  {powList.map((check) => (
+                    <div
+                      key={check.id}
+                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white border border-slate-200 text-xs"
+                    >
+                      <button
+                        type="button"
+                        disabled={!canEdit}
+                        onClick={() => handleCyclePow(check.id)}
+                        className="flex items-center gap-2 min-w-0 text-left"
+                        title="Status umschalten (PENDING → PASSED → FAILED)"
+                      >
+                        {check.status === 'PASSED' ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        ) : check.status === 'FAILED' ? (
+                          <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        ) : (
+                          <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-medium text-slate-800 truncate">{check.title}</div>
+                          {check.command && (
+                            <code className="text-[10px] text-slate-500 font-mono">{check.command}</code>
+                          )}
+                        </div>
+                      </button>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePow(check.id)}
+                          className="text-slate-400 hover:text-rose-600 p-0.5"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {canEdit && (
+                  <form onSubmit={handleAddPow} className="flex gap-1.5 pt-1">
+                    <input
+                      type="text"
+                      value={newPowTitle}
+                      onChange={(e) => setNewPowTitle(e.target.value)}
+                      placeholder="Check (z. B. Unit Tests grün)"
+                      className="flex-1 text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                    />
+                    <input
+                      type="text"
+                      value={newPowCmd}
+                      onChange={(e) => setNewPowCmd(e.target.value)}
+                      placeholder="npm test"
+                      className="w-24 text-[11px] font-mono px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                    />
+                    <button
+                      type="submit"
+                      className="px-2 py-1 rounded bg-slate-800 text-white text-[11px] hover:bg-slate-900"
+                    >
+                      +
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Ephemeral Preview Environment (2.6) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-sky-600" />
+                    <span className="text-[11px] font-semibold text-slate-700 uppercase tracking-wider">
+                      Preview-Environment
+                    </span>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingPreview(!editingPreview)}
+                      className="text-[11px] text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      {editingPreview ? 'Abbrechen' : issue.previewUrl ? 'Ändern' : '+ Verknüpfen'}
+                    </button>
+                  )}
+                </div>
+
+                {editingPreview ? (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="url"
+                      value={previewUrlInput}
+                      onChange={(e) => setPreviewUrlInput(e.target.value)}
+                      placeholder="https://pr-42.preview.kanso.dev"
+                      className="flex-1 text-[11px] px-2.5 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSavePreview}
+                      className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[11px] font-medium hover:bg-indigo-700"
+                    >
+                      Speichern
+                    </button>
+                  </div>
+                ) : issue.previewUrl ? (
+                  <div className="space-y-2">
+                    <a
+                      href={issue.previewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-2 rounded-lg bg-white border border-sky-200 text-xs text-sky-700 hover:bg-sky-50 transition"
+                    >
+                      <span className="truncate font-mono text-[11px]">{issue.previewUrl}</span>
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0 ml-2" />
+                    </a>
+                    {issue.previewScreenshotUrl && (
+                      <img
+                        src={issue.previewScreenshotUrl}
+                        alt="Preview Screenshot"
+                        className="w-full max-h-32 object-cover rounded-lg border border-slate-200"
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400">
+                    Noch keine ephemere Preview-URL verknüpft.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Sub-tasks Section */}
@@ -762,6 +1151,18 @@ export const IssueDetailModal: React.FC<Props> = ({
                   <GitBranch className="w-3.5 h-3.5" />
                   <span>Git & Commits ({issue.gitLinks?.length || 0})</span>
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('trace')}
+                  className={`flex items-center gap-1.5 text-xs font-semibold pb-1 transition border-b-2 -mb-2.5 ${
+                    activeTab === 'trace'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Live Trace ({issue.traceEvents?.length || 0})</span>
+                </button>
               </div>
 
               {/* Comments Tab */}
@@ -990,6 +1391,73 @@ export const IssueDetailModal: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* 1C: Live Execution Trace Tab */}
+              {activeTab === 'trace' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">
+                      Live-Telemetrie & Tool-Calls des Agenten
+                    </span>
+                    {issue.agentStatus && (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-semibold">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                        {issue.agentStatus}
+                      </span>
+                    )}
+                  </div>
+
+                  {issue.traceEvents && issue.traceEvents.length > 0 ? (
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {issue.traceEvents.map((ev: any) => (
+                        <div
+                          key={ev.id}
+                          className="p-2.5 rounded-xl border border-slate-200 bg-white text-xs space-y-1"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Terminal className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                              <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                                {ev.phase}
+                              </span>
+                              <span className="font-medium text-slate-900 truncate">{ev.title}</span>
+                            </div>
+                            <span
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                ev.status === 'FAILED'
+                                  ? 'bg-rose-50 text-rose-700'
+                                  : ev.status === 'SUCCESS'
+                                    ? 'bg-emerald-50 text-emerald-700'
+                                    : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {ev.status}
+                            </span>
+                          </div>
+                          {ev.filePath && (
+                            <div className="text-[10px] font-mono text-indigo-600 pl-5">
+                              {ev.filePath}
+                            </div>
+                          )}
+                          {ev.detail && (
+                            <pre className="text-[10px] font-mono text-slate-600 bg-slate-50 border border-slate-100 rounded p-2 overflow-x-auto whitespace-pre-wrap">
+                              {ev.detail}
+                            </pre>
+                          )}
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pl-5">
+                            <span>{ev.agentName}</span>
+                            <span>{new Date(ev.createdAt).toLocaleTimeString()}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      Noch keine Execution-Traces vorhanden. Agenten senden Live-Schritte über MCP (`kanso_report_trace`) oder API.
+                    </div>
+                  )}
                 </div>
               )}
             </div>

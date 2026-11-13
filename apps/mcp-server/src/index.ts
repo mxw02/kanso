@@ -206,6 +206,169 @@ function createMcpServer(): Server {
             required: ['identifier', 'agentName'],
           },
         },
+        {
+          name: 'kanso_claim_issue',
+          description: 'Claim an issue to start autonomous work. Enforces blocker graph (1F) and checks Agent-Readiness score (2.2).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              identifier: { type: 'string', description: 'Issue identifier (e.g. KAN-1)' },
+              agentName: { type: 'string', description: 'Name of the claiming agent' },
+              agentModel: { type: 'string', description: 'Model used by the agent' },
+            },
+            required: ['identifier', 'agentName'],
+          },
+        },
+        {
+          name: 'kanso_report_trace',
+          description: 'Push a live execution trace event (1C) and optionally update live agentStatus on the issue.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              identifier: { type: 'string', description: 'Issue identifier (e.g. KAN-1)' },
+              agentName: { type: 'string', description: 'Agent name' },
+              phase: {
+                type: 'string',
+                enum: ['THINKING', 'TOOL_CALL', 'FILE_EDIT', 'TEST_RUN', 'ERROR', 'INFO'],
+              },
+              title: { type: 'string', description: 'Short step description (e.g. "Reading auth.ts")' },
+              detail: { type: 'string', description: 'Optional detailed output / diff / args' },
+              filePath: { type: 'string', description: 'Optional affected file path' },
+              status: { type: 'string', enum: ['RUNNING', 'SUCCESS', 'FAILED', 'INFO'] },
+              agentStatus: {
+                type: 'string',
+                enum: ['IDLE', 'THINKING', 'CODING', 'TESTING', 'BLOCKED', 'AWAITING_HUMAN'],
+              },
+            },
+            required: ['identifier', 'title'],
+          },
+        },
+        {
+          name: 'kanso_request_hitl',
+          description: 'Pause execution and request human clarification, plan approval, or risk approval (1B).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              identifier: { type: 'string', description: 'Issue identifier' },
+              hitlState: {
+                type: 'string',
+                enum: ['NEEDS_CLARIFICATION', 'PLAN_APPROVAL', 'RISK_APPROVAL'],
+              },
+              hitlPrompt: { type: 'string', description: 'Question, plan summary, or risk explanation for the human' },
+              agentName: { type: 'string' },
+            },
+            required: ['identifier', 'hitlState', 'hitlPrompt'],
+          },
+        },
+        {
+          name: 'kanso_update_proof_of_work',
+          description: 'Update Proof-of-Work verification checks and CI status on an issue (1E).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              identifier: { type: 'string', description: 'Issue identifier' },
+              proofOfWork: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    title: { type: 'string' },
+                    command: { type: 'string' },
+                    status: { type: 'string', enum: ['PENDING', 'PASSED', 'FAILED'] },
+                    output: { type: 'string' },
+                  },
+                  required: ['id', 'title', 'status'],
+                },
+              },
+              ciStatus: { type: 'string', enum: ['NONE', 'PENDING', 'SUCCESS', 'FAILURE'] },
+              agentName: { type: 'string' },
+            },
+            required: ['identifier'],
+          },
+        },
+        {
+          name: 'kanso_set_preview',
+          description: 'Attach an ephemeral preview environment URL and optional screenshot URL to an issue (2.6).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              identifier: { type: 'string', description: 'Issue identifier' },
+              previewUrl: { type: 'string', description: 'URL to the live preview environment' },
+              previewScreenshotUrl: { type: 'string', description: 'Optional URL to a visual screenshot' },
+              agentName: { type: 'string' },
+            },
+            required: ['identifier', 'previewUrl'],
+          },
+        },
+        {
+          name: 'kanso_get_workflow',
+          description: 'Get the workflow transition rules and allowed stages for a project (by projectKey or projectId).',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectKey: { type: 'string', description: 'Project key (e.g. KAN) or project UUID' },
+            },
+            required: ['projectKey'],
+          },
+        },
+        {
+          name: 'kanso_upsert_workflow',
+          description: 'Create or update a project workflow with transition rules and conditions controlling when tickets can enter each stage.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectKey: { type: 'string', description: 'Project key (e.g. KAN) or project UUID' },
+              name: { type: 'string', description: 'Workflow name (e.g. "Agent-First Strict Flow")' },
+              enforceStrictTransitions: {
+                type: 'boolean',
+                description: 'If true, only explicitly defined (from -> to) transitions are allowed.',
+              },
+              transitions: {
+                type: 'array',
+                description: 'List of transition rules',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    from: { type: 'string', description: 'Source stage ID or "*" for any' },
+                    to: { type: 'string', description: 'Target stage ID' },
+                    enabled: { type: 'boolean' },
+                    conditions: {
+                      type: 'object',
+                      properties: {
+                        requireNoOpenBlockers: { type: 'boolean' },
+                        requireProofOfWorkPassed: { type: 'boolean' },
+                        requireCiSuccess: { type: 'boolean' },
+                        requireAssignee: { type: 'boolean' },
+                        requireNoHitlPause: { type: 'boolean' },
+                        minReadinessScore: { type: 'number' },
+                        allowedActors: { type: 'array', items: { type: 'string', enum: ['HUMAN', 'AGENT', 'SYSTEM'] } },
+                        allowedTypes: { type: 'array', items: { type: 'string', enum: ['TASK', 'BUG', 'STORY', 'EPIC'] } },
+                        requiredLabels: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                  required: ['from', 'to'],
+                },
+              },
+            },
+            required: ['projectKey', 'transitions'],
+          },
+        },
+        {
+          name: 'kanso_check_transitions',
+          description: 'Check which target stages an issue is currently allowed to transition into under the project workflow.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              identifier: { type: 'string', description: 'Issue identifier (e.g. KAN-1)' },
+              actorType: { type: 'string', enum: ['HUMAN', 'AGENT', 'SYSTEM'], description: 'Default: AGENT' },
+            },
+            required: ['identifier'],
+          },
+        },
       ],
     };
   });
@@ -275,7 +438,11 @@ function createMcpServer(): Server {
 
       if (name === 'kanso_update_issue') {
         const identifier = String(args.identifier);
-        const updatePayload: Record<string, unknown> = { ...args };
+        const updatePayload: Record<string, unknown> = {
+          actorType: 'AGENT',
+          actorName: args.actorName || 'MCP Agent',
+          ...args,
+        };
         delete updatePayload.identifier;
 
         const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}`, {
@@ -332,6 +499,121 @@ function createMcpServer(): Server {
               text: `Agent run logged for ${identifier}:\n${JSON.stringify(run, null, 2)}`,
             },
           ],
+        };
+      }
+
+      if (name === 'kanso_claim_issue') {
+        const identifier = String(args.identifier);
+        const [run, readiness] = await Promise.all([
+          fetchApi(`/api/issues/${encodeURIComponent(identifier)}/agent-runs`, {
+            method: 'POST',
+            body: JSON.stringify({
+              agentName: args.agentName,
+              agentModel: args.agentModel,
+            }),
+          }),
+          fetchApi(`/api/issues/${encodeURIComponent(identifier)}/readiness`),
+        ]);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Issue ${identifier} claimed!\nReadiness: ${readiness.score}% (${readiness.level})\n${JSON.stringify({ run, readiness }, null, 2)}`,
+            },
+          ],
+        };
+      }
+
+      if (name === 'kanso_report_trace') {
+        const identifier = String(args.identifier);
+        const trace = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/traces`, {
+          method: 'POST',
+          body: JSON.stringify(args),
+        });
+        return {
+          content: [{ type: 'text', text: JSON.stringify(trace, null, 2) }],
+        };
+      }
+
+      if (name === 'kanso_request_hitl') {
+        const identifier = String(args.identifier);
+        const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/hitl/request`, {
+          method: 'POST',
+          body: JSON.stringify(args),
+        });
+        return {
+          content: [{ type: 'text', text: `HITL gate requested on ${identifier}: ${updated.hitlState}` }],
+        };
+      }
+
+      if (name === 'kanso_update_proof_of_work') {
+        const identifier = String(args.identifier);
+        const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/proof-of-work`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            proofOfWork: args.proofOfWork,
+            ciStatus: args.ciStatus,
+            actorType: 'AGENT',
+            actorName: args.agentName || 'MCP Agent',
+          }),
+        });
+        return {
+          content: [{ type: 'text', text: `Proof of Work updated on ${identifier}` }],
+        };
+      }
+
+      if (name === 'kanso_set_preview') {
+        const identifier = String(args.identifier);
+        const updated = await fetchApi(`/api/issues/${encodeURIComponent(identifier)}/preview`, {
+          method: 'POST',
+          body: JSON.stringify({
+            previewUrl: args.previewUrl,
+            previewScreenshotUrl: args.previewScreenshotUrl,
+            actorType: 'AGENT',
+            actorName: args.agentName || 'Preview Bot',
+          }),
+        });
+        return {
+          content: [{ type: 'text', text: `Preview attached to ${identifier}: ${updated.previewUrl}` }],
+        };
+      }
+
+      if (name === 'kanso_get_workflow') {
+        const key = String(args.projectKey);
+        const wf = await fetchApi(`/api/projects/${encodeURIComponent(key)}/workflow`);
+        return {
+          content: [{ type: 'text', text: JSON.stringify(wf, null, 2) }],
+        };
+      }
+
+      if (name === 'kanso_upsert_workflow') {
+        const key = String(args.projectKey);
+        const updated = await fetchApi(`/api/projects/${encodeURIComponent(key)}/workflow`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: args.name || 'Custom Workflow',
+            enforceStrictTransitions: Boolean(args.enforceStrictTransitions),
+            transitions: args.transitions || [],
+          }),
+        });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Workflow for ${key} updated!\n\n${JSON.stringify(updated, null, 2)}`,
+            },
+          ],
+        };
+      }
+
+      if (name === 'kanso_check_transitions') {
+        const identifier = String(args.identifier);
+        const actorType = args.actorType ? String(args.actorType) : 'AGENT';
+        const res = await fetchApi(
+          `/api/issues/${encodeURIComponent(identifier)}/allowed-transitions?actorType=${encodeURIComponent(actorType)}`
+        );
+        return {
+          content: [{ type: 'text', text: JSON.stringify(res, null, 2) }],
         };
       }
 

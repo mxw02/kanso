@@ -5,6 +5,15 @@ import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, U
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import Redis from 'ioredis';
+import {
+  getOpenBlockers,
+  notifyUnblockedDependents,
+  registerAgentFeatureRoutes,
+  resolveStageHandoff,
+  validateProofOfWorkGate,
+  validateWorkflowTransition,
+} from './agent-features';
+import { decryptSecret, encryptSecret } from './crypto';
 
 dotenv.config();
 
@@ -512,18 +521,22 @@ async function buildServer(): Promise<FastifyInstance> {
       key?: string;
       description?: string;
       columns?: any[];
+      stageAgents?: Record<string, any> | null;
+      workflowRules?: any | null;
       gitProvider?: string | null;
       gitRepo?: string | null;
       gitBranch?: string | null;
     };
   }>, reply: FastifyReply) => {
     const { id } = request.params;
-    const { name, key, description, columns, gitProvider, gitRepo, gitBranch } = request.body;
+    const { name, key, description, columns, stageAgents, workflowRules, gitProvider, gitRepo, gitBranch } = request.body;
     const updateData: any = {};
 
     if (name !== undefined) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description;
     if (columns !== undefined) updateData.columns = columns;
+    if (stageAgents !== undefined) updateData.stageAgents = stageAgents;
+    if (workflowRules !== undefined) updateData.workflowRules = workflowRules;
     if (gitProvider !== undefined) updateData.gitProvider = gitProvider;
     if (gitRepo !== undefined) updateData.gitRepo = gitRepo;
     if (gitBranch !== undefined) updateData.gitBranch = gitBranch;
@@ -637,11 +650,12 @@ async function buildServer(): Promise<FastifyInstance> {
     return prisma.issue.findMany({
       where,
       include: {
-        project: { select: { id: true, key: true, name: true, columns: true } },
+        project: { select: { id: true, key: true, name: true, columns: true, stageAgents: true } },
         sprint: { select: { id: true, name: true, status: true } },
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 5 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
+        traceEvents: { orderBy: { createdAt: 'desc' }, take: 3 },
         gitLinks: true,
         subIssues: { select: { id: true, identifier: true, title: true, status: true } },
         outgoingRelations: {
@@ -673,6 +687,7 @@ async function buildServer(): Promise<FastifyInstance> {
         comments: { orderBy: { createdAt: 'asc' } },
         activities: { orderBy: { createdAt: 'desc' } },
         agentRuns: { orderBy: { startedAt: 'desc' } },
+        traceEvents: { orderBy: { createdAt: 'desc' }, take: 50 },
         gitLinks: { orderBy: { createdAt: 'desc' } },
         subIssues: { orderBy: { number: 'asc' } },
         parent: true,
@@ -712,6 +727,10 @@ async function buildServer(): Promise<FastifyInstance> {
       labels?: string[];
       parentId?: string;
       agentMetadata?: any;
+      proofOfWork?: any;
+      targetFiles?: string[];
+      previewUrl?: string;
+      previewScreenshotUrl?: string;
       actorName?: string;
       actorType?: string;
     };
@@ -739,22 +758,33 @@ async function buildServer(): Promise<FastifyInstance> {
     const nextNumber = (lastIssue?.number || 0) + 1;
     const identifier = `${project.key}-${nextNumber}`;
 
+    const initialStatus = body.status || 'TODO';
+    const stageHandoff =
+      !body.assigneeName && (!body.assigneeType || body.assigneeType === 'UNASSIGNED')
+        ? resolveStageHandoff(project.stageAgents, initialStatus)
+        : null;
+
     const issue = await prisma.issue.create({
       data: {
         identifier,
         number: nextNumber,
         title: body.title,
         description: body.description || '',
-        status: body.status || 'TODO',
+        status: initialStatus,
         priority: body.priority || IssuePriority.MEDIUM,
         type: body.type || IssueType.TASK,
-        assigneeType: body.assigneeType || AssigneeType.UNASSIGNED,
+        assigneeType: stageHandoff ? AssigneeType.AGENT : (body.assigneeType || AssigneeType.UNASSIGNED),
         assigneeId: body.assigneeId || null,
-        assigneeName: body.assigneeName || null,
+        assigneeName: stageHandoff ? stageHandoff.agentName : (body.assigneeName || null),
+        agentStatus: stageHandoff ? 'THINKING' : undefined,
         labels: body.labels || [],
         parentId: body.parentId || null,
         sprintId: body.sprintId || null,
         agentMetadata: body.agentMetadata || undefined,
+        proofOfWork: body.proofOfWork || undefined,
+        targetFiles: body.targetFiles || [],
+        previewUrl: body.previewUrl || null,
+        previewScreenshotUrl: body.previewScreenshotUrl || null,
         projectId: project.id,
         activities: {
           create: [
@@ -792,6 +822,13 @@ async function buildServer(): Promise<FastifyInstance> {
       labels?: string[];
       sprintId?: string | null;
       agentMetadata?: any;
+      proofOfWork?: any;
+      ciStatus?: string;
+      previewUrl?: string | null;
+      previewScreenshotUrl?: string | null;
+      targetFiles?: string[];
+      agentStatus?: string | null;
+      forceDone?: boolean;
       actorName?: string;
       actorType?: string;
     };
@@ -799,6 +836,7 @@ async function buildServer(): Promise<FastifyInstance> {
     const { id } = request.params;
     const existing = await prisma.issue.findFirst({
       where: { OR: [{ id }, { identifier: id.toUpperCase() }] },
+      include: { project: true },
     });
 
     if (!existing) {
@@ -808,6 +846,45 @@ async function buildServer(): Promise<FastifyInstance> {
     const body = request.body;
     const actorName = body.actorName || 'User';
     const actorType = body.actorType || 'HUMAN';
+
+    // 1F: Strict Blocker Gate when an Agent tries to start work (IN_PROGRESS)
+    if (
+      actorType === 'AGENT' &&
+      body.status &&
+      body.status !== existing.status &&
+      body.status.toUpperCase() === 'IN_PROGRESS'
+    ) {
+      const openBlockers = await getOpenBlockers(prisma, existing.id);
+      if (openBlockers.length > 0) {
+        const blockerList = openBlockers.map((b) => `${b.identifier} (${b.status})`).join(', ');
+        return reply.status(409).send({
+          error: `Blocker-Gate: Ticket ${existing.identifier} ist blockiert durch: ${blockerList}.`,
+          openBlockers,
+        });
+      }
+    }
+
+    // 1E: Proof-of-Work Gate before moving to DONE
+    const effectiveProof = body.proofOfWork !== undefined ? body.proofOfWork : existing.proofOfWork;
+    const powError = validateProofOfWorkGate(effectiveProof, body.status, actorType, body.forceDone);
+    if (powError) {
+      return reply.status(409).send({ error: powError });
+    }
+
+    // Workflow Transition Rules Validation (UI & MCP)
+    if (body.status && body.status !== existing.status) {
+      const candidateIssue = { ...existing, ...body, proofOfWork: effectiveProof };
+      const wfError = await validateWorkflowTransition(
+        prisma,
+        existing.project?.workflowRules,
+        candidateIssue,
+        body.status,
+        actorType
+      );
+      if (wfError) {
+        return reply.status(409).send({ error: wfError });
+      }
+    }
 
     // Track activity changes
     const activityLogsToCreate: any[] = [];
@@ -850,7 +927,26 @@ async function buildServer(): Promise<FastifyInstance> {
     const updateData: any = { ...body };
     delete updateData.actorName;
     delete updateData.actorType;
+    delete updateData.forceDone;
     updateData.updatedAt = new Date();
+
+    // 2.1: Stage-based Multi-Agent Pipeline Handoff
+    let handoffAgent: string | null = null;
+    if (body.status && body.status !== existing.status && body.assigneeName === undefined) {
+      const handoff = resolveStageHandoff(existing.project?.stageAgents, body.status);
+      if (handoff) {
+        handoffAgent = handoff.agentName;
+        updateData.assigneeType = AssigneeType.AGENT;
+        updateData.assigneeName = handoff.agentName;
+        updateData.agentStatus = 'THINKING';
+        activityLogsToCreate.push({
+          actorType: 'SYSTEM',
+          actorName: 'Pipeline Router',
+          action: 'ASSIGNED',
+          details: `Stage-Handoff (${body.status}): Automatisch an 🤖 ${handoff.agentName} übergeben`,
+        });
+      }
+    }
 
     const updated = await prisma.issue.update({
       where: { id: existing.id },
@@ -865,6 +961,7 @@ async function buildServer(): Promise<FastifyInstance> {
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 10 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
+        traceEvents: { orderBy: { createdAt: 'desc' }, take: 20 },
         subIssues: true,
         outgoingRelations: {
           include: {
@@ -880,6 +977,24 @@ async function buildServer(): Promise<FastifyInstance> {
     });
 
     broadcastEvent('issue_updated', updated);
+    if (handoffAgent) {
+      broadcastEvent('agent_handoff', {
+        issueId: updated.id,
+        identifier: updated.identifier,
+        status: updated.status,
+        agentName: handoffAgent,
+      });
+    }
+
+    // 1F: Notify unblocked downstream issues when this issue is closed
+    if (
+      body.status &&
+      body.status !== existing.status &&
+      ['DONE', 'CANCELLED'].includes(body.status.toUpperCase())
+    ) {
+      await notifyUnblockedDependents(prisma, broadcastEvent, updated.id, updated.identifier);
+    }
+
     return updated;
   });
 
@@ -1172,6 +1287,48 @@ async function buildServer(): Promise<FastifyInstance> {
     gitlabInstanceUrl: process.env.GITLAB_INSTANCE_URL || 'https://gitlab.com',
   };
 
+  // Load persisted encrypted OAuth app configs from PostgreSQL on startup
+  try {
+    const savedConfigs = await prisma.oAuthProviderConfig.findMany();
+    for (const cfg of savedConfigs) {
+      const secret = decryptSecret(cfg.clientSecretEnc);
+      if (cfg.provider === 'github' && !customOAuthConfig.githubClientId) {
+        customOAuthConfig.githubClientId = cfg.clientId;
+        customOAuthConfig.githubClientSecret = secret;
+      } else if (cfg.provider === 'gitlab' && !customOAuthConfig.gitlabClientId) {
+        customOAuthConfig.gitlabClientId = cfg.clientId;
+        customOAuthConfig.gitlabClientSecret = secret;
+        if (cfg.instanceUrl) customOAuthConfig.gitlabInstanceUrl = cfg.instanceUrl;
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Could not load persisted OAuth provider configs:', err);
+  }
+
+  async function persistOAuthProvider(
+    provider: 'github' | 'gitlab',
+    clientId: string,
+    clientSecret: string,
+    instanceUrl?: string
+  ) {
+    if (!clientId || !clientSecret) return;
+    const clientSecretEnc = encryptSecret(clientSecret);
+    await prisma.oAuthProviderConfig.upsert({
+      where: { provider },
+      update: {
+        clientId,
+        clientSecretEnc,
+        ...(instanceUrl ? { instanceUrl } : {}),
+      },
+      create: {
+        provider,
+        clientId,
+        clientSecretEnc,
+        instanceUrl: instanceUrl || (provider === 'gitlab' ? 'https://gitlab.com' : 'https://github.com'),
+      },
+    });
+  }
+
   app.get('/api/git/oauth/config', async () => {
     return {
       github: {
@@ -1203,6 +1360,18 @@ async function buildServer(): Promise<FastifyInstance> {
     if (gitlabClientId !== undefined) customOAuthConfig.gitlabClientId = gitlabClientId.trim();
     if (gitlabClientSecret !== undefined) customOAuthConfig.gitlabClientSecret = gitlabClientSecret.trim();
     if (gitlabInstanceUrl !== undefined) customOAuthConfig.gitlabInstanceUrl = gitlabInstanceUrl.trim() || 'https://gitlab.com';
+
+    if (customOAuthConfig.githubClientId && customOAuthConfig.githubClientSecret) {
+      await persistOAuthProvider('github', customOAuthConfig.githubClientId, customOAuthConfig.githubClientSecret);
+    }
+    if (customOAuthConfig.gitlabClientId && customOAuthConfig.gitlabClientSecret) {
+      await persistOAuthProvider(
+        'gitlab',
+        customOAuthConfig.gitlabClientId,
+        customOAuthConfig.gitlabClientSecret,
+        customOAuthConfig.gitlabInstanceUrl
+      );
+    }
 
     return {
       success: true,
@@ -1333,6 +1502,7 @@ async function buildServer(): Promise<FastifyInstance> {
       const appData: any = await convertRes.json();
       customOAuthConfig.githubClientId = appData.client_id;
       customOAuthConfig.githubClientSecret = appData.client_secret;
+      await persistOAuthProvider('github', appData.client_id, appData.client_secret);
 
       const accountName = appData.owner?.login || 'mxw02';
       const displayName = appData.owner?.name || accountName;
@@ -1435,7 +1605,7 @@ async function buildServer(): Promise<FastifyInstance> {
             data: {
               displayName: userData.name || userData.login,
               avatarUrl: userData.avatar_url,
-              accessToken: tokenData.access_token,
+              accessToken: encryptSecret(tokenData.access_token),
               authType: 'oauth',
               isDefault: true,
             },
@@ -1447,7 +1617,7 @@ async function buildServer(): Promise<FastifyInstance> {
               accountName: userData.login,
               displayName: userData.name || userData.login,
               avatarUrl: userData.avatar_url,
-              accessToken: tokenData.access_token,
+              accessToken: encryptSecret(tokenData.access_token),
               instanceUrl: 'https://github.com',
               authType: 'oauth',
               isDefault: true,
@@ -1509,7 +1679,7 @@ async function buildServer(): Promise<FastifyInstance> {
             data: {
               displayName: userData.name || userData.username,
               avatarUrl: userData.avatar_url,
-              accessToken: tokenData.access_token,
+              accessToken: encryptSecret(tokenData.access_token),
               authType: 'oauth',
               isDefault: true,
             },
@@ -1521,7 +1691,7 @@ async function buildServer(): Promise<FastifyInstance> {
               accountName: userData.username,
               displayName: userData.name || userData.username,
               avatarUrl: userData.avatar_url,
-              accessToken: tokenData.access_token,
+              accessToken: encryptSecret(tokenData.access_token),
               instanceUrl: base,
               authType: 'oauth',
               isDefault: true,
@@ -1550,9 +1720,13 @@ async function buildServer(): Promise<FastifyInstance> {
   });
 
   app.get('/api/git/connections', async () => {
-    return prisma.gitConnection.findMany({
+    const connections = await prisma.gitConnection.findMany({
       orderBy: { createdAt: 'desc' },
     });
+    return connections.map(({ accessToken: rawToken, ...rest }) => ({
+      ...rest,
+      hasToken: Boolean(rawToken),
+    }));
   });
 
   app.post('/api/git/connections', async (request: FastifyRequest<{
@@ -1571,20 +1745,23 @@ async function buildServer(): Promise<FastifyInstance> {
       return reply.status(400).send({ error: 'Account- oder Organisationsname ist erforderlich.' });
     }
 
+    const trimmedToken = accessToken ? accessToken.trim() : null;
     const conn = await prisma.gitConnection.create({
       data: {
         provider: provider || 'github',
         accountName: accountName.trim(),
         displayName: displayName ? displayName.trim() : accountName.trim(),
         avatarUrl: avatarUrl ? avatarUrl.trim() : null,
-        accessToken: accessToken ? accessToken.trim() : null,
+        accessToken: trimmedToken ? encryptSecret(trimmedToken) : null,
         instanceUrl: instanceUrl ? instanceUrl.trim() : provider === 'gitlab' ? 'https://gitlab.com' : 'https://github.com',
-        authType: authType || (accessToken ? 'pat' : 'oauth'),
+        authType: authType || (trimmedToken ? 'pat' : 'oauth'),
       },
     });
 
-    broadcastEvent('git_connection_created', conn);
-    return reply.status(201).send(conn);
+    const { accessToken: rawToken, ...safeConn } = conn;
+    const publicConn = { ...safeConn, hasToken: Boolean(rawToken) };
+    broadcastEvent('git_connection_created', publicConn);
+    return reply.status(201).send(publicConn);
   });
 
   app.delete('/api/git/connections/:id', async (request: FastifyRequest<{
@@ -1612,14 +1789,15 @@ async function buildServer(): Promise<FastifyInstance> {
     }
 
     const currentAccount = conn.accountName;
+    const plainToken = decryptSecret(conn.accessToken);
 
     // 1. Try authenticated user repos if token is present
-    if (conn.accessToken && !conn.accessToken.startsWith('simulated_')) {
+    if (plainToken && !plainToken.startsWith('simulated_')) {
       try {
         if (provider === 'github') {
           const ghRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member', {
             headers: {
-              Authorization: `Bearer ${conn.accessToken}`,
+              Authorization: `Bearer ${plainToken}`,
               'User-Agent': 'Kanso-App',
               Accept: 'application/vnd.github+json',
             },
@@ -1645,7 +1823,7 @@ async function buildServer(): Promise<FastifyInstance> {
           const base = (conn.instanceUrl || 'https://gitlab.com').replace(/\/$/, '');
           const glRes = await fetch(`${base}/api/v4/projects?membership=true&per_page=100&order_by=updated_at`, {
             headers: {
-              Authorization: `Bearer ${conn.accessToken}`,
+              Authorization: `Bearer ${plainToken}`,
             },
           });
           if (glRes.ok) {
@@ -1676,7 +1854,7 @@ async function buildServer(): Promise<FastifyInstance> {
           headers: {
             'User-Agent': 'Kanso-App',
             Accept: 'application/vnd.github+json',
-            ...(conn.accessToken && !conn.accessToken.startsWith('simulated_') ? { Authorization: `Bearer ${conn.accessToken}` } : {}),
+            ...(plainToken && !plainToken.startsWith('simulated_') ? { Authorization: `Bearer ${plainToken}` } : {}),
           },
         });
         if (ghPubRes.ok) {
@@ -2003,6 +2181,120 @@ async function buildServer(): Promise<FastifyInstance> {
       }
     }
 
+    // 3. Event-Driven CI / Check Run / Workflow Run / GitLab Pipeline Triggers (2.5)
+    const ciConclusion =
+      payload.check_run?.conclusion ||
+      payload.workflow_run?.conclusion ||
+      (payload.object_kind === 'pipeline' ? payload.object_attributes?.status : undefined);
+    if (ciConclusion) {
+      const ciText = `${payload.check_run?.name || ''} ${payload.check_run?.check_suite?.head_branch || ''} ${payload.workflow_run?.head_branch || ''} ${payload.workflow_run?.head_commit?.message || ''} ${payload.object_attributes?.ref || ''} ${payload.commit?.message || ''}`;
+      const idRegex = /#?([A-Z0-9]+-\d+)/gi;
+      let m;
+      const seenCi = new Set<string>();
+      const isFailure = ['failure', 'timed_out', 'failed', 'action_required'].includes(String(ciConclusion).toLowerCase());
+      const isSuccess = ['success', 'passed'].includes(String(ciConclusion).toLowerCase());
+
+      while ((m = idRegex.exec(ciText)) !== null) {
+        const key = m[1].toUpperCase();
+        if (seenCi.has(key)) continue;
+        seenCi.add(key);
+        const issue = await prisma.issue.findFirst({ where: { identifier: key } });
+        if (!issue) continue;
+
+        const nextStatus =
+          isFailure && ['IN_REVIEW', 'DONE'].includes(issue.status.toUpperCase())
+            ? 'IN_PROGRESS'
+            : issue.status;
+
+        const updated = await prisma.issue.update({
+          where: { id: issue.id },
+          data: {
+            ciStatus: isFailure ? 'FAILURE' : isSuccess ? 'SUCCESS' : 'PENDING',
+            status: nextStatus,
+            ...(isFailure ? { agentStatus: 'THINKING' } : {}),
+            activities: {
+              create: {
+                actorType: 'SYSTEM',
+                actorName: 'CI Webhook Trigger',
+                action: nextStatus !== issue.status ? 'STATUS_CHANGED' : 'UPDATED',
+                details: isFailure
+                  ? `CI fehlgeschlagen (${ciConclusion}) — Ticket zurück in ${nextStatus} & Agent geweckt.`
+                  : `CI Status: ${ciConclusion}`,
+              },
+            },
+            traceEvents: {
+              create: {
+                agentName: issue.assigneeName || 'CI Trigger',
+                phase: isFailure ? 'ERROR' : 'TEST_RUN',
+                title: isFailure ? `CI fehlgeschlagen (${ciConclusion})` : `CI erfolgreich (${ciConclusion})`,
+                detail: payload.check_run?.html_url || payload.workflow_run?.html_url || undefined,
+                status: isFailure ? 'FAILED' : 'SUCCESS',
+              },
+            },
+          },
+        });
+        broadcastEvent('issue_updated', updated);
+        eventsProcessed.push({ issue: key, type: 'ci_trigger', conclusion: ciConclusion });
+      }
+    }
+
+    // 4. Event-Driven PR Review / Comment Triggers (2.5)
+    const reviewBody =
+      payload.review?.body ||
+      payload.comment?.body ||
+      (payload.object_kind === 'note' ? payload.object_attributes?.note : undefined);
+    const isChangesRequested =
+      payload.review?.state === 'changes_requested' ||
+      Boolean(payload.comment?.body && payload.pull_request);
+    if (reviewBody && (payload.review || payload.comment || payload.object_kind === 'note')) {
+      const refText = `${payload.pull_request?.title || ''} ${payload.pull_request?.head?.ref || ''} ${payload.merge_request?.title || ''} ${payload.merge_request?.source_branch || ''} ${reviewBody}`;
+      const idRegex = /#?([A-Z0-9]+-\d+)/gi;
+      let m;
+      const seenRev = new Set<string>();
+      while ((m = idRegex.exec(refText)) !== null) {
+        const key = m[1].toUpperCase();
+        if (seenRev.has(key)) continue;
+        seenRev.add(key);
+        const issue = await prisma.issue.findFirst({ where: { identifier: key } });
+        if (!issue) continue;
+
+        const reviewer =
+          payload.review?.user?.login ||
+          payload.comment?.user?.login ||
+          payload.user?.username ||
+          'Git Reviewer';
+        const nextStatus =
+          isChangesRequested && issue.status.toUpperCase() === 'IN_REVIEW'
+            ? 'IN_PROGRESS'
+            : issue.status;
+
+        const updated = await prisma.issue.update({
+          where: { id: issue.id },
+          data: {
+            status: nextStatus,
+            agentStatus: 'THINKING',
+            comments: {
+              create: {
+                authorType: AssigneeType.HUMAN,
+                authorName: reviewer,
+                content: `**Git Review Feedback:**\n${reviewBody}`,
+              },
+            },
+            activities: {
+              create: {
+                actorType: 'SYSTEM',
+                actorName: 'Git Review Trigger',
+                action: nextStatus !== issue.status ? 'STATUS_CHANGED' : 'COMMENTED',
+                details: `Review-Feedback von ${reviewer} eingegangen — Agent geweckt.`,
+              },
+            },
+          },
+        });
+        broadcastEvent('issue_updated', updated);
+        eventsProcessed.push({ issue: key, type: 'review_trigger', reviewer });
+      }
+    }
+
     return reply.send({ success: true, processed: eventsProcessed.length, events: eventsProcessed });
   });
 
@@ -2137,6 +2429,16 @@ async function buildServer(): Promise<FastifyInstance> {
       return reply.status(404).send({ error: 'Issue not found' });
     }
 
+    // 1F: Enforce strict blocker gate before starting an agent run
+    const openBlockers = await getOpenBlockers(prisma, existing.id);
+    if (openBlockers.length > 0) {
+      const blockerList = openBlockers.map((b) => `${b.identifier} (${b.status})`).join(', ');
+      return reply.status(409).send({
+        error: `Blocker-Gate: ${existing.identifier} ist noch blockiert durch ${blockerList}.`,
+        openBlockers,
+      });
+    }
+
     const run = await prisma.agentRun.create({
       data: {
         issueId: existing.id,
@@ -2152,6 +2454,7 @@ async function buildServer(): Promise<FastifyInstance> {
       data: {
         assigneeType: AssigneeType.AGENT,
         assigneeName: request.body.agentName,
+        agentStatus: 'THINKING',
         status: existing.status === 'TODO' ? 'IN_PROGRESS' : existing.status,
       },
     });
@@ -2178,6 +2481,8 @@ async function buildServer(): Promise<FastifyInstance> {
     broadcastEvent('agent_run_updated', updated);
     return updated;
   });
+
+  registerAgentFeatureRoutes(app, prisma, broadcastEvent);
 
   return app;
 }
