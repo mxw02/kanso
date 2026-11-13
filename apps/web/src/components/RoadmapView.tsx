@@ -63,13 +63,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
   onUpdateIssueDueDate,
 }) => {
   const [zoom, setZoom] = useState<ZoomLevel>('MONTHS');
-  const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    goals.forEach((g) => {
-      initial[g.id] = true;
-    });
-    return initial;
-  });
+  const [expandedGoals, setExpandedGoals] = useState<Record<string, boolean>>({});
   const [showSprints, setShowSprints] = useState(true);
 
   // Quick date editor state
@@ -201,7 +195,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
   const toggleGoalExpand = (goalId: string) => {
     setExpandedGoals((prev) => ({
       ...prev,
-      [goalId]: prev[goalId] === false,
+      [goalId]: !prev[goalId],
     }));
   };
 
@@ -375,7 +369,7 @@ export const RoadmapView: React.FC<RoadmapViewProps> = ({
               const goalIssues = issues.filter((i) => i.goalId === goal.id);
               const doneCount = goalIssues.filter((i) => i.status === 'DONE').length;
               const progressPct = goalIssues.length > 0 ? Math.round((doneCount / goalIssues.length) * 100) : 0;
-              const isExpanded = expandedGoals[goal.id] !== false;
+              const isExpanded = Boolean(expandedGoals[goal.id]);
               const span = calcSpan(goal.startDate, goal.targetDate);
               const isEditingThisGoal = editingGoalId === goal.id;
 
