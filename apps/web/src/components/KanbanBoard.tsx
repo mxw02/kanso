@@ -18,6 +18,13 @@ interface Issue {
   assigneeType: 'HUMAN' | 'AGENT' | 'UNASSIGNED';
   assigneeName?: string | null;
   labels: string[];
+  goal?: {
+    id: string;
+    title: string;
+    color?: string;
+    startDate?: string | null;
+    targetDate?: string | null;
+  } | null;
   comments?: any[];
   subIssues?: any[];
   agentRuns?: any[];
@@ -249,7 +256,23 @@ export const KanbanBoard: React.FC<Props> = ({
 
                   {/* Footer: Tags, Counts, Assignee */}
                   <div className="flex items-center justify-between pt-2.5 border-t border-zinc-100 mt-2 text-[10px]">
-                    <div className="flex items-center gap-2 text-zinc-500">
+                    <div className="flex items-center gap-1.5 text-zinc-500 min-w-0 flex-wrap">
+                      {issue.goal && (
+                        <span
+                          title={
+                            issue.goal.startDate || issue.goal.targetDate
+                              ? `${issue.goal.title} (${issue.goal.startDate ? new Date(issue.goal.startDate).toLocaleDateString('de-DE') : '...'} – ${issue.goal.targetDate ? new Date(issue.goal.targetDate).toLocaleDateString('de-DE') : '...'})`
+                              : issue.goal.title
+                          }
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-50 text-zinc-700 font-medium text-[10px] border border-zinc-200 max-w-[130px] truncate"
+                        >
+                          <span
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: issue.goal.color || '#0f766e' }}
+                          />
+                          <span className="truncate">{issue.goal.title}</span>
+                        </span>
+                      )}
                       {issue.labels?.length > 0 && (
                         <span className="px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 font-mono text-[10px] border border-zinc-200/60">
                           #{issue.labels[0]}

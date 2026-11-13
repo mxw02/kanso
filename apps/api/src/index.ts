@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole, SprintStatus, IssueRelationType } from '@prisma/client';
+import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole, SprintStatus, GoalStatus, IssueRelationType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import Redis from 'ioredis';
@@ -588,6 +588,7 @@ async function buildServer(): Promise<FastifyInstance> {
     Querystring: {
       projectId?: string;
       sprintId?: string;
+      goalId?: string;
       status?: string;
       priority?: IssuePriority;
       assigneeType?: AssigneeType;
@@ -598,10 +599,18 @@ async function buildServer(): Promise<FastifyInstance> {
       sortOrder?: 'asc' | 'desc';
     };
   }>) => {
-    const { projectId, sprintId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
+    const { projectId, sprintId, goalId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
     const where: any = {};
 
     if (projectId) where.projectId = projectId;
+
+    if (goalId) {
+      if (goalId === 'NONE') {
+        where.goalId = null;
+      } else if (goalId !== 'ALL') {
+        where.goalId = goalId;
+      }
+    }
 
     if (sprintId) {
       if (sprintId === 'ACTIVE') {
@@ -652,6 +661,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: { select: { id: true, key: true, name: true, columns: true, stageAgents: true } },
         sprint: { select: { id: true, name: true, status: true } },
+        goal: { select: { id: true, title: true, color: true, status: true, startDate: true, targetDate: true } },
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 5 },
         agentRuns: { orderBy: { startedAt: 'desc' }, take: 1 },
@@ -684,6 +694,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: true,
         sprint: true,
+        goal: true,
         comments: { orderBy: { createdAt: 'asc' } },
         activities: { orderBy: { createdAt: 'desc' } },
         agentRuns: { orderBy: { startedAt: 'desc' } },
@@ -716,6 +727,7 @@ async function buildServer(): Promise<FastifyInstance> {
       projectId?: string;
       projectKey?: string;
       sprintId?: string;
+      goalId?: string | null;
       title: string;
       description?: string;
       status?: string;
@@ -782,6 +794,7 @@ async function buildServer(): Promise<FastifyInstance> {
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         parentId: body.parentId || null,
         sprintId: body.sprintId || null,
+        goalId: body.goalId || null,
         agentMetadata: body.agentMetadata || undefined,
         proofOfWork: body.proofOfWork || undefined,
         targetFiles: body.targetFiles || [],
@@ -802,6 +815,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: true,
         sprint: true,
+        goal: true,
         activities: true,
       },
     });
@@ -824,6 +838,7 @@ async function buildServer(): Promise<FastifyInstance> {
       labels?: string[];
       dueDate?: string | null;
       sprintId?: string | null;
+      goalId?: string | null;
       agentMetadata?: any;
       proofOfWork?: any;
       ciStatus?: string;
@@ -926,6 +941,15 @@ async function buildServer(): Promise<FastifyInstance> {
       });
     }
 
+    if (body.goalId !== undefined && body.goalId !== existing.goalId) {
+      activityLogsToCreate.push({
+        actorType,
+        actorName,
+        action: 'UPDATED',
+        details: body.goalId ? 'Übergeordnetes Ziel zugeordnet' : 'Übergeordnetes Ziel entfernt',
+      });
+    }
+
     // Clean up update payload (exclude non-db fields)
     const updateData: any = { ...body };
     if (body.dueDate !== undefined) {
@@ -971,6 +995,7 @@ async function buildServer(): Promise<FastifyInstance> {
       include: {
         project: true,
         sprint: true,
+        goal: true,
         gitLinks: true,
         comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         activities: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -1213,6 +1238,115 @@ async function buildServer(): Promise<FastifyInstance> {
 
     await prisma.sprint.delete({ where: { id } });
     broadcastEvent('sprint_deleted', { id });
+    return { success: true, id };
+  });
+
+  // ==========================================
+  // ÜBERGEORDNETE ZIELE (GOALS)
+  // ==========================================
+  app.get('/api/goals', async (request: FastifyRequest<{
+    Querystring: { projectId?: string };
+  }>) => {
+    const { projectId } = request.query;
+    const where: any = {};
+    if (projectId) where.projectId = projectId;
+
+    return prisma.goal.findMany({
+      where,
+      include: {
+        _count: { select: { issues: true } },
+        issues: {
+          select: { id: true, identifier: true, title: true, status: true, priority: true, dueDate: true },
+        },
+      },
+      orderBy: [{ status: 'asc' }, { targetDate: 'asc' }, { createdAt: 'desc' }],
+    });
+  });
+
+  app.post('/api/goals', async (request: FastifyRequest<{
+    Body: {
+      projectId: string;
+      title: string;
+      description?: string;
+      color?: string;
+      startDate?: string | null;
+      targetDate?: string | null;
+    };
+  }>, reply: FastifyReply) => {
+    const { projectId, title, description, color, startDate, targetDate } = request.body;
+    if (!projectId || !title?.trim()) {
+      return reply.status(400).send({ error: 'Projekt und Ziel-Titel sind erforderlich.' });
+    }
+
+    const goal = await prisma.goal.create({
+      data: {
+        projectId,
+        title: title.trim(),
+        description: description?.trim() || null,
+        color: color || '#0f766e',
+        status: GoalStatus.ACTIVE,
+        startDate: startDate ? new Date(startDate) : null,
+        targetDate: targetDate ? new Date(targetDate) : null,
+      },
+      include: {
+        _count: { select: { issues: true } },
+        issues: {
+          select: { id: true, identifier: true, title: true, status: true, priority: true, dueDate: true },
+        },
+      },
+    });
+
+    broadcastEvent('goal_created', goal);
+    return reply.status(201).send(goal);
+  });
+
+  app.patch('/api/goals/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+    Body: {
+      title?: string;
+      description?: string | null;
+      status?: GoalStatus;
+      color?: string;
+      startDate?: string | null;
+      targetDate?: string | null;
+    };
+  }>, reply: FastifyReply) => {
+    const { id } = request.params;
+    const { title, description, status, color, startDate, targetDate } = request.body;
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description?.trim() || null;
+    if (status !== undefined) updateData.status = status;
+    if (color !== undefined) updateData.color = color;
+    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
+    if (targetDate !== undefined) updateData.targetDate = targetDate ? new Date(targetDate) : null;
+
+    const updated = await prisma.goal.update({
+      where: { id },
+      data: updateData,
+      include: {
+        _count: { select: { issues: true } },
+        issues: {
+          select: { id: true, identifier: true, title: true, status: true, priority: true, dueDate: true },
+        },
+      },
+    });
+
+    broadcastEvent('goal_updated', updated);
+    return updated;
+  });
+
+  app.delete('/api/goals/:id', async (request: FastifyRequest<{
+    Params: { id: string };
+  }>) => {
+    const { id } = request.params;
+    await prisma.issue.updateMany({
+      where: { goalId: id },
+      data: { goalId: null },
+    });
+
+    await prisma.goal.delete({ where: { id } });
+    broadcastEvent('goal_deleted', { id });
     return { success: true, id };
   });
 

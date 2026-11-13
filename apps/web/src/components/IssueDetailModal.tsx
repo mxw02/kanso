@@ -30,9 +30,11 @@ import {
   CheckCircle2,
   XCircle,
   Globe,
+  Target,
 } from 'lucide-react';
 import { MarkdownViewer } from './MarkdownViewer';
 import { computeReadiness, ProofOfWorkCheck } from '../utils/readiness';
+import type { GoalItem } from './GoalsModal';
 
 interface Issue {
   id: string;
@@ -49,6 +51,8 @@ interface Issue {
   dueDate?: string | null;
   sprintId?: string | null;
   sprint?: { id: string; name: string; status: string } | null;
+  goalId?: string | null;
+  goal?: GoalItem | null;
   comments?: any[];
   activities?: any[];
   subIssues?: any[];
@@ -99,6 +103,7 @@ interface Props {
   currentUser: { name: string; role: string };
   allIssues?: OtherIssue[];
   sprints?: SprintItem[];
+  goals?: GoalItem[];
   canEdit: boolean;
   onClose: () => void;
   onUpdate: (issueId: string, payload: any) => Promise<void>;
@@ -115,6 +120,7 @@ export const IssueDetailModal: React.FC<Props> = ({
   currentUser,
   allIssues = [],
   sprints = [],
+  goals = [],
   canEdit,
   onClose,
   onUpdate,
@@ -1671,6 +1677,49 @@ export const IssueDetailModal: React.FC<Props> = ({
                   {issue.dueDate
                     ? new Date(issue.dueDate).toLocaleDateString('de-DE')
                     : 'Kein Datum'}
+                </div>
+              )}
+            </div>
+
+            {/* Parent Goal */}
+            <div>
+              <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                <Target className="w-3 h-3 text-zinc-400" />
+                <span>Übergeordnetes Ziel</span>
+              </label>
+              {canEdit ? (
+                <select
+                  value={issue.goalId || ''}
+                  onChange={(e) => onUpdate(issue.id, { goalId: e.target.value || null })}
+                  className="w-full bg-white border border-zinc-300 rounded-lg p-2 text-zinc-900 font-medium focus:outline-none focus:border-teal-600"
+                >
+                  <option value="">Kein Ziel zugeordnet</option>
+                  {goals.map((g) => {
+                    const range =
+                      g.startDate || g.targetDate
+                        ? ` (${g.startDate ? new Date(g.startDate).toLocaleDateString('de-DE') : '...'} – ${g.targetDate ? new Date(g.targetDate).toLocaleDateString('de-DE') : '...'})`
+                        : '';
+                    return (
+                      <option key={g.id} value={g.id}>
+                        {g.title}
+                        {range}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <div className="p-2 bg-white border border-zinc-200 rounded-lg text-zinc-800 font-medium flex items-center gap-2">
+                  {issue.goal ? (
+                    <>
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: issue.goal.color || '#0f766e' }}
+                      />
+                      <span className="truncate">{issue.goal.title}</span>
+                    </>
+                  ) : (
+                    <span className="text-zinc-400">Kein Ziel</span>
+                  )}
                 </div>
               )}
             </div>

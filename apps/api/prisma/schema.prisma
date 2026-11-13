@@ -102,6 +102,7 @@ model Project {
 
   issues      Issue[]
   sprints     Sprint[]
+  goals       Goal[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -140,6 +141,9 @@ model Issue {
 
   sprintId      String?
   sprint        Sprint?       @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
+  goalId        String?
+  goal          Goal?         @relation(fields: [goalId], references: [id], onDelete: SetNull)
   
   parentId      String?
   parent        Issue?        @relation("SubIssues", fields: [parentId], references: [id])
@@ -160,6 +164,7 @@ model Issue {
   @@index([projectId, status])
   @@index([identifier])
   @@index([sprintId])
+  @@index([goalId])
   @@map("issues")
 }
 
@@ -243,6 +248,31 @@ model Sprint {
 
   @@index([projectId, status])
   @@map("sprints")
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model Goal {
+  id          String     @id @default(uuid())
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  description String?    @db.Text
+  status      GoalStatus @default(ACTIVE)
+  color       String     @default("#0f766e")
+  startDate   DateTime?
+  targetDate  DateTime?
+  issues      Issue[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([projectId, status])
+  @@map("goals")
 }
 
 model IssueRelation {

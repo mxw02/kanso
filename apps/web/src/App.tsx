@@ -18,11 +18,13 @@ import {
   LogOut,
   KeyRound,
   BarChart3,
+  Target,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
 import { SummaryView } from './components/SummaryView';
 import { CalendarView } from './components/CalendarView';
+import { GoalsModal, GoalItem } from './components/GoalsModal';
 import { IssueDetailModal } from './components/IssueDetailModal';
 import { CreateIssueModal } from './components/CreateIssueModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
@@ -105,10 +107,12 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [oauthToast, setOauthToast] = useState<string | null>(null);
   const [sprints, setSprints] = useState<any[]>([]);
+  const [goals, setGoals] = useState<GoalItem[]>([]);
   const [focusedIssueIndex, setFocusedIssueIndex] = useState<number>(-1);
   const [selectedIssue, setSelectedIssue] = useState<any | null>(null);
 
@@ -118,6 +122,7 @@ export default function App() {
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [filterAssignee, setFilterAssignee] = useState<'ALL' | 'AGENT' | 'HUMAN' | 'UNASSIGNED'>('ALL');
   const [filterSprint, setFilterSprint] = useState('ALL');
+  const [filterGoal, setFilterGoal] = useState('ALL');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const API_URL = import.meta.env.VITE_API_URL || '';
@@ -212,6 +217,18 @@ export default function App() {
     }
   };
 
+  const fetchGoals = async () => {
+    if (!activeProject?.id) return;
+    try {
+      const res = await fetch(`${API_URL}/api/goals?projectId=${activeProject.id}`);
+      if (res.ok) {
+        setGoals(await res.json());
+      }
+    } catch (err) {
+      console.error('Failed to fetch goals:', err);
+    }
+  };
+
   // Fetch Issues with active filters
   const fetchIssues = async () => {
     try {
@@ -221,6 +238,7 @@ export default function App() {
       if (filterPriority !== 'ALL') params.set('priority', filterPriority);
       if (filterAssignee !== 'ALL') params.set('assigneeType', filterAssignee);
       if (filterSprint !== 'ALL') params.set('sprintId', filterSprint);
+      if (filterGoal !== 'ALL') params.set('goalId', filterGoal);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
       const res = await fetch(`${API_URL}/api/issues?${params.toString()}`);
@@ -267,7 +285,8 @@ export default function App() {
   useEffect(() => {
     fetchIssues();
     fetchSprints();
-  }, [activeProject, filterStatus, filterPriority, filterAssignee, filterSprint, searchQuery]);
+    fetchGoals();
+  }, [activeProject, filterStatus, filterPriority, filterAssignee, filterSprint, filterGoal, searchQuery]);
 
   // Realtime SSE Event Stream
   useEffect(() => {
@@ -664,7 +683,7 @@ export default function App() {
     : DEFAULT_COLUMNS;
 
   const activeSprint = sprints.find((s) => s.status === 'ACTIVE');
-  const hasActiveFilters = searchQuery || filterStatus !== 'ALL' || filterPriority !== 'ALL' || filterAssignee !== 'ALL' || filterSprint !== 'ALL';
+  const hasActiveFilters = searchQuery || filterStatus !== 'ALL' || filterPriority !== 'ALL' || filterAssignee !== 'ALL' || filterSprint !== 'ALL' || filterGoal !== 'ALL';
 
   if (!currentUser) {
     return (
@@ -1082,6 +1101,23 @@ export default function App() {
             </button>
           )}
 
+          {/* Goals Manager Pill */}
+          {activeProject && (
+            <button
+              onClick={() => setShowGoalsModal(true)}
+              title="Übergeordnete Ziele verwalten"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 transition shadow-2xs"
+            >
+              <Target className="w-3.5 h-3.5 text-teal-700" />
+              <span>Ziele</span>
+              {goals.filter((g) => g.status === 'ACTIVE').length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-teal-50 text-teal-700 border border-teal-200 text-[10px] font-mono">
+                  {goals.filter((g) => g.status === 'ACTIVE').length}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Git Integration Pill / Quick Action */}
           <button
             onClick={() => setShowGitModal(true)}
@@ -1158,6 +1194,23 @@ export default function App() {
               ))}
             </select>
 
+            {/* Goal Filter */}
+            {goals.length > 0 && (
+              <select
+                value={filterGoal}
+                onChange={(e) => setFilterGoal(e.target.value)}
+                className="bg-white border border-zinc-200 rounded-lg px-2.5 py-1 text-zinc-700 font-medium focus:outline-none focus:border-teal-600 cursor-pointer hover:bg-zinc-50 transition shadow-2xs max-w-[170px]"
+              >
+                <option value="ALL">Ziel: Alle</option>
+                <option value="NONE">Ohne Ziel</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+            )}
+
             {/* Reset Filters */}
             {hasActiveFilters && (
               <button
@@ -1167,6 +1220,7 @@ export default function App() {
                   setFilterPriority('ALL');
                   setFilterAssignee('ALL');
                   setFilterSprint('ALL');
+                  setFilterGoal('ALL');
                 }}
                 className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-800 px-2 py-1 rounded hover:bg-zinc-100 transition"
               >
@@ -1334,6 +1388,47 @@ export default function App() {
         }}
       />
 
+      {/* Goals Modal */}
+      <GoalsModal
+        isOpen={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
+        goals={goals}
+        canEdit={canEdit}
+        onCreateGoal={async (data) => {
+          if (!activeProject?.id) return;
+          const res = await fetch(`${API_URL}/api/goals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...data, projectId: activeProject.id }),
+          });
+          if (res.ok) {
+            await fetchGoals();
+            await fetchIssues();
+          }
+        }}
+        onUpdateGoal={async (goalId, data) => {
+          const res = await fetch(`${API_URL}/api/goals/${goalId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
+          if (res.ok) {
+            await fetchGoals();
+            await fetchIssues();
+          }
+        }}
+        onDeleteGoal={async (goalId) => {
+          const res = await fetch(`${API_URL}/api/goals/${goalId}`, {
+            method: 'DELETE',
+          });
+          if (res.ok) {
+            if (filterGoal === goalId) setFilterGoal('ALL');
+            await fetchGoals();
+            await fetchIssues();
+          }
+        }}
+      />
+
       {/* Issue Detail Modal */}
       <IssueDetailModal
         issue={selectedIssue}
@@ -1342,6 +1437,7 @@ export default function App() {
         currentUser={currentUser}
         allIssues={issues}
         sprints={sprints}
+        goals={goals}
         canEdit={canEdit}
         onClose={() => setSelectedIssue(null)}
         onUpdate={handleUpdateIssue}
@@ -1362,6 +1458,7 @@ export default function App() {
         users={users}
         defaultStatus={createIssueDefaultStatus}
         projectId={activeProject?.id}
+        goals={goals}
         onCreate={handleCreateIssue}
       />
 
