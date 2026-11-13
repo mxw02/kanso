@@ -16,6 +16,7 @@ import {
 import { decryptSecret, encryptSecret } from './crypto';
 import { registerImportRoutes } from './jira-import';
 import { registerUploadRoutes } from './uploads';
+import { getMentionCandidates, resolveMentions } from './mentions';
 
 dotenv.config();
 
@@ -254,6 +255,12 @@ async function buildServer(): Promise<FastifyInstance> {
       },
       orderBy: { createdAt: 'asc' },
     });
+  });
+
+  app.get('/api/mentions/candidates', async (request: FastifyRequest<{
+    Querystring: { projectId?: string };
+  }>) => {
+    return getMentionCandidates(prisma, request.query.projectId);
   });
 
   app.post('/api/users', async (request: FastifyRequest<{
@@ -824,6 +831,30 @@ async function buildServer(): Promise<FastifyInstance> {
     });
 
     broadcastEvent('issue_created', issue);
+
+    if (body.description) {
+      const mentions = await resolveMentions(prisma, body.description, project.id);
+      if (mentions.length > 0) {
+        await prisma.activityLog.create({
+          data: {
+            issueId: issue.id,
+            actorType: body.actorType || (body.assigneeType === 'AGENT' ? 'AGENT' : 'HUMAN'),
+            actorName: body.actorName || body.assigneeName || 'System',
+            action: 'MENTIONED',
+            details: `Erwähnt in Beschreibung: ${mentions.map((m) => `@${m.handle}`).join(', ')}`,
+          },
+        });
+        broadcastEvent('mention_created', {
+          issueId: issue.id,
+          identifier: issue.identifier,
+          projectId: project.id,
+          source: 'description',
+          actorName: body.actorName || body.assigneeName || 'System',
+          mentions,
+        });
+      }
+    }
+
     return reply.status(201).send(issue);
   });
 
@@ -1019,6 +1050,33 @@ async function buildServer(): Promise<FastifyInstance> {
     });
 
     broadcastEvent('issue_updated', updated);
+
+    if (body.description !== undefined && body.description !== existing.description) {
+      const prevMentions = await resolveMentions(prisma, existing.description || '', existing.projectId);
+      const nextMentions = await resolveMentions(prisma, body.description || '', existing.projectId);
+      const prevSet = new Set(prevMentions.map((m) => m.handle.toLowerCase()));
+      const addedMentions = nextMentions.filter((m) => !prevSet.has(m.handle.toLowerCase()));
+      if (addedMentions.length > 0) {
+        await prisma.activityLog.create({
+          data: {
+            issueId: updated.id,
+            actorType,
+            actorName,
+            action: 'MENTIONED',
+            details: `Erwähnt in Beschreibung: ${addedMentions.map((m) => `@${m.handle}`).join(', ')}`,
+          },
+        });
+        broadcastEvent('mention_created', {
+          issueId: updated.id,
+          identifier: updated.identifier,
+          projectId: updated.projectId,
+          source: 'description',
+          actorName,
+          mentions: addedMentions,
+        });
+      }
+    }
+
     if (handoffAgent) {
       broadcastEvent('agent_handoff', {
         issueId: updated.id,
@@ -2579,8 +2637,30 @@ async function buildServer(): Promise<FastifyInstance> {
       },
     });
 
-    broadcastEvent('comment_added', { issueId: existing.id, identifier: existing.identifier, comment });
-    return reply.status(201).send(comment);
+    const mentions = await resolveMentions(prisma, request.body.content, existing.projectId);
+    if (mentions.length > 0) {
+      await prisma.activityLog.create({
+        data: {
+          issueId: existing.id,
+          actorType: request.body.authorType === AssigneeType.AGENT ? 'AGENT' : 'HUMAN',
+          actorName: request.body.authorName,
+          action: 'MENTIONED',
+          details: `Erwähnt in Kommentar: ${mentions.map((m) => `@${m.handle}`).join(', ')}`,
+        },
+      });
+      broadcastEvent('mention_created', {
+        issueId: existing.id,
+        identifier: existing.identifier,
+        projectId: existing.projectId,
+        source: 'comment',
+        commentId: comment.id,
+        actorName: request.body.authorName,
+        mentions,
+      });
+    }
+
+    broadcastEvent('comment_added', { issueId: existing.id, identifier: existing.identifier, comment, mentions });
+    return reply.status(201).send({ ...comment, mentions });
   });
 
   // ==========================================
