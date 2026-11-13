@@ -139,6 +139,11 @@ export const IssueDetailModal: React.FC<Props> = ({
   const [submittingComment, setSubmittingComment] = useState(false);
   const [copiedBranch, setCopiedBranch] = useState(false);
 
+  // Collapsible empty sections state
+  const [showPowSection, setShowPowSection] = useState(false);
+  const [showPreviewSection, setShowPreviewSection] = useState(false);
+  const [showSubtasksSection, setShowSubtasksSection] = useState(false);
+
   // Issue relations form state
   const [showAddRelation, setShowAddRelation] = useState(false);
   const [relationTargetId, setRelationTargetId] = useState('');
@@ -162,6 +167,9 @@ export const IssueDetailModal: React.FC<Props> = ({
       setShowAddRelation(false);
       setShowSimulateGit(false);
       setAssigneeDropdownOpen(false);
+      setShowPowSection(false);
+      setShowPreviewSection(false);
+      setShowSubtasksSection(false);
       setHitlReply('');
       setNewPowTitle('');
       setNewPowCmd('');
@@ -444,7 +452,7 @@ export const IssueDetailModal: React.FC<Props> = ({
       onClick={onClose}
     >
       <div
-        className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full h-[90vh] shadow-2xl flex flex-col overflow-hidden"
+        className="bg-white border border-slate-200 rounded-2xl max-w-5xl w-full h-[90vh] shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header Bar */}
@@ -622,41 +630,25 @@ export const IssueDetailModal: React.FC<Props> = ({
               </div>
             )}
 
-            {/* 2.2: Agent-Readiness Score Bar */}
-            <div className="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="text-[11px] font-semibold text-slate-700">Agent-Readiness</span>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      readiness.level === 'READY'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : readiness.level === 'NEEDS_CONTEXT'
-                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                    }`}
-                  >
-                    {readiness.score}% · {readiness.level === 'READY' ? 'Bereit' : readiness.level === 'NEEDS_CONTEXT' ? 'Kontext fehlt' : 'Zu vage'}
-                  </span>
-                </div>
-                {canEdit && (
-                  <div className="flex items-center gap-1.5 flex-1 max-w-xs">
-                    <FileCode2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={targetFilesInput}
-                      onChange={(e) => setTargetFilesInput(e.target.value)}
-                      onBlur={handleSaveTargetFiles}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveTargetFiles()}
-                      placeholder="Ziel-Dateien (z. B. src/auth.ts, App.tsx)"
-                      className="w-full text-[11px] px-2 py-1 rounded border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-400"
-                    />
-                  </div>
-                )}
+            {/* 2.2: Agent-Readiness Score Bar (compact) */}
+            <div className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="text-[11px] font-semibold text-slate-700">Agent-Readiness</span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    readiness.level === 'READY'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : readiness.level === 'NEEDS_CONTEXT'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                  }`}
+                >
+                  {readiness.score}% · {readiness.level === 'READY' ? 'Bereit' : readiness.level === 'NEEDS_CONTEXT' ? 'Kontext fehlt' : 'Zu vage'}
+                </span>
               </div>
               {readiness.missing.length > 0 && (
-                <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-2.5 gap-y-0.5">
                   {readiness.missing.map((m, idx) => (
                     <span key={idx}>• {m}</span>
                   ))}
@@ -716,9 +708,61 @@ export const IssueDetailModal: React.FC<Props> = ({
               )}
             </div>
 
-            {/* 1E: Proof of Work (Definition of Done) & 2.6: Ephemeral Preview */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Proof of Work */}
+            {/* Compact Action Bar for Empty Sections */}
+            {canEdit &&
+              (powList.length === 0 && !showPowSection ||
+                !issue.previewUrl && !editingPreview && !showPreviewSection ||
+                (issue.subIssues?.length || 0) === 0 && !showSubtasksSection ||
+                (issue.outgoingRelations?.length || 0) + (issue.incomingRelations?.length || 0) === 0 && !showAddRelation) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {powList.length === 0 && !showPowSection && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPowSection(true)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>+ Proof of Work</span>
+                    </button>
+                  )}
+                  {!issue.previewUrl && !editingPreview && !showPreviewSection && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPreviewSection(true);
+                        setEditingPreview(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-sky-600" />
+                      <span>+ Preview-URL</span>
+                    </button>
+                  )}
+                  {(issue.subIssues?.length || 0) === 0 && !showSubtasksSection && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSubtasksSection(true)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                    >
+                      <CheckSquare className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>+ Sub-Task</span>
+                    </button>
+                  )}
+                  {(issue.outgoingRelations?.length || 0) + (issue.incomingRelations?.length || 0) === 0 && !showAddRelation && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddRelation(true)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[11px] font-medium text-slate-600 transition"
+                    >
+                      <Link2 className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>+ Verknüpfung</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+            {/* 1E: Proof of Work (Definition of Done) */}
+            {(powList.length > 0 || showPowSection || (issue.ciStatus && issue.ciStatus !== 'NONE')) && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
@@ -727,88 +771,104 @@ export const IssueDetailModal: React.FC<Props> = ({
                       Proof of Work ({powList.filter((c) => c.status === 'PASSED').length}/{powList.length})
                     </span>
                   </div>
-                  {issue.ciStatus && issue.ciStatus !== 'NONE' && (
-                    <span
-                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                        issue.ciStatus === 'SUCCESS'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : issue.ciStatus === 'FAILURE'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}
-                    >
-                      CI: {issue.ciStatus}
-                    </span>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  {powList.map((check) => (
-                    <div
-                      key={check.id}
-                      className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white border border-slate-200 text-xs"
-                    >
+                  <div className="flex items-center gap-2">
+                    {issue.ciStatus && issue.ciStatus !== 'NONE' && (
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                          issue.ciStatus === 'SUCCESS'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : issue.ciStatus === 'FAILURE'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        CI: {issue.ciStatus}
+                      </span>
+                    )}
+                    {powList.length === 0 && showPowSection && (
                       <button
                         type="button"
-                        disabled={!canEdit}
-                        onClick={() => handleCyclePow(check.id)}
-                        className="flex items-center gap-2 min-w-0 text-left"
-                        title="Status umschalten (PENDING → PASSED → FAILED)"
+                        onClick={() => setShowPowSection(false)}
+                        className="text-slate-400 hover:text-slate-600"
+                        title="Ausblenden"
                       >
-                        {check.status === 'PASSED' ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        ) : check.status === 'FAILED' ? (
-                          <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                        ) : (
-                          <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        )}
-                        <div className="min-w-0">
-                          <div className="font-medium text-slate-800 truncate">{check.title}</div>
-                          {check.command && (
-                            <code className="text-[10px] text-slate-500 font-mono">{check.command}</code>
-                          )}
-                        </div>
+                        <X className="w-3.5 h-3.5" />
                       </button>
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePow(check.id)}
-                          className="text-slate-400 hover:text-rose-600 p-0.5"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
 
+                {powList.length > 0 && (
+                  <div className="space-y-1.5">
+                    {powList.map((check) => (
+                      <div
+                        key={check.id}
+                        className="flex items-center justify-between gap-2 p-2 rounded-lg bg-white border border-slate-200 text-xs"
+                      >
+                        <button
+                          type="button"
+                          disabled={!canEdit}
+                          onClick={() => handleCyclePow(check.id)}
+                          className="flex items-center gap-2 min-w-0 text-left"
+                          title="Status umschalten (PENDING → PASSED → FAILED)"
+                        >
+                          {check.status === 'PASSED' ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : check.status === 'FAILED' ? (
+                            <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          ) : (
+                            <Square className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-medium text-slate-800 truncate">{check.title}</div>
+                            {check.command && (
+                              <code className="text-[10px] text-slate-500 font-mono">{check.command}</code>
+                            )}
+                          </div>
+                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePow(check.id)}
+                            className="text-slate-400 hover:text-rose-600 p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {canEdit && (
-                  <form onSubmit={handleAddPow} className="flex gap-1.5 pt-1">
+                  <form onSubmit={handleAddPow} className="flex gap-2 pt-1">
                     <input
                       type="text"
                       value={newPowTitle}
                       onChange={(e) => setNewPowTitle(e.target.value)}
                       placeholder="Check (z. B. Unit Tests grün)"
-                      className="flex-1 text-[11px] px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
                     />
                     <input
                       type="text"
                       value={newPowCmd}
                       onChange={(e) => setNewPowCmd(e.target.value)}
                       placeholder="npm test"
-                      className="w-24 text-[11px] font-mono px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                      className="w-36 text-xs font-mono px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
                     />
                     <button
                       type="submit"
-                      className="px-2 py-1 rounded bg-slate-800 text-white text-[11px] hover:bg-slate-900"
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 text-white text-xs font-medium hover:bg-slate-900"
                     >
-                      +
+                      + Check
                     </button>
                   </form>
                 )}
               </div>
+            )}
 
-              {/* Ephemeral Preview Environment (2.6) */}
+            {/* Ephemeral Preview Environment (2.6) */}
+            {(issue.previewUrl || editingPreview || showPreviewSection) && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
@@ -820,7 +880,14 @@ export const IssueDetailModal: React.FC<Props> = ({
                   {canEdit && (
                     <button
                       type="button"
-                      onClick={() => setEditingPreview(!editingPreview)}
+                      onClick={() => {
+                        if (editingPreview) {
+                          setEditingPreview(false);
+                          if (!issue.previewUrl) setShowPreviewSection(false);
+                        } else {
+                          setEditingPreview(true);
+                        }
+                      }}
                       className="text-[11px] text-indigo-600 hover:text-indigo-700 font-medium"
                     >
                       {editingPreview ? 'Abbrechen' : issue.previewUrl ? 'Ändern' : '+ Verknüpfen'}
@@ -829,18 +896,18 @@ export const IssueDetailModal: React.FC<Props> = ({
                 </div>
 
                 {editingPreview ? (
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-2">
                     <input
                       type="url"
                       value={previewUrlInput}
                       onChange={(e) => setPreviewUrlInput(e.target.value)}
                       placeholder="https://pr-42.preview.kanso.dev"
-                      className="flex-1 text-[11px] px-2.5 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
+                      className="flex-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-indigo-400"
                     />
                     <button
                       type="button"
                       onClick={handleSavePreview}
-                      className="px-2.5 py-1 rounded bg-indigo-600 text-white text-[11px] font-medium hover:bg-indigo-700"
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700"
                     >
                       Speichern
                     </button>
@@ -864,24 +931,31 @@ export const IssueDetailModal: React.FC<Props> = ({
                       />
                     )}
                   </div>
-                ) : (
-                  <p className="text-[11px] text-slate-400">
-                    Noch keine ephemere Preview-URL verknüpft.
-                  </p>
-                )}
+                ) : null}
               </div>
-            </div>
+            )}
 
             {/* Sub-tasks Section */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckSquare className="w-4 h-4 text-indigo-600" />
-                  <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Sub-tasks ({issue.subIssues?.length || 0})
-                  </span>
+            {((issue.subIssues && issue.subIssues.length > 0) || showSubtasksSection) && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Sub-tasks ({issue.subIssues?.length || 0})
+                    </span>
+                  </div>
+                  {(issue.subIssues?.length || 0) === 0 && showSubtasksSection && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSubtasksSection(false)}
+                      className="text-slate-400 hover:text-slate-600"
+                      title="Ausblenden"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-              </div>
 
               {issue.subIssues && issue.subIssues.length > 0 && (
                 <div className="space-y-1.5">
@@ -944,10 +1018,12 @@ export const IssueDetailModal: React.FC<Props> = ({
                   </button>
                 </form>
               )}
-            </div>
+              </div>
+            )}
 
             {/* Ticket-Verknüpfungen (Relations & Blockers) */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+            {((issue.outgoingRelations?.length || 0) + (issue.incomingRelations?.length || 0) > 0 || showAddRelation) && (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Link2 className="w-4 h-4 text-indigo-600" />
@@ -1105,13 +1181,9 @@ export const IssueDetailModal: React.FC<Props> = ({
                   </div>
                 ))}
 
-                {(!issue.outgoingRelations || issue.outgoingRelations.length === 0) &&
-                  (!issue.incomingRelations || issue.incomingRelations.length === 0) &&
-                  !showAddRelation && (
-                    <div className="text-xs text-slate-400 italic py-1">Keine Verknüpfungen vorhanden.</div>
-                  )}
               </div>
             </div>
+            )}
 
             {/* Tabs: Comments vs Activity Log vs Git */}
             <div>
@@ -1464,7 +1536,7 @@ export const IssueDetailModal: React.FC<Props> = ({
           </div>
 
           {/* Sidebar Properties */}
-          <div className="w-72 p-6 bg-slate-50 space-y-5 text-xs overflow-y-auto shrink-0">
+          <div className="w-80 p-6 bg-slate-50 space-y-4 text-xs overflow-y-auto shrink-0">
             {/* Status */}
             <div>
               <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
@@ -1536,6 +1608,30 @@ export const IssueDetailModal: React.FC<Props> = ({
               ) : (
                 <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
                   {issue.priority}
+                </div>
+              )}
+            </div>
+
+            {/* Issue Type */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                Typ
+              </label>
+              {canEdit ? (
+                <select
+                  value={issue.type || 'TASK'}
+                  onChange={(e) => onUpdate(issue.id, { type: e.target.value })}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-900 font-medium focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="TASK">Task</option>
+                  <option value="BUG">Bug</option>
+                  <option value="FEATURE">Feature</option>
+                  <option value="STORY">Story</option>
+                  <option value="EPIC">Epic</option>
+                </select>
+              ) : (
+                <div className="p-2 bg-white border border-slate-200 rounded-lg text-slate-800 font-medium">
+                  {issue.type || 'TASK'}
                 </div>
               )}
             </div>
@@ -1768,6 +1864,47 @@ export const IssueDetailModal: React.FC<Props> = ({
                 ))}
               </div>
             </div>
+
+            {/* Target Files (moved from Readiness Header) */}
+            <div>
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                <FileCode2 className="w-3 h-3 text-slate-400" />
+                <span>Ziel-Dateien</span>
+              </label>
+              {canEdit ? (
+                <input
+                  type="text"
+                  value={targetFilesInput}
+                  onChange={(e) => setTargetFilesInput(e.target.value)}
+                  onBlur={handleSaveTargetFiles}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveTargetFiles()}
+                  placeholder="z. B. src/auth.ts, App.tsx"
+                  className="w-full text-[11px] font-mono px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-500"
+                />
+              ) : (
+                <div className="text-[11px] font-mono text-slate-600">
+                  {targetFilesInput || 'Keine Ziel-Dateien angegeben'}
+                </div>
+              )}
+            </div>
+
+            {/* Timestamps */}
+            {(issue.createdAt || issue.updatedAt) && (
+              <div className="pt-3 border-t border-slate-200 space-y-1 text-[11px] text-slate-400">
+                {issue.createdAt && (
+                  <div className="flex justify-between">
+                    <span>Erstellt</span>
+                    <span className="font-mono">{new Date(issue.createdAt).toLocaleDateString('de-DE')}</span>
+                  </div>
+                )}
+                {issue.updatedAt && (
+                  <div className="flex justify-between">
+                    <span>Aktualisiert</span>
+                    <span className="font-mono">{new Date(issue.updatedAt).toLocaleDateString('de-DE')}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Agent execution details if any */}
             {issue.agentRuns && issue.agentRuns.length > 0 && (

@@ -14,10 +14,11 @@ export const MarkdownViewer: React.FC<Props> = ({ content, className = '' }) => 
           h1: ({ node, ...props }) => <h1 className="text-base font-bold text-slate-900 mb-2 mt-3" {...props} />,
           h2: ({ node, ...props }) => <h2 className="text-sm font-semibold text-slate-900 mb-1.5 mt-2" {...props} />,
           h3: ({ node, ...props }) => <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-800 mb-1 mt-2" {...props} />,
-          p: ({ node, ...props }) => <p className="mb-2 text-xs leading-relaxed text-slate-700" {...props} />,
-          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-xs text-slate-700" {...props} />,
-          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-xs text-slate-700" {...props} />,
-          li: ({ node, ...props }) => <li className="text-xs" {...props} />,
+          p: ({ node, ...props }) => <p className="mb-2 last:mb-0 text-xs leading-relaxed text-slate-700" {...props} />,
+          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 last:mb-0 space-y-1 text-xs text-slate-700" {...props} />,
+          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 last:mb-0 space-y-1 text-xs text-slate-700" {...props} />,
+          li: ({ node, ...props }) => <li className="text-xs leading-relaxed" {...props} />,
+          a: ({ node, ...props }) => <a className="text-indigo-600 hover:underline font-medium" target="_blank" rel="noreferrer" {...props} />,
           code: ({ node, className, children, ...props }: any) => {
             const match = /language-(\w+)/.exec(className || '');
             const isInline = !match && !String(children).includes('\n');
