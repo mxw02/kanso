@@ -8,6 +8,56 @@ export interface UploadedFileResult {
   markdown: string;
 }
 
+export interface ParsedAttachment {
+  label: string;
+  url: string;
+  isImage: boolean;
+  raw: string;
+}
+
+export function extractFilesFromClipboard(clipboardData: DataTransfer | null | undefined): File[] {
+  if (!clipboardData) return [];
+  const files: File[] = [];
+  const seen = new Set<string>();
+
+  const pushFile = (file: File | null) => {
+    if (!file) return;
+    const key = `${file.name}:${file.size}:${file.type}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      files.push(file);
+    }
+  };
+
+  if (clipboardData.files && clipboardData.files.length > 0) {
+    Array.from(clipboardData.files).forEach(pushFile);
+  }
+  if (clipboardData.items && clipboardData.items.length > 0) {
+    Array.from(clipboardData.items).forEach((item) => {
+      if (item.kind === 'file') {
+        pushFile(item.getAsFile());
+      }
+    });
+  }
+  return files;
+}
+
+export function extractUploadedAttachments(markdown: string): ParsedAttachment[] {
+  if (!markdown) return [];
+  const results: ParsedAttachment[] = [];
+  const regex = /(!?)\[([^\]]*)\]\(((?:https?:\/\/[^\s)]+)?\/api\/uploads\/[^\s)]+)\)/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(markdown)) !== null) {
+    results.push({
+      isImage: match[1] === '!',
+      label: match[2] || 'Anhang',
+      url: match[3],
+      raw: match[0],
+    });
+  }
+  return results;
+}
+
 export function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

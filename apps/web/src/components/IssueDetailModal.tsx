@@ -37,7 +37,8 @@ import {
 import { MarkdownViewer } from './MarkdownViewer';
 import { computeReadiness, ProofOfWorkCheck } from '../utils/readiness';
 import type { GoalItem } from './GoalsModal';
-import { insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
+import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
+import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
 
 interface Issue {
   id: string;
@@ -723,36 +724,44 @@ export const IssueDetailModal: React.FC<Props> = ({
               </div>
 
               {isEditingDesc && canEdit ? (
-                <div className="space-y-2">
+                <div
+                  className="space-y-2"
+                  onDragOver={(e) => {
+                    if (e.dataTransfer?.types.includes('Files')) {
+                      e.preventDefault();
+                      setDragTarget('desc');
+                    }
+                  }}
+                  onDragLeave={() => setDragTarget((prev) => (prev === 'desc' ? null : prev))}
+                  onDrop={(e) => {
+                    if (e.dataTransfer?.files?.length) {
+                      e.preventDefault();
+                      setDragTarget(null);
+                      handleFileUpload(e.dataTransfer.files, 'desc', null);
+                    }
+                  }}
+                >
                   <textarea
                     rows={6}
                     value={descText}
                     onChange={(e) => setDescText(e.target.value)}
                     onPaste={(e) => {
-                      const files = Array.from(e.clipboardData?.files || []);
+                      const files = extractFilesFromClipboard(e.clipboardData);
                       if (files.length > 0) {
                         e.preventDefault();
                         handleFileUpload(files, 'desc', e.currentTarget);
-                      }
-                    }}
-                    onDragOver={(e) => {
-                      if (e.dataTransfer?.types.includes('Files')) {
-                        e.preventDefault();
-                        setDragTarget('desc');
-                      }
-                    }}
-                    onDragLeave={() => setDragTarget((prev) => (prev === 'desc' ? null : prev))}
-                    onDrop={(e) => {
-                      if (e.dataTransfer?.files?.length) {
-                        e.preventDefault();
-                        setDragTarget(null);
-                        handleFileUpload(e.dataTransfer.files, 'desc', e.currentTarget);
                       }
                     }}
                     placeholder="Markdown, Paste (⌘V) oder Drag & Drop für Bilder & Dateien..."
                     className={`w-full bg-white border rounded-lg p-3 text-xs text-zinc-900 focus:outline-none font-mono transition ${
                       dragTarget === 'desc' ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20' : 'border-teal-600'
                     }`}
+                  />
+                  <AttachmentPreviewStrip
+                    markdown={descText}
+                    onRemove={(raw) =>
+                      setDescText((prev) => prev.replace(raw, '').replace(/\n{3,}/g, '\n\n').trim())
+                    }
                   />
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-500 hover:text-teal-700 cursor-pointer font-medium">
@@ -1372,36 +1381,45 @@ export const IssueDetailModal: React.FC<Props> = ({
                     )}
                   </div>
 
-                  <form onSubmit={handleCommentSubmit} className="space-y-2">
+                  <form
+                    onSubmit={handleCommentSubmit}
+                    className="space-y-2"
+                    onDragOver={(e) => {
+                      if (e.dataTransfer?.types.includes('Files')) {
+                        e.preventDefault();
+                        setDragTarget('comment');
+                      }
+                    }}
+                    onDragLeave={() => setDragTarget((prev) => (prev === 'comment' ? null : prev))}
+                    onDrop={(e) => {
+                      if (e.dataTransfer?.files?.length) {
+                        e.preventDefault();
+                        setDragTarget(null);
+                        handleFileUpload(e.dataTransfer.files, 'comment', null);
+                      }
+                    }}
+                  >
                     <textarea
                       rows={3}
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       onPaste={(e) => {
-                        const files = Array.from(e.clipboardData?.files || []);
+                        const files = extractFilesFromClipboard(e.clipboardData);
                         if (files.length > 0) {
                           e.preventDefault();
                           handleFileUpload(files, 'comment', e.currentTarget);
-                        }
-                      }}
-                      onDragOver={(e) => {
-                        if (e.dataTransfer?.types.includes('Files')) {
-                          e.preventDefault();
-                          setDragTarget('comment');
-                        }
-                      }}
-                      onDragLeave={() => setDragTarget((prev) => (prev === 'comment' ? null : prev))}
-                      onDrop={(e) => {
-                        if (e.dataTransfer?.files?.length) {
-                          e.preventDefault();
-                          setDragTarget(null);
-                          handleFileUpload(e.dataTransfer.files, 'comment', e.currentTarget);
                         }
                       }}
                       placeholder={`Comment as ${currentUser.name}... (Paste & Drop für Bilder/Dateien)`}
                       className={`w-full bg-white border rounded-xl p-3 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none transition ${
                         dragTarget === 'comment' ? 'border-teal-600 ring-2 ring-teal-500/20 bg-teal-50/20' : 'border-zinc-300 focus:border-teal-600'
                       }`}
+                    />
+                    <AttachmentPreviewStrip
+                      markdown={newComment}
+                      onRemove={(raw) =>
+                        setNewComment((prev) => prev.replace(raw, '').replace(/\n{3,}/g, '\n\n').trim())
+                      }
                     />
                     <div className="flex justify-between items-center gap-2">
                       <div className="flex items-center gap-3">

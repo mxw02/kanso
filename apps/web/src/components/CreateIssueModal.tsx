@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import { computeReadiness } from '../utils/readiness';
 import type { GoalItem } from './GoalsModal';
-import { insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
+import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } from '../utils/uploadFile';
+import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
 
 interface Column {
   id: string;
@@ -241,18 +242,7 @@ export const CreateIssueModal: React.FC<Props> = ({
           />
 
           {/* Description Input */}
-          <textarea
-            rows={5}
-            placeholder="Beschreibung, Akzeptanzkriterien oder Bilder/Dateien per Paste (⌘V) & Drag-and-Drop einfügen..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            onPaste={(e) => {
-              const files = Array.from(e.clipboardData?.files || []);
-              if (files.length > 0) {
-                e.preventDefault();
-                handleFileUpload(files, e.currentTarget);
-              }
-            }}
+          <div
             onDragOver={(e) => {
               if (e.dataTransfer?.types.includes('Files')) {
                 e.preventDefault();
@@ -264,32 +254,53 @@ export const CreateIssueModal: React.FC<Props> = ({
               if (e.dataTransfer?.files?.length) {
                 e.preventDefault();
                 setDragOverDesc(false);
-                handleFileUpload(e.dataTransfer.files, e.currentTarget);
+                handleFileUpload(e.dataTransfer.files, null);
               }
             }}
-            className={`w-full text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-none leading-relaxed font-sans rounded-lg transition ${
-              dragOverDesc ? 'bg-teal-50/40 ring-2 ring-teal-500/30 p-2' : 'bg-transparent'
+            className={`rounded-lg transition ${
+              dragOverDesc ? 'bg-teal-50/40 ring-2 ring-teal-500/30 p-2' : ''
             }`}
-          />
-          <div className="flex items-center justify-between pt-1">
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-teal-700 cursor-pointer font-medium">
-              {uploadingFile ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-700" />
-              ) : (
-                <Paperclip className="w-3.5 h-3.5" />
-              )}
-              <span>{uploadingFile ? 'Wird hochgeladen...' : 'Bild / Datei anhängen'}</span>
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  handleFileUpload(e.target.files, null);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-            {uploadError && <span className="text-[11px] text-rose-600">{uploadError}</span>}
+          >
+            <textarea
+              rows={5}
+              placeholder="Beschreibung, Akzeptanzkriterien oder Bilder/Dateien per Paste (⌘V) & Drag-and-Drop einfügen..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onPaste={(e) => {
+                const files = extractFilesFromClipboard(e.clipboardData);
+                if (files.length > 0) {
+                  e.preventDefault();
+                  handleFileUpload(files, e.currentTarget);
+                }
+              }}
+              className="w-full text-xs text-zinc-700 placeholder:text-zinc-300 focus:outline-none resize-none leading-relaxed font-sans bg-transparent"
+            />
+            <AttachmentPreviewStrip
+              markdown={description}
+              onRemove={(raw) =>
+                setDescription((prev) => prev.replace(raw, '').replace(/\n{3,}/g, '\n\n').trim())
+              }
+            />
+            <div className="flex items-center justify-between pt-1">
+              <label className="inline-flex items-center gap-1.5 text-[11px] text-zinc-400 hover:text-teal-700 cursor-pointer font-medium">
+                {uploadingFile ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-700" />
+                ) : (
+                  <Paperclip className="w-3.5 h-3.5" />
+                )}
+                <span>{uploadingFile ? 'Wird hochgeladen...' : 'Bild / Datei anhängen'}</span>
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleFileUpload(e.target.files, null);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {uploadError && <span className="text-[11px] text-rose-600">{uploadError}</span>}
+            </div>
           </div>
         </div>
 
