@@ -24,12 +24,14 @@ import {
   BookmarkPlus,
   Bookmark,
   X,
+  GanttChart,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
 import { SummaryView } from './components/SummaryView';
 import { CalendarView } from './components/CalendarView';
 import { MyTasksView } from './components/MyTasksView';
+import { RoadmapView } from './components/RoadmapView';
 import { GoalsModal, GoalItem } from './components/GoalsModal';
 import { ImportModal } from './components/ImportModal';
 import { IssueDetailModal } from './components/IssueDetailModal';
@@ -104,13 +106,13 @@ export default function App() {
   });
 
   // Views & Modals
-  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list' | 'calendar' | 'my-tasks'>('board');
+  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list' | 'calendar' | 'roadmap' | 'my-tasks'>('board');
   const [myTasksRefreshKey, setMyTasksRefreshKey] = useState(0);
   const [savedViews, setSavedViews] = useState<Array<{
     id: string;
     name: string;
     projectId: string;
-    viewMode: 'summary' | 'board' | 'list' | 'calendar';
+    viewMode: 'summary' | 'board' | 'list' | 'calendar' | 'roadmap';
     status: string;
     priority: string;
     assignee: 'ALL' | 'AGENT' | 'HUMAN' | 'UNASSIGNED';
@@ -1129,6 +1131,19 @@ export default function App() {
             </button>
 
             <button
+              onClick={() => setViewMode('roadmap')}
+              title="Timeline / Roadmap (Gantt)"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
+                viewMode === 'roadmap'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <GanttChart className="w-3.5 h-3.5 shrink-0" />
+              <span>Roadmap</span>
+            </button>
+
+            <button
               onClick={() => setViewMode('my-tasks')}
               title="Projektübergreifende Ansicht: Meine Aufgaben"
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
@@ -1511,6 +1526,29 @@ export default function App() {
             onOpenCreateInColumn={(colId) => {
               setCreateIssueDefaultStatus(colId);
               setShowCreateIssue(true);
+            }}
+          />
+        ) : viewMode === 'roadmap' ? (
+          <RoadmapView
+            goals={goals}
+            sprints={sprints}
+            issues={issues}
+            canEdit={canEdit}
+            onSelectIssue={async (issue) => {
+              const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
+              if (res.ok) setSelectedIssue(await res.json());
+              else setSelectedIssue(issue);
+            }}
+            onUpdateGoal={async (goalId, data) => {
+              await fetch(`${API_URL}/api/goals/${goalId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+              });
+              await fetchGoals();
+            }}
+            onUpdateIssueDueDate={async (issueId, dueDate) => {
+              await handleUpdateIssue(issueId, { dueDate });
             }}
           />
         ) : viewMode === 'calendar' ? (
