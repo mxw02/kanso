@@ -19,12 +19,14 @@ import {
   KeyRound,
   BarChart3,
   Target,
+  ArrowDownToLine,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
 import { SummaryView } from './components/SummaryView';
 import { CalendarView } from './components/CalendarView';
 import { GoalsModal, GoalItem } from './components/GoalsModal';
+import { ImportModal } from './components/ImportModal';
 import { IssueDetailModal } from './components/IssueDetailModal';
 import { CreateIssueModal } from './components/CreateIssueModal';
 import { CreateProjectModal } from './components/CreateProjectModal';
@@ -108,6 +110,7 @@ export default function App() {
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [oauthToast, setOauthToast] = useState<string | null>(null);
@@ -308,6 +311,9 @@ export default function App() {
             'sprint_started',
             'sprint_completed',
             'sprint_deleted',
+            'goal_created',
+            'goal_updated',
+            'goal_deleted',
             'relation_created',
             'relation_deleted',
             'git_link_added',
@@ -321,6 +327,7 @@ export default function App() {
         ) {
           fetchIssues();
           fetchSprints();
+          fetchGoals();
           if (data.type === 'project_created' || data.type === 'project_updated') {
             fetchData();
           }
@@ -1104,7 +1111,10 @@ export default function App() {
           {/* Goals Manager Pill */}
           {activeProject && (
             <button
-              onClick={() => setShowGoalsModal(true)}
+              onClick={() => {
+                fetchGoals();
+                setShowGoalsModal(true);
+              }}
               title="Übergeordnete Ziele verwalten"
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 transition shadow-2xs"
             >
@@ -1136,6 +1146,18 @@ export default function App() {
               </span>
             )}
           </button>
+
+          {/* Jira / CSV Import & Sync Pill */}
+          {activeProject && canEdit && (
+            <button
+              onClick={() => setShowImportModal(true)}
+              title="Tickets aus Jira oder CSV importieren & synchronisieren"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 transition shadow-2xs"
+            >
+              <ArrowDownToLine className="w-3.5 h-3.5 text-teal-700" />
+              <span>Import</span>
+            </button>
+          )}
 
           {/* Filter Group */}
           <div className="flex items-center gap-1.5">
@@ -1387,6 +1409,21 @@ export default function App() {
           fetchIssues();
         }}
       />
+
+      {/* Import Modal (Jira & CSV) */}
+      {activeProject && (
+        <ImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          projectId={activeProject.id}
+          projectName={activeProject.name}
+          columns={activeColumns}
+          onImported={async () => {
+            await fetchGoals();
+            await fetchIssues();
+          }}
+        />
+      )}
 
       {/* Goals Modal */}
       <GoalsModal

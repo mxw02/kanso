@@ -100,10 +100,11 @@ model Project {
   gitBranch   String?    @default("main")
   gitWebhookSecret String?
 
-  issues      Issue[]
-  sprints     Sprint[]
-  goals       Goal[]
-  createdAt   DateTime   @default(now())
+  issues          Issue[]
+  sprints         Sprint[]
+  goals           Goal[]
+  jiraIntegration JiraIntegration?
+  createdAt       DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
   @@map("projects")
@@ -123,6 +124,9 @@ model Issue {
   assigneeName  String?
   labels        String[]      @default([])
   dueDate       DateTime?
+  externalSource String?
+  externalKey   String?
+  externalUrl   String?
   agentMetadata Json?
 
   // Agent-First Board Fields
@@ -161,6 +165,7 @@ model Issue {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
+  @@unique([projectId, externalSource, externalKey])
   @@index([projectId, status])
   @@index([identifier])
   @@index([sprintId])
@@ -264,13 +269,16 @@ model Goal {
   description String?    @db.Text
   status      GoalStatus @default(ACTIVE)
   color       String     @default("#0f766e")
-  startDate   DateTime?
-  targetDate  DateTime?
-  issues      Issue[]
+  startDate      DateTime?
+  targetDate     DateTime?
+  externalSource String?
+  externalKey    String?
+  issues         Issue[]
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
+  @@unique([projectId, externalSource, externalKey])
   @@index([projectId, status])
   @@map("goals")
 }
@@ -339,4 +347,23 @@ model OAuthProviderConfig {
   updatedAt       DateTime @updatedAt
 
   @@map("oauth_provider_configs")
+}
+
+model JiraIntegration {
+  id            String    @id @default(uuid())
+  projectId     String    @unique
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  baseUrl       String
+  email         String
+  apiTokenEnc   String    @db.Text
+  jql           String?
+  statusMapping Json?
+  webhookSecret String?
+  autoSync      Boolean   @default(false)
+  lastSyncedAt  DateTime?
+  lastSyncStats Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("jira_integrations")
 }
