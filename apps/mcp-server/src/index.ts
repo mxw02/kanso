@@ -717,7 +717,6 @@ async function main() {
   } else {
     // Run SSE HTTP server
     const app = express();
-    app.use(express.json());
 
     // CORS for web client access
     app.use((req, res, next) => {
@@ -740,20 +739,26 @@ async function main() {
       });
     });
 
-    let transport: SSEServerTransport | null = null;
-    const server = createMcpServer();
+    const transports = new Map<string, SSEServerTransport>();
 
     app.get('/sse', async (req: Request, res: Response) => {
       console.log('🔗 Client connected to MCP SSE transport');
-      transport = new SSEServerTransport('/messages', res);
+      const transport = new SSEServerTransport('/messages', res);
+      transports.set(transport.sessionId, transport);
+      res.on('close', () => {
+        transports.delete(transport.sessionId);
+      });
+      const server = createMcpServer();
       await server.connect(transport);
     });
 
     app.post('/messages', async (req: Request, res: Response) => {
+      const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : '';
+      const transport = transports.get(sessionId);
       if (transport) {
         await transport.handlePostMessage(req, res);
       } else {
-        res.status(400).send('SSE connection not yet established');
+        res.status(400).send('No active SSE transport found for sessionId');
       }
     });
 
