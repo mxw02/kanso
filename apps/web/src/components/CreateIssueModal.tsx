@@ -10,8 +10,10 @@ import {
   Sparkles,
   ChevronDown,
   Check,
+  Target,
 } from 'lucide-react';
 import { computeReadiness } from '../utils/readiness';
+import type { GoalItem } from './GoalsModal';
 
 interface Column {
   id: string;
@@ -34,6 +36,7 @@ interface Props {
   users: UserItem[];
   defaultStatus?: string;
   projectId?: string;
+  goals?: GoalItem[];
   onCreate: (payload: any) => Promise<void>;
 }
 
@@ -52,12 +55,14 @@ export const CreateIssueModal: React.FC<Props> = ({
   users,
   defaultStatus,
   projectId,
+  goals = [],
   onCreate,
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState(defaultStatus || (columns[1]?.id ?? 'TODO'));
   const [priority, setPriority] = useState<'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW'>('MEDIUM');
+  const [goalId, setGoalId] = useState<string>('');
   const [selectedAssignee, setSelectedAssignee] = useState<{
     type: 'HUMAN' | 'AGENT' | 'UNASSIGNED';
     id?: string | null;
@@ -127,6 +132,7 @@ export const CreateIssueModal: React.FC<Props> = ({
         assigneeId: selectedAssignee.type === 'HUMAN' ? selectedAssignee.id : null,
         assigneeName: selectedAssignee.name || null,
         labels: selectedLabels,
+        goalId: goalId || null,
       };
 
       await onCreate(payload);
@@ -519,6 +525,25 @@ export const CreateIssueModal: React.FC<Props> = ({
               </div>
             )}
           </div>
+
+          {/* Optional Parent Goal */}
+          {goals.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-zinc-200 bg-white shadow-2xs">
+              <Target className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <select
+                value={goalId}
+                onChange={(e) => setGoalId(e.target.value)}
+                className="bg-transparent text-xs font-medium text-zinc-700 focus:outline-none cursor-pointer max-w-[180px]"
+              >
+                <option value="">Kein Ziel</option>
+                {goals.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Footer: Agent-Readiness + Keyboard Hint & Primary Action */}
