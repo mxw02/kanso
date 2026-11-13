@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kanso-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kanso}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kanso_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-kanso}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kanso} -d ${POSTGRES_DB:-kanso}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: kanso-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/mxw02/kanso-api:${KANSO_VERSION:-latest}
+    container_name: kanso-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kanso}:${POSTGRES_PASSWORD:-kanso_secret}@postgres:5432/${POSTGRES_DB:-kanso}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-kanso-super-secret-jwt-key-change-in-production-2026}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health | grep -q 'ok' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  mcp-server:
+    image: ghcr.io/mxw02/kanso-mcp-server:${KANSO_VERSION:-latest}
+    container_name: kanso-mcp-server
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${MCP_PORT:-3001}:3001"
+    environment:
+      NODE_ENV: production
+      MCP_PORT: 3001
+      MCP_TRANSPORT: sse
+      KANSO_API_URL: http://api:4000
+
+  web:
+    image: ghcr.io/mxw02/kanso-web:${KANSO_VERSION:-latest}
+    container_name: kanso-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:80"
+
+volumes:
+  postgres_data:
+  redis_data:
