@@ -1,6 +1,6 @@
 {
   "name": "kanso-monorepo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Kanso - The Lean, Agent-First, MCP-Native Open Source Jira Alternative",
   "workspaces": [
