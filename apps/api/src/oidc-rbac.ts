@@ -198,10 +198,33 @@ function toBase64Url(buf: Buffer): string {
   return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+async function oidcFetch(url: string, init?: RequestInit): Promise<globalThis.Response> {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    // When running inside Docker, localhost:8080 refers to the container itself;
+    // transparently retry against keycloak / host.docker.internal while preserving issuer checks.
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(url)) {
+      const candidates = [
+        url.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)/i, '$1keycloak'),
+        url.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)/i, '$1host.docker.internal'),
+      ];
+      for (const candidate of candidates) {
+        try {
+          return await fetch(candidate, init);
+        } catch {
+          // try next candidate
+        }
+      }
+    }
+    throw err;
+  }
+}
+
 async function fetchOidcDiscovery(issuerUrl: string) {
   const cleanIssuer = issuerUrl.trim().replace(/\/$/, '');
   const discoveryUrl = `${cleanIssuer}/.well-known/openid-configuration`;
-  const res = await fetch(discoveryUrl, { headers: { Accept: 'application/json' } });
+  const res = await oidcFetch(discoveryUrl, { headers: { Accept: 'application/json' } });
   if (!res.ok) {
     throw new Error(`OIDC Discovery fehlgeschlagen (${res.status} bei ${discoveryUrl})`);
   }
@@ -234,7 +257,7 @@ async function verifyOidcIdToken(
   }
 
   if (discovery.jwks_uri && decodedComplete.header?.alg !== 'none') {
-    const jwksRes = await fetch(discovery.jwks_uri);
+    const jwksRes = await oidcFetch(discovery.jwks_uri);
     if (!jwksRes.ok) {
       throw new Error(`JWKS Abruf fehlgeschlagen (${jwksRes.status})`);
     }
@@ -458,7 +481,7 @@ export function registerOidcAndRbacRoutes(params: {
         tokenParams.set('client_secret', clientSecret);
       }
 
-      const tokenRes = await fetch(discovery.token_endpoint, {
+      const tokenRes = await oidcFetch(discovery.token_endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
         body: tokenParams.toString(),
@@ -482,7 +505,7 @@ export function registerOidcAndRbacRoutes(params: {
       }
 
       if ((!claims.email || !claims.name) && tokenData.access_token && discovery.userinfo_endpoint) {
-        const uiRes = await fetch(discovery.userinfo_endpoint, {
+        const uiRes = await oidcFetch(discovery.userinfo_endpoint, {
           headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: 'application/json' },
         });
         if (uiRes.ok) {

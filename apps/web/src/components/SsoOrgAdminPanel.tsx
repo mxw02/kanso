@@ -216,6 +216,7 @@ export const SsoOrgAdminPanel: React.FC<Props> = ({ mode, apiBaseUrl, users, onC
       const res = await fetch(`${apiBaseUrl}/api/admin/oidc-providers/${id}/test`, {
         method: 'POST',
         headers: authHeaders(),
+        body: '{}',
       });
       const data = await res.json();
       if (res.ok && data.ok) {
