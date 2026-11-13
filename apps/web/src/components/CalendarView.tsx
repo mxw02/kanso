@@ -128,9 +128,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
   return (
-    <div className="p-6 max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-5">
+    <div className="w-full h-full flex-1 min-h-0 flex flex-col lg:flex-row gap-5">
       {/* Main Calendar Area */}
-      <div className="flex-1 min-w-0 bg-white border border-zinc-200 rounded-xl overflow-hidden flex flex-col">
+      <div className="flex-1 min-w-0 min-h-0 bg-white border border-zinc-200 rounded-xl overflow-hidden flex flex-col">
         {/* Calendar Header */}
         <div className="px-5 py-3.5 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -205,7 +205,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
 
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 flex-1">
+        <div className="grid grid-cols-7 auto-rows-[minmax(110px,1fr)] flex-1 min-h-0 overflow-y-auto">
           {days.map((day) => {
             const key = toDateKey(day);
             const isToday = key === todayKey;
@@ -322,7 +322,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       {/* Unscheduled Sidebar */}
-      <aside className="w-full lg:w-72 shrink-0 bg-white border border-zinc-200 rounded-xl p-4 flex flex-col gap-3 max-h-[700px]">
+      <aside className="w-full lg:w-80 shrink-0 bg-white border border-zinc-200 rounded-xl p-4 flex flex-col gap-3 min-h-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-zinc-500" />
