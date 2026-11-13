@@ -1329,18 +1329,32 @@ async function buildServer(): Promise<FastifyInstance> {
     });
   }
 
-  app.get('/api/git/oauth/config', async () => {
+  function getRequestOrigins(request: FastifyRequest) {
+    const rawProto = (request.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim();
+    const proto = rawProto || request.protocol || 'http';
+    const rawHost = (request.headers['x-forwarded-host'] as string | undefined)?.split(',')[0]?.trim();
+    const host = rawHost || request.headers.host || 'localhost:4001';
+    const apiBaseUrl = (process.env.PUBLIC_API_URL || `${proto}://${host}`).replace(/\/$/, '');
+    const inferredWeb = /:(4000|4001)$/.test(host)
+      ? `${proto}://${host.replace(/:(4000|4001)$/, ':3000')}`
+      : `${proto}://${host}`;
+    const webBaseUrl = (process.env.PUBLIC_WEB_URL || inferredWeb).replace(/\/$/, '');
+    return { apiBaseUrl, webBaseUrl };
+  }
+
+  app.get('/api/git/oauth/config', async (request: FastifyRequest) => {
+    const { apiBaseUrl } = getRequestOrigins(request);
     return {
       github: {
         configured: Boolean(customOAuthConfig.githubClientId && customOAuthConfig.githubClientSecret),
         clientId: customOAuthConfig.githubClientId,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/github',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/github`,
       },
       gitlab: {
         configured: Boolean(customOAuthConfig.gitlabClientId && customOAuthConfig.gitlabClientSecret),
         clientId: customOAuthConfig.gitlabClientId,
         instanceUrl: customOAuthConfig.gitlabInstanceUrl,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/gitlab`,
       },
     };
   });
@@ -1354,6 +1368,7 @@ async function buildServer(): Promise<FastifyInstance> {
       gitlabInstanceUrl?: string;
     };
   }>) => {
+    const { apiBaseUrl } = getRequestOrigins(request);
     const { githubClientId, githubClientSecret, gitlabClientId, gitlabClientSecret, gitlabInstanceUrl } = request.body || {};
     if (githubClientId !== undefined) customOAuthConfig.githubClientId = githubClientId.trim();
     if (githubClientSecret !== undefined) customOAuthConfig.githubClientSecret = githubClientSecret.trim();
@@ -1378,13 +1393,13 @@ async function buildServer(): Promise<FastifyInstance> {
       github: {
         configured: Boolean(customOAuthConfig.githubClientId && customOAuthConfig.githubClientSecret),
         clientId: customOAuthConfig.githubClientId,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/github',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/github`,
       },
       gitlab: {
         configured: Boolean(customOAuthConfig.gitlabClientId && customOAuthConfig.gitlabClientSecret),
         clientId: customOAuthConfig.gitlabClientId,
         instanceUrl: customOAuthConfig.gitlabInstanceUrl,
-        callbackUrl: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+        callbackUrl: `${apiBaseUrl}/api/git/oauth/callback/gitlab`,
       },
     };
   });
@@ -1396,12 +1411,13 @@ async function buildServer(): Promise<FastifyInstance> {
   }>, reply: FastifyReply) => {
     const { provider } = request.params;
     const { instanceUrl } = request.query;
+    const { apiBaseUrl, webBaseUrl } = getRequestOrigins(request);
 
     if (provider === 'github') {
       if (customOAuthConfig.githubClientId) {
         const ghAuthUrl = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(
           customOAuthConfig.githubClientId
-        )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/github')}&scope=repo,read:user,user:email&state=kanso_${Date.now()}`;
+        )}&redirect_uri=${encodeURIComponent(`${apiBaseUrl}/api/git/oauth/callback/github`)}&scope=repo,read:user,user:email&state=kanso_${Date.now()}`;
         return reply.redirect(ghAuthUrl);
       } else {
         // Seamless 1-Click GitHub Manifest Flow:
@@ -1409,14 +1425,14 @@ async function buildServer(): Promise<FastifyInstance> {
         // and returns the OAuth credentials back to Kanso without manual copy-pasting!
         const randomSuffix = Math.floor(1000 + Math.random() * 9000);
         const manifestObj = {
-          name: `Kanso-Local-${randomSuffix}`,
-          url: 'http://localhost:3000',
+          name: `Kanso-${randomSuffix}`,
+          url: webBaseUrl,
           hook_attributes: {
             url: '',
             active: false,
           },
-          redirect_url: 'http://localhost:4001/api/git/oauth/manifest-callback',
-          callback_urls: ['http://localhost:4001/api/git/oauth/callback/github'],
+          redirect_url: `${apiBaseUrl}/api/git/oauth/manifest-callback`,
+          callback_urls: [`${apiBaseUrl}/api/git/oauth/callback/github`],
           public: false,
           default_permissions: {
             issues: 'write',
@@ -1460,14 +1476,15 @@ async function buildServer(): Promise<FastifyInstance> {
 
     if (provider === 'gitlab') {
       const base = instanceUrl || customOAuthConfig.gitlabInstanceUrl || 'https://gitlab.com';
+      const gitlabCallback = `${apiBaseUrl}/api/git/oauth/callback/gitlab`;
       if (customOAuthConfig.gitlabClientId) {
         const glAuthUrl = `${base.replace(/\/$/, '')}/oauth/authorize?client_id=${encodeURIComponent(
           customOAuthConfig.gitlabClientId
-        )}&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/gitlab')}&response_type=code&scope=api+read_user+read_repository&state=kanso_${Date.now()}`;
+        )}&redirect_uri=${encodeURIComponent(gitlabCallback)}&response_type=code&scope=api+read_user+read_repository&state=kanso_${Date.now()}`;
         return reply.redirect(glAuthUrl);
       } else {
         // Direct forward to GitLab Application creation with pre-filled redirect URI
-        const glAppUrl = `${base.replace(/\/$/, '')}/-/profile/applications?name=Kanso&redirect_uri=${encodeURIComponent('http://localhost:4001/api/git/oauth/callback/gitlab')}&scopes=api,read_user,read_repository`;
+        const glAppUrl = `${base.replace(/\/$/, '')}/-/profile/applications?name=Kanso&redirect_uri=${encodeURIComponent(gitlabCallback)}&scopes=api,read_user,read_repository`;
         return reply.redirect(glAppUrl);
       }
     }
@@ -1480,8 +1497,9 @@ async function buildServer(): Promise<FastifyInstance> {
     Querystring: { code?: string };
   }>, reply: FastifyReply) => {
     const { code } = request.query;
+    const { webBaseUrl } = getRequestOrigins(request);
     if (!code) {
-      return reply.redirect('http://localhost:3000/?oauth_error=Kein+Code+übergeben');
+      return reply.redirect(`${webBaseUrl}/?oauth_error=Kein+Code+übergeben`);
     }
 
     try {
@@ -1496,7 +1514,7 @@ async function buildServer(): Promise<FastifyInstance> {
       if (!convertRes.ok) {
         const errText = await convertRes.text();
         console.error('Manifest conversion failed:', errText);
-        return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent('GitHub App Registrierung fehlgeschlagen')}`);
+        return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent('GitHub App Registrierung fehlgeschlagen')}`);
       }
 
       const appData: any = await convertRes.json();
@@ -1546,11 +1564,11 @@ async function buildServer(): Promise<FastifyInstance> {
       });
 
       return reply.redirect(
-        `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(accountName)}`
+        `${webBaseUrl}/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(accountName)}`
       );
     } catch (err: any) {
       console.error('Manifest callback error:', err);
-      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(err.message || 'Manifest-Fehler')}`);
+      return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(err.message || 'Manifest-Fehler')}`);
     }
   });
 
@@ -1561,9 +1579,10 @@ async function buildServer(): Promise<FastifyInstance> {
   }>, reply: FastifyReply) => {
     const { provider } = request.params;
     const { code, error, error_description } = request.query;
+    const { apiBaseUrl, webBaseUrl } = getRequestOrigins(request);
 
     if (error || !code) {
-      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(error_description || error || 'Abgebrochen')}`);
+      return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(error_description || error || 'Abgebrochen')}`);
     }
 
     try {
@@ -1583,7 +1602,7 @@ async function buildServer(): Promise<FastifyInstance> {
 
         const tokenData: any = await tokenRes.json();
         if (!tokenData.access_token) {
-          return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
+          return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
         }
 
         const userRes = await fetch('https://api.github.com/user', {
@@ -1636,7 +1655,7 @@ async function buildServer(): Promise<FastifyInstance> {
         });
 
         return reply.redirect(
-          `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(userData.login)}`
+          `${webBaseUrl}/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=github&account=${encodeURIComponent(userData.login)}`
         );
       }
 
@@ -1653,13 +1672,13 @@ async function buildServer(): Promise<FastifyInstance> {
             client_secret: customOAuthConfig.gitlabClientSecret,
             code,
             grant_type: 'authorization_code',
-            redirect_uri: 'http://localhost:4001/api/git/oauth/callback/gitlab',
+            redirect_uri: `${apiBaseUrl}/api/git/oauth/callback/gitlab`,
           }),
         });
 
         const tokenData: any = await tokenRes.json();
         if (!tokenData.access_token) {
-          return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
+          return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(tokenData.error_description || 'Token-Austausch fehlgeschlagen')}`);
         }
 
         const userRes = await fetch(`${base.replace(/\/$/, '')}/api/v4/user`, {
@@ -1710,12 +1729,12 @@ async function buildServer(): Promise<FastifyInstance> {
         });
 
         return reply.redirect(
-          `http://localhost:3000/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=gitlab&account=${encodeURIComponent(userData.username)}`
+          `${webBaseUrl}/?auth_token=${encodeURIComponent(auth.token)}&auth_user=${encodeURIComponent(JSON.stringify(auth.user))}&git_connected=gitlab&account=${encodeURIComponent(userData.username)}`
         );
       }
     } catch (err: any) {
       console.error('OAuth callback error:', err);
-      return reply.redirect(`http://localhost:3000/?oauth_error=${encodeURIComponent(err.message || 'OAuth-Fehler')}`);
+      return reply.redirect(`${webBaseUrl}/?oauth_error=${encodeURIComponent(err.message || 'OAuth-Fehler')}`);
     }
   });
 
