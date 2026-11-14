@@ -772,7 +772,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 flex flex-col font-sans">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-zinc-50 text-zinc-900 flex flex-col font-sans">
       {/* OAuth Toast Notification */}
       {oauthToast && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
@@ -791,7 +791,7 @@ export default function App() {
       {/* ======================================================== */}
       {/* REFINED ZEN HEADER                                       */}
       {/* ======================================================== */}
-      <header className="h-14 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+      <header className="h-14 w-full max-w-full min-w-0 border-b border-zinc-200/80 bg-white/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-2 sticky top-0 z-30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
         {/* Left: Brand Breadcrumb & Project Selector */}
         <div className="flex items-center gap-3">
           {/* Logo */}
@@ -1106,10 +1106,10 @@ export default function App() {
       {/* SECONDARY TOOLBAR & FILTER BAR                           */}
       {/* ======================================================== */}
       {!showProjectSettings && (
-      <section className="px-6 h-12 shrink-0 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
-        <div className="flex items-center gap-3">
+      <section className="px-4 sm:px-6 min-h-12 py-1.5 w-full max-w-full min-w-0 shrink-0 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sticky top-14 z-20 text-xs">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 min-w-0 max-w-full">
           {/* View Toggle: Summary vs Board vs List */}
-          <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80 shrink-0">
+          <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80 shrink-0 max-w-full overflow-x-auto">
             <button
               onClick={() => setViewMode('summary')}
               title="Projekt-Zusammenfassung"
@@ -1258,7 +1258,7 @@ export default function App() {
           )}
 
           {/* Filter Group */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             {/* Status Filter */}
             <select
               value={filterStatus}
@@ -1414,7 +1414,7 @@ export default function App() {
         </div>
 
         {/* Right count with subtle dot */}
-        <div className="flex items-center gap-2 text-[11px] text-zinc-400 font-mono">
+        <div className="flex items-center gap-2 text-[11px] text-zinc-400 font-mono shrink-0 ml-auto">
           <span className="w-1.5 h-1.5 rounded-full bg-zinc-300" />
           <span>{issues.length} {issues.length === 1 ? 'ticket' : 'tickets'}</span>
         </div>
@@ -1485,7 +1485,7 @@ export default function App() {
       {/* ======================================================== */}
       {/* MAIN VIEW CONTENT                                        */}
       {/* ======================================================== */}
-      <main className={showProjectSettings && activeProject ? 'flex-1 overflow-hidden flex flex-col' : 'flex-1 p-6 overflow-hidden flex flex-col'}>
+      <main className={showProjectSettings && activeProject ? 'flex-1 w-full min-w-0 overflow-hidden flex flex-col' : 'flex-1 w-full min-w-0 p-4 sm:p-6 overflow-hidden flex flex-col'}>
         {showProjectSettings && activeProject ? (
           <ProjectSettingsModal
             isOpen={showProjectSettings}

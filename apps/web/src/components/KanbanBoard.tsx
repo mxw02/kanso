@@ -87,7 +87,7 @@ export const KanbanBoard: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-170px)] min-w-full">
+    <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-170px)] w-full min-w-0">
       {columns.map((col) => {
         const colIssues = issues.filter((i) => i.status.toUpperCase() === col.id.toUpperCase());
         const isDragOver = dragOverColId === col.id;
@@ -98,7 +98,7 @@ export const KanbanBoard: React.FC<Props> = ({
             onDragOver={(e) => handleDragOver(e, col.id)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, col.id)}
-            className={`flex flex-col w-80 shrink-0 bg-zinc-100/70 rounded-xl border transition duration-150 overflow-hidden ${
+            className={`flex flex-col w-72 2xl:w-80 shrink-0 bg-zinc-100/70 rounded-xl border transition duration-150 overflow-hidden ${
               isDragOver
                 ? 'border-teal-500 bg-teal-50/50 shadow-sm'
                 : 'border-zinc-200/90'
