@@ -45,6 +45,8 @@ import { SprintModal } from './components/SprintModal';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
 import { UserManagementModal } from './components/UserManagementModal';
 import { AuthScreen } from './components/AuthScreen';
+import { buildProjectTree } from './utils/projectTree';
+import { WorkspaceExplorerModal } from './components/WorkspaceExplorerModal';
 import { HitlInboxModal } from './components/HitlInboxModal';
 
 interface StatusColumn {
@@ -92,6 +94,9 @@ const DEFAULT_COLUMNS: StatusColumn[] = [
 export default function App() {
   const [issues, setIssues] = useState<any[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
+  const [allowSelfServiceBoardCreation, setAllowSelfServiceBoardCreation] = useState<boolean>(true);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
@@ -136,6 +141,8 @@ export default function App() {
   const [showCreateIssue, setShowCreateIssue] = useState(false);
   const [createIssueDefaultStatus, setCreateIssueDefaultStatus] = useState<string | undefined>(undefined);
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [createProjectParentId, setCreateProjectParentId] = useState<string | null>(null);
+  const [showWorkspaceExplorer, setShowWorkspaceExplorer] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
@@ -209,10 +216,22 @@ export default function App() {
   // Load Initial Data
   const fetchData = async () => {
     try {
-      const [pRes, uRes] = await Promise.all([
-        fetch(`${API_URL}/api/projects`),
-        fetch(`${API_URL}/api/users`),
+      const token = localStorage.getItem('kanso_auth_token');
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const [pRes, uRes, wsRes, cfgRes] = await Promise.all([
+        fetch(`${API_URL}/api/projects`, { headers }),
+        fetch(`${API_URL}/api/users`, { headers }),
+        fetch(`${API_URL}/api/workspaces`, { headers }),
+        fetch(`${API_URL}/api/auth/public-config`),
       ]);
+
+      if (wsRes.ok) {
+        setWorkspaces(await wsRes.json());
+      }
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        setAllowSelfServiceBoardCreation(cfg.allowSelfServiceBoardCreation !== false);
+      }
 
       if (pRes.ok) {
         const pData: Project[] = await pRes.json();
@@ -570,11 +589,15 @@ export default function App() {
   };
 
   const handleCreateProject = async (payload: any) => {
-    if (!canAdmin && !canEdit) return;
+    if (!canAdmin && (!canEdit || !allowSelfServiceBoardCreation)) return;
     try {
+      const token = localStorage.getItem('kanso_auth_token');
       const res = await fetch(`${API_URL}/api/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -783,23 +806,29 @@ export default function App() {
 
           {/* Project Breadcrumb with Styled Dropdown */}
           <div className="flex items-center gap-1.5">
-            <div className="relative flex items-center">
-              <select
-                value={activeProject?.id || ''}
-                onChange={(e) => {
-                  const found = projects.find((p) => p.id === e.target.value);
-                  if (found) setActiveProject(found);
-                }}
-                className="appearance-none bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer transition shadow-2xs"
-              >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} [{p.key}]
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 pointer-events-none" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowWorkspaceExplorer(true)}
+              title="Organisationen, Projekte & Boards durchsuchen"
+              className="flex items-center gap-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs py-1.5 px-2.5 rounded-lg transition shadow-2xs cursor-pointer max-w-[340px]"
+            >
+              <FolderGit2 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <span className="truncate font-semibold">
+                {(() => {
+                  const tree = buildProjectTree(projects as any[]);
+                  const node = tree.find((n) => n.project.id === activeProject?.id);
+                  const wsName = workspaces.find((w) => w.id === (activeProject as any)?.workspaceId)?.name;
+                  if (!activeProject) return 'Projekt wählen...';
+                  return wsName ? `${wsName} / ${node?.pathLabel || activeProject.name}` : (node?.pathLabel || activeProject.name);
+                })()}
+              </span>
+              {activeProject && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-600 shrink-0">
+                  {activeProject.key}
+                </span>
+              )}
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            </button>
 
             {/* Project Quick Actions (Settings, Setup Wizard, Git, New Project) */}
             {canEdit && (
@@ -827,13 +856,15 @@ export default function App() {
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => setShowCreateProject(true)}
-                  title="Neues Projekt erstellen"
-                  className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+                {(canAdmin || allowSelfServiceBoardCreation) && (
+                  <button
+                    onClick={() => setShowCreateProject(true)}
+                    title="Neues Projekt / Board erstellen"
+                    className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1724,10 +1755,35 @@ export default function App() {
         onCreate={handleCreateIssue}
       />
 
+      {/* Workspace & Project Tree Explorer Modal */}
+      <WorkspaceExplorerModal
+        isOpen={showWorkspaceExplorer}
+        onClose={() => setShowWorkspaceExplorer(false)}
+        workspaces={workspaces}
+        projects={projects as any[]}
+        activeWorkspaceId={activeWorkspaceId}
+        activeProjectId={activeProject?.id || null}
+        canCreate={canAdmin || (canEdit && allowSelfServiceBoardCreation)}
+        onSelectWorkspace={(wsId) => setActiveWorkspaceId(wsId)}
+        onSelectProject={(proj) => setActiveProject(proj as any)}
+        onCreateProject={(wsId, parentId) => {
+          if (wsId !== undefined) setActiveWorkspaceId(wsId);
+          setCreateProjectParentId(parentId || null);
+          setShowCreateProject(true);
+        }}
+      />
+
       {/* Create Project Modal */}
       <CreateProjectModal
         isOpen={showCreateProject}
-        onClose={() => setShowCreateProject(false)}
+        onClose={() => {
+          setShowCreateProject(false);
+          setCreateProjectParentId(null);
+        }}
+        workspaces={workspaces}
+        projects={projects}
+        activeWorkspaceId={activeWorkspaceId || null}
+        defaultParentId={createProjectParentId}
         onCreate={handleCreateProject}
       />
 
