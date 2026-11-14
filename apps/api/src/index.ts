@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import jwt from 'jsonwebtoken';
-import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole, SprintStatus, GoalStatus, IssueRelationType } from '@prisma/client';
+import { PrismaClient, IssuePriority, IssueType, AssigneeType, AgentRunStatus, UserRole, SprintStatus, GoalStatus, IssueRelationType, ProjectKind, ProjectMemberRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 import Redis from 'ioredis';
@@ -15,6 +15,14 @@ import {
 } from './agent-features';
 import { decryptSecret, encryptSecret } from './crypto';
 import { registerImportRoutes } from './jira-import';
+import { registerUploadRoutes } from './uploads';
+import { getMentionCandidates, resolveMentions } from './mentions';
+import {
+  getAuthUser,
+  getSystemAuthSettings,
+  getUserAccessibleProjectIds,
+  registerOidcAndRbacRoutes,
+} from './oidc-rbac';
 
 dotenv.config();
 
@@ -63,6 +71,7 @@ const DEFAULT_COLUMNS = [
 
 async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
+    bodyLimit: 15 * 1024 * 1024,
     logger: {
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     },
@@ -254,6 +263,12 @@ async function buildServer(): Promise<FastifyInstance> {
     });
   });
 
+  app.get('/api/mentions/candidates', async (request: FastifyRequest<{
+    Querystring: { projectId?: string };
+  }>) => {
+    return getMentionCandidates(prisma, request.query.projectId);
+  });
+
   app.post('/api/users', async (request: FastifyRequest<{
     Body: { name: string; email: string; role?: UserRole; gitProvider?: string; gitUsername?: string };
   }>, reply: FastifyReply) => {
@@ -402,6 +417,12 @@ async function buildServer(): Promise<FastifyInstance> {
   app.post('/api/auth/git-login', async (request: FastifyRequest<{
     Body: { provider?: 'github' | 'gitlab'; username: string; displayName?: string; avatarUrl?: string };
   }>, reply: FastifyReply) => {
+    const authSettings = await getSystemAuthSettings(prisma);
+    if (!authSettings.allowGitLogin || authSettings.enforceSso) {
+      return reply.status(403).send({
+        error: 'Anmeldung über GitHub/GitLab ist vom Administrator deaktiviert. Bitte nutze Enterprise SSO (OIDC).',
+      });
+    }
     const { provider = 'github', username, displayName, avatarUrl } = request.body || {};
     if (!username) {
       return reply.status(400).send({ error: 'Git Username ist erforderlich' });
@@ -420,17 +441,30 @@ async function buildServer(): Promise<FastifyInstance> {
   // ==========================================
   // WORKSPACES & PROJEKTE
   // ==========================================
-  app.get('/api/workspaces', async () => {
+  app.get('/api/workspaces', async (request: FastifyRequest) => {
+    const authUser = await getAuthUser(request, prisma, JWT_SECRET);
+    const where: any = {};
+    if (authUser && authUser.role !== UserRole.ADMIN) {
+      where.OR = [
+        { members: { some: { userId: authUser.id } } },
+        { projects: { some: { members: { some: { userId: authUser.id } } } } },
+      ];
+    }
+
     return prisma.workspace.findMany({
+      where,
       include: {
         projects: {
           select: {
             id: true,
             key: true,
             name: true,
-            _count: { select: { issues: true } },
+            kind: true,
+            parentId: true,
+            _count: { select: { issues: true, members: true } },
           },
         },
+        _count: { select: { members: true } },
       },
       orderBy: { name: 'asc' },
     });
@@ -439,6 +473,7 @@ async function buildServer(): Promise<FastifyInstance> {
   app.post('/api/workspaces', async (request: FastifyRequest<{
     Body: { name: string; slug?: string; description?: string };
   }>, reply: FastifyReply) => {
+    const authUser = await getAuthUser(request, prisma, JWT_SECRET);
     const { name, slug, description } = request.body;
     if (!name) return reply.status(400).send({ error: 'Workspace name is required.' });
 
@@ -448,6 +483,13 @@ async function buildServer(): Promise<FastifyInstance> {
         name,
         slug: cleanSlug,
         description,
+        ...(authUser
+          ? {
+              members: {
+                create: { userId: authUser.id, role: 'OWNER' },
+              },
+            }
+          : {}),
       },
     });
 
@@ -458,15 +500,18 @@ async function buildServer(): Promise<FastifyInstance> {
   app.get('/api/projects', async (request: FastifyRequest<{
     Querystring: { workspaceId?: string };
   }>) => {
+    const authUser = await getAuthUser(request, prisma, JWT_SECRET);
+    const accessibleIds = await getUserAccessibleProjectIds(prisma, authUser);
     const where: any = {};
     if (request.query.workspaceId) where.workspaceId = request.query.workspaceId;
+    if (accessibleIds !== null) where.id = { in: accessibleIds };
 
     return prisma.project.findMany({
       where,
       include: {
         workspace: { select: { id: true, name: true, slug: true } },
         _count: {
-          select: { issues: true },
+          select: { issues: true, members: true },
         },
       },
       orderBy: { createdAt: 'asc' },
@@ -479,13 +524,24 @@ async function buildServer(): Promise<FastifyInstance> {
       name: string;
       description?: string;
       workspaceId?: string;
+      parentId?: string | null;
+      kind?: ProjectKind;
       columns?: any[];
       gitProvider?: string;
       gitRepo?: string;
       gitBranch?: string;
     };
   }>, reply: FastifyReply) => {
-    const { key, name, description, workspaceId, columns, gitProvider, gitRepo, gitBranch } = request.body;
+    const authUser = await getAuthUser(request, prisma, JWT_SECRET);
+    const authSettings = await getSystemAuthSettings(prisma);
+
+    if (authUser && authUser.role !== UserRole.ADMIN && !authSettings.allowSelfServiceBoardCreation) {
+      return reply.status(403).send({
+        error: 'Das selbstständige Erstellen von Boards/Projekten ist vom Administrator deaktiviert (nur über Admin/SSO).',
+      });
+    }
+
+    const { key, name, description, workspaceId, parentId, kind, columns, gitProvider, gitRepo, gitBranch } = request.body;
     if (!key || !name) {
       return reply.status(400).send({ error: 'Key and Name are required.' });
     }
@@ -500,11 +556,20 @@ async function buildServer(): Promise<FastifyInstance> {
         key: cleanKey,
         name,
         description,
+        kind: kind || ProjectKind.BOARD,
+        parentId: parentId || null,
         workspaceId: workspaceId || null,
         columns: columns || DEFAULT_COLUMNS,
         gitProvider: gitProvider || null,
         gitRepo: gitRepo ? gitRepo.trim() : null,
         gitBranch: gitBranch ? gitBranch.trim() : 'main',
+        ...(authUser
+          ? {
+              members: {
+                create: { userId: authUser.id, role: ProjectMemberRole.ADMIN },
+              },
+            }
+          : {}),
       },
       include: {
         workspace: true,
@@ -521,23 +586,31 @@ async function buildServer(): Promise<FastifyInstance> {
       name?: string;
       key?: string;
       description?: string;
+      workspaceId?: string | null;
+      parentId?: string | null;
+      kind?: ProjectKind;
       columns?: any[];
       stageAgents?: Record<string, any> | null;
       workflowRules?: any | null;
+      issueTemplates?: any[] | null;
       gitProvider?: string | null;
       gitRepo?: string | null;
       gitBranch?: string | null;
     };
   }>, reply: FastifyReply) => {
     const { id } = request.params;
-    const { name, key, description, columns, stageAgents, workflowRules, gitProvider, gitRepo, gitBranch } = request.body;
+    const { name, key, description, workspaceId, parentId, kind, columns, stageAgents, workflowRules, issueTemplates, gitProvider, gitRepo, gitBranch } = request.body;
     const updateData: any = {};
 
     if (name !== undefined) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description;
+    if (workspaceId !== undefined) updateData.workspaceId = workspaceId;
+    if (parentId !== undefined) updateData.parentId = parentId;
+    if (kind !== undefined) updateData.kind = kind;
     if (columns !== undefined) updateData.columns = columns;
     if (stageAgents !== undefined) updateData.stageAgents = stageAgents;
     if (workflowRules !== undefined) updateData.workflowRules = workflowRules;
+    if (issueTemplates !== undefined) updateData.issueTemplates = issueTemplates;
     if (gitProvider !== undefined) updateData.gitProvider = gitProvider;
     if (gitRepo !== undefined) updateData.gitRepo = gitRepo;
     if (gitBranch !== undefined) updateData.gitBranch = gitBranch;
@@ -601,9 +674,20 @@ async function buildServer(): Promise<FastifyInstance> {
     };
   }>) => {
     const { projectId, sprintId, goalId, status, priority, assigneeType, assigneeId, label, search, sortField, sortOrder } = request.query;
+    const authUser = await getAuthUser(request, prisma, JWT_SECRET);
+    const accessibleIds = await getUserAccessibleProjectIds(prisma, authUser);
     const where: any = {};
 
-    if (projectId) where.projectId = projectId;
+    if (accessibleIds !== null) {
+      if (projectId) {
+        if (!accessibleIds.includes(projectId)) return [];
+        where.projectId = projectId;
+      } else {
+        where.projectId = { in: accessibleIds };
+      }
+    } else if (projectId) {
+      where.projectId = projectId;
+    }
 
     if (goalId) {
       if (goalId === 'NONE') {
@@ -822,6 +906,30 @@ async function buildServer(): Promise<FastifyInstance> {
     });
 
     broadcastEvent('issue_created', issue);
+
+    if (body.description) {
+      const mentions = await resolveMentions(prisma, body.description, project.id);
+      if (mentions.length > 0) {
+        await prisma.activityLog.create({
+          data: {
+            issueId: issue.id,
+            actorType: body.actorType || (body.assigneeType === 'AGENT' ? 'AGENT' : 'HUMAN'),
+            actorName: body.actorName || body.assigneeName || 'System',
+            action: 'MENTIONED',
+            details: `Erwähnt in Beschreibung: ${mentions.map((m) => `@${m.handle}`).join(', ')}`,
+          },
+        });
+        broadcastEvent('mention_created', {
+          issueId: issue.id,
+          identifier: issue.identifier,
+          projectId: project.id,
+          source: 'description',
+          actorName: body.actorName || body.assigneeName || 'System',
+          mentions,
+        });
+      }
+    }
+
     return reply.status(201).send(issue);
   });
 
@@ -1017,6 +1125,33 @@ async function buildServer(): Promise<FastifyInstance> {
     });
 
     broadcastEvent('issue_updated', updated);
+
+    if (body.description !== undefined && body.description !== existing.description) {
+      const prevMentions = await resolveMentions(prisma, existing.description || '', existing.projectId);
+      const nextMentions = await resolveMentions(prisma, body.description || '', existing.projectId);
+      const prevSet = new Set(prevMentions.map((m) => m.handle.toLowerCase()));
+      const addedMentions = nextMentions.filter((m) => !prevSet.has(m.handle.toLowerCase()));
+      if (addedMentions.length > 0) {
+        await prisma.activityLog.create({
+          data: {
+            issueId: updated.id,
+            actorType,
+            actorName,
+            action: 'MENTIONED',
+            details: `Erwähnt in Beschreibung: ${addedMentions.map((m) => `@${m.handle}`).join(', ')}`,
+          },
+        });
+        broadcastEvent('mention_created', {
+          issueId: updated.id,
+          identifier: updated.identifier,
+          projectId: updated.projectId,
+          source: 'description',
+          actorName,
+          mentions: addedMentions,
+        });
+      }
+    }
+
     if (handoffAgent) {
       broadcastEvent('agent_handoff', {
         issueId: updated.id,
@@ -1561,6 +1696,12 @@ async function buildServer(): Promise<FastifyInstance> {
     const { provider } = request.params;
     const { instanceUrl } = request.query;
     const { apiBaseUrl, webBaseUrl } = getRequestOrigins(request);
+    const authSettings = await getSystemAuthSettings(prisma);
+    if (!authSettings.allowGitLogin || authSettings.enforceSso) {
+      return reply.redirect(
+        `${webBaseUrl}/?oauth_error=${encodeURIComponent('GitHub/GitLab-Login ist vom Administrator deaktiviert (SSO-Zwang aktiv).')}`
+      );
+    }
 
     if (provider === 'github') {
       if (customOAuthConfig.githubClientId) {
@@ -2577,8 +2718,30 @@ async function buildServer(): Promise<FastifyInstance> {
       },
     });
 
-    broadcastEvent('comment_added', { issueId: existing.id, identifier: existing.identifier, comment });
-    return reply.status(201).send(comment);
+    const mentions = await resolveMentions(prisma, request.body.content, existing.projectId);
+    if (mentions.length > 0) {
+      await prisma.activityLog.create({
+        data: {
+          issueId: existing.id,
+          actorType: request.body.authorType === AssigneeType.AGENT ? 'AGENT' : 'HUMAN',
+          actorName: request.body.authorName,
+          action: 'MENTIONED',
+          details: `Erwähnt in Kommentar: ${mentions.map((m) => `@${m.handle}`).join(', ')}`,
+        },
+      });
+      broadcastEvent('mention_created', {
+        issueId: existing.id,
+        identifier: existing.identifier,
+        projectId: existing.projectId,
+        source: 'comment',
+        commentId: comment.id,
+        actorName: request.body.authorName,
+        mentions,
+      });
+    }
+
+    broadcastEvent('comment_added', { issueId: existing.id, identifier: existing.identifier, comment, mentions });
+    return reply.status(201).send({ ...comment, mentions });
   });
 
   // ==========================================
@@ -2652,6 +2815,15 @@ async function buildServer(): Promise<FastifyInstance> {
 
   registerAgentFeatureRoutes(app, prisma, broadcastEvent);
   registerImportRoutes(app, prisma, broadcastEvent);
+  registerUploadRoutes(app);
+  registerOidcAndRbacRoutes({
+    app,
+    prisma,
+    redisPub,
+    jwtSecret: JWT_SECRET,
+    getRequestOrigins,
+    broadcastEvent,
+  });
 
   return app;
 }

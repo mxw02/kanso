@@ -51,6 +51,9 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-kanso-super-secret-jwt-key-change-in-production-2026}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      UPLOAD_DIR: /app/apps/api/uploads
+    volumes:
+      - uploads_data:/app/apps/api/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health | grep -q 'ok' || exit 1"]
       interval: 5s
@@ -90,3 +93,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:

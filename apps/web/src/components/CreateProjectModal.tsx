@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layers, X, GitBranch, Sparkles, ChevronDown, FolderGit2 } from 'lucide-react';
+import { buildProjectTree } from '../utils/projectTree';
 
 interface GitRepoItem {
   fullName: string;
@@ -9,24 +10,55 @@ interface GitRepoItem {
   stars?: number;
 }
 
+interface WorkspaceItem {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface ParentProjectOption {
+  id: string;
+  key: string;
+  name: string;
+  workspaceId?: string | null;
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  workspaces?: WorkspaceItem[];
+  projects?: ParentProjectOption[];
+  activeWorkspaceId?: string | null;
+  defaultParentId?: string | null;
   onCreate: (payload: {
     key: string;
     name: string;
     description: string;
+    workspaceId?: string;
+    parentId?: string | null;
+    kind?: 'PROJECT' | 'BOARD';
     gitProvider?: string;
     gitRepo?: string;
     gitBranch?: string;
   }) => Promise<void>;
 }
 
-export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate }) => {
+export const CreateProjectModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  workspaces = [],
+  projects = [],
+  activeWorkspaceId,
+  defaultParentId,
+  onCreate,
+}) => {
   const [mode, setMode] = useState<'manual' | 'git'>('git');
   const [key, setKey] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [workspaceId, setWorkspaceId] = useState<string>(activeWorkspaceId || '');
+  const [parentId, setParentId] = useState<string>('');
+  const [kind, setKind] = useState<'BOARD' | 'PROJECT'>('BOARD');
 
   // Git state
   const [gitProvider, setGitProvider] = useState<'github' | 'gitlab'>('github');
@@ -37,6 +69,14 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || '';
+
+  useEffect(() => {
+    if (isOpen) {
+      setWorkspaceId(activeWorkspaceId || '');
+      setParentId(defaultParentId || '');
+      setKind('BOARD');
+    }
+  }, [isOpen, activeWorkspaceId, defaultParentId]);
 
   // Fetch Repositories from Git Provider
   useEffect(() => {
@@ -93,6 +133,9 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
         key: key.trim().toUpperCase(),
         name: name.trim(),
         description: description.trim(),
+        workspaceId: workspaceId || undefined,
+        parentId: parentId || null,
+        kind,
         gitProvider: mode === 'git' ? gitProvider : undefined,
         gitRepo: mode === 'git' ? gitRepo.trim() : undefined,
         gitBranch: mode === 'git' ? 'main' : undefined,
@@ -313,6 +356,43 @@ export const CreateProjectModal: React.FC<Props> = ({ isOpen, onClose, onCreate 
               onChange={(e) => setDescription(e.target.value)}
               className="w-full bg-white border border-zinc-300 rounded-lg px-3 py-2 text-zinc-900 focus:outline-none focus:border-teal-600"
             />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-zinc-50 border border-zinc-200 rounded-xl p-3">
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1">
+              Organisation
+            </label>
+            <select
+              value={workspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
+              className="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1.5 text-xs text-zinc-800"
+            >
+              <option value="">Keine / Standard</option>
+              {workspaces.map((ws) => (
+                <option key={ws.id} value={ws.id}>
+                  {ws.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-zinc-500 mb-1">
+              Übergeordnetes Projekt (für Unterprojekt)
+            </label>
+            <select
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+              className="w-full bg-white border border-zinc-200 rounded-lg px-2 py-1.5 text-xs text-zinc-800"
+            >
+              <option value="">Oberste Ebene (Hauptprojekt mit eigenem Board)</option>
+              {buildProjectTree(projects, workspaceId || null).map(({ project: p, indentLabel }) => (
+                <option key={p.id} value={p.id}>
+                  {indentLabel}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

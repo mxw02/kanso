@@ -22,6 +22,7 @@ import {
   Copy,
   ExternalLink,
 } from 'lucide-react';
+import { DEFAULT_ISSUE_TEMPLATES, IssueTemplate, resolveProjectTemplates } from '../utils/issueTemplates';
 
 export interface StatusColumn {
   id: string;
@@ -56,6 +57,7 @@ export interface ProjectSettingsData {
       };
     }[];
   } | null;
+  issueTemplates?: IssueTemplate[] | null;
   gitProvider?: string;
   gitRepo?: string;
   gitBranch?: string;
@@ -83,6 +85,7 @@ interface Props {
       columns?: StatusColumn[];
       stageAgents?: Record<string, { agentName: string; autoAssign: boolean }> | null;
       workflowRules?: any;
+      issueTemplates?: IssueTemplate[] | null;
       gitProvider?: string;
       gitRepo?: string;
       gitBranch?: string;
@@ -93,7 +96,7 @@ interface Props {
   canAdmin: boolean;
 }
 
-type TabKey = 'general' | 'stages' | 'workflow' | 'agents' | 'git' | 'danger';
+type TabKey = 'general' | 'stages' | 'workflow' | 'templates' | 'agents' | 'git' | 'danger';
 
 const DEFAULT_STAGES: StatusColumn[] = [
   { id: 'BACKLOG', title: 'Backlog' },
@@ -155,6 +158,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   const [transitions, setTransitions] = useState<any[]>([]);
   const [selectedWorkflowStageId, setSelectedWorkflowStageId] = useState<string>('');
   const [newStageTitle, setNewStageTitle] = useState('');
+  const [issueTemplates, setIssueTemplates] = useState<IssueTemplate[]>([]);
 
   // Agent settings (local project configuration state)
   const [autoTriage, setAutoTriage] = useState(true);
@@ -191,6 +195,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
       setWorkflowName(project.workflowRules?.name || 'Standard Agent-First Workflow');
       setEnforceStrictTransitions(Boolean(project.workflowRules?.enforceStrictTransitions));
       setTransitions(Array.isArray(project.workflowRules?.transitions) ? [...project.workflowRules!.transitions] : []);
+      setIssueTemplates(resolveProjectTemplates(project.issueTemplates).map((t) => ({ ...t, labels: [...t.labels], proofOfWorkChecks: [...t.proofOfWorkChecks] })));
       setSelectedWorkflowStageId(cols[Math.min(1, cols.length - 1)]?.id || cols[0]?.id || '');
       setGitProvider((project.gitProvider as any) || 'GITHUB');
       setGitRepo(project.gitRepo || '');
@@ -280,6 +285,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
           enforceStrictTransitions,
           transitions,
         },
+        issueTemplates,
         gitProvider: gitRepo.trim() ? gitProvider : undefined,
         gitRepo: gitRepo.trim() || undefined,
         gitBranch: gitRepo.trim() ? (gitBranch.trim() || 'main') : undefined,
@@ -395,6 +401,18 @@ export const ProjectSettingsModal: React.FC<Props> = ({
               >
                 <GitBranch className="w-4 h-4 text-zinc-400" />
                 <span>Workflow & Regeln ({transitions.length})</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('templates')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                  activeTab === 'templates'
+                    ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-zinc-400" />
+                <span>Ticket-Vorlagen ({issueTemplates.length})</span>
               </button>
 
               <button
@@ -1366,6 +1384,203 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: TICKET-VORLAGEN */}
+            {activeTab === 'templates' && (
+              <div className="space-y-5 max-w-2xl">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900">Ticket-Vorlagen (Templates)</h3>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      Definiere wiederverwendbare Vorlagen für Bug-Reports, Feature-Specs oder Agent-Tasks inkl. Labels und Proof-of-Work-Checks.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIssueTemplates(
+                          DEFAULT_ISSUE_TEMPLATES.map((t) => ({
+                            ...t,
+                            labels: [...t.labels],
+                            proofOfWorkChecks: [...t.proofOfWorkChecks],
+                          }))
+                        )
+                      }
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Standard laden</span>
+                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIssueTemplates((prev) => [
+                            ...prev,
+                            {
+                              id: `tpl-${Date.now()}`,
+                              name: 'Neue Vorlage',
+                              description: '',
+                              titlePrefix: '',
+                              type: 'TASK',
+                              priority: 'MEDIUM',
+                              labels: [],
+                              body: '### Beschreibung\n\n### Akzeptanzkriterien\n- [ ] ',
+                              proofOfWorkChecks: [],
+                            },
+                          ])
+                        }
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Vorlage hinzufügen</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {issueTemplates.map((tpl, idx) => (
+                    <div key={tpl.id} className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <input
+                          type="text"
+                          disabled={!canEdit}
+                          value={tpl.name}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setIssueTemplates((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, name: val } : item))
+                            );
+                          }}
+                          placeholder="Vorlagenname..."
+                          className="text-xs font-bold text-zinc-900 bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 flex-1 focus:outline-none focus:border-teal-600"
+                        />
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setIssueTemplates((prev) => prev.filter((_, i) => i !== idx))
+                            }
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                            title="Vorlage löschen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          disabled={!canEdit}
+                          value={tpl.titlePrefix || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setIssueTemplates((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, titlePrefix: val } : item))
+                            );
+                          }}
+                          placeholder="Titel-Präfix (z. B. [Bug] )"
+                          className="text-xs bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-teal-600"
+                        />
+                        <select
+                          disabled={!canEdit}
+                          value={tpl.type}
+                          onChange={(e) => {
+                            const val = e.target.value as IssueTemplate['type'];
+                            setIssueTemplates((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, type: val } : item))
+                            );
+                          }}
+                          className="text-xs bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-teal-600"
+                        >
+                          <option value="TASK">Typ: TASK</option>
+                          <option value="BUG">Typ: BUG</option>
+                          <option value="FEATURE">Typ: FEATURE</option>
+                        </select>
+                        <select
+                          disabled={!canEdit}
+                          value={tpl.priority}
+                          onChange={(e) => {
+                            const val = e.target.value as IssueTemplate['priority'];
+                            setIssueTemplates((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, priority: val } : item))
+                            );
+                          }}
+                          className="text-xs bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-teal-600"
+                        >
+                          <option value="URGENT">Priorität: Urgent</option>
+                          <option value="HIGH">Priorität: High</option>
+                          <option value="MEDIUM">Priorität: Medium</option>
+                          <option value="LOW">Priorität: Low</option>
+                        </select>
+                      </div>
+
+                      <input
+                        type="text"
+                        disabled={!canEdit}
+                        value={tpl.labels.join(', ')}
+                        onChange={(e) => {
+                          const labels = e.target.value
+                            .split(',')
+                            .map((s) => s.trim().toLowerCase())
+                            .filter(Boolean);
+                          setIssueTemplates((prev) =>
+                            prev.map((item, i) => (i === idx ? { ...item, labels } : item))
+                          );
+                        }}
+                        placeholder="Labels (kommagetrennt, z. B. bug, triage)"
+                        className="w-full text-xs bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-teal-600"
+                      />
+
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                          Markdown-Beschreibung
+                        </label>
+                        <textarea
+                          rows={4}
+                          disabled={!canEdit}
+                          value={tpl.body}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setIssueTemplates((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, body: val } : item))
+                            );
+                          }}
+                          className="w-full text-xs font-mono bg-white border border-zinc-200 rounded-lg p-2.5 focus:outline-none focus:border-teal-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                          Proof-of-Work-Checks (eine Zeile pro Check)
+                        </label>
+                        <textarea
+                          rows={2}
+                          disabled={!canEdit}
+                          value={tpl.proofOfWorkChecks.join('\n')}
+                          onChange={(e) => {
+                            const checks = e.target.value
+                              .split('\n')
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            setIssueTemplates((prev) =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, proofOfWorkChecks: checks } : item
+                              )
+                            );
+                          }}
+                          placeholder="z. B. Build & Tests bestanden"
+                          className="w-full text-xs bg-white border border-zinc-200 rounded-lg p-2 focus:outline-none focus:border-teal-600"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

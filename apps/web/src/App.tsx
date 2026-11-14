@@ -20,11 +20,18 @@ import {
   BarChart3,
   Target,
   ArrowDownToLine,
+  UserCheck,
+  BookmarkPlus,
+  Bookmark,
+  X,
+  GanttChart,
 } from 'lucide-react';
 import { KanbanBoard } from './components/KanbanBoard';
 import { ListView } from './components/ListView';
 import { SummaryView } from './components/SummaryView';
 import { CalendarView } from './components/CalendarView';
+import { MyTasksView } from './components/MyTasksView';
+import { RoadmapView } from './components/RoadmapView';
 import { GoalsModal, GoalItem } from './components/GoalsModal';
 import { ImportModal } from './components/ImportModal';
 import { IssueDetailModal } from './components/IssueDetailModal';
@@ -38,6 +45,8 @@ import { SprintModal } from './components/SprintModal';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
 import { UserManagementModal } from './components/UserManagementModal';
 import { AuthScreen } from './components/AuthScreen';
+import { buildProjectTree } from './utils/projectTree';
+import { WorkspaceExplorerModal } from './components/WorkspaceExplorerModal';
 import { HitlInboxModal } from './components/HitlInboxModal';
 
 interface StatusColumn {
@@ -52,6 +61,7 @@ interface Project {
   name: string;
   description?: string;
   columns?: StatusColumn[];
+  issueTemplates?: any[] | null;
   gitProvider?: string;
   gitRepo?: string;
   gitBranch?: string;
@@ -84,6 +94,9 @@ const DEFAULT_COLUMNS: StatusColumn[] = [
 export default function App() {
   const [issues, setIssues] = useState<any[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>('');
+  const [allowSelfServiceBoardCreation, setAllowSelfServiceBoardCreation] = useState<boolean>(true);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [currentUser, setCurrentUser] = useState<UserItem | null>(() => {
@@ -99,13 +112,37 @@ export default function App() {
   });
 
   // Views & Modals
-  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list' | 'calendar'>('board');
+  const [viewMode, setViewMode] = useState<'summary' | 'board' | 'list' | 'calendar' | 'roadmap' | 'my-tasks'>('board');
+  const [myTasksRefreshKey, setMyTasksRefreshKey] = useState(0);
+  const [savedViews, setSavedViews] = useState<Array<{
+    id: string;
+    name: string;
+    projectId: string;
+    viewMode: 'summary' | 'board' | 'list' | 'calendar' | 'roadmap';
+    status: string;
+    priority: string;
+    assignee: 'ALL' | 'AGENT' | 'HUMAN' | 'UNASSIGNED';
+    sprint: string;
+    goal: string;
+    search: string;
+  }>>(() => {
+    try {
+      const raw = localStorage.getItem('kanso_saved_views_v1');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showSaveViewInput, setShowSaveViewInput] = useState(false);
+  const [newViewName, setNewViewName] = useState('');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showHitlInbox, setShowHitlInbox] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showCreateIssue, setShowCreateIssue] = useState(false);
   const [createIssueDefaultStatus, setCreateIssueDefaultStatus] = useState<string | undefined>(undefined);
   const [showCreateProject, setShowCreateProject] = useState(false);
+  const [createProjectParentId, setCreateProjectParentId] = useState<string | null>(null);
+  const [showWorkspaceExplorer, setShowWorkspaceExplorer] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showSprintModal, setShowSprintModal] = useState(false);
@@ -128,6 +165,7 @@ export default function App() {
   const [filterGoal, setFilterGoal] = useState('ALL');
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fetchIssuesSeqRef = useRef(0);
   const API_URL = import.meta.env.VITE_API_URL || '';
 
   const canEdit = currentUser ? currentUser.role === 'ADMIN' || currentUser.role === 'MEMBER' : false;
@@ -178,10 +216,22 @@ export default function App() {
   // Load Initial Data
   const fetchData = async () => {
     try {
-      const [pRes, uRes] = await Promise.all([
-        fetch(`${API_URL}/api/projects`),
-        fetch(`${API_URL}/api/users`),
+      const token = localStorage.getItem('kanso_auth_token');
+      const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+      const [pRes, uRes, wsRes, cfgRes] = await Promise.all([
+        fetch(`${API_URL}/api/projects`, { headers }),
+        fetch(`${API_URL}/api/users`, { headers }),
+        fetch(`${API_URL}/api/workspaces`, { headers }),
+        fetch(`${API_URL}/api/auth/public-config`),
       ]);
+
+      if (wsRes.ok) {
+        setWorkspaces(await wsRes.json());
+      }
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        setAllowSelfServiceBoardCreation(cfg.allowSelfServiceBoardCreation !== false);
+      }
 
       if (pRes.ok) {
         const pData: Project[] = await pRes.json();
@@ -234,9 +284,14 @@ export default function App() {
 
   // Fetch Issues with active filters
   const fetchIssues = async () => {
+    if (!activeProject?.id) {
+      setIssues([]);
+      return;
+    }
+    const reqSeq = ++fetchIssuesSeqRef.current;
     try {
       const params = new URLSearchParams();
-      if (activeProject?.id) params.set('projectId', activeProject.id);
+      params.set('projectId', activeProject.id);
       if (filterStatus !== 'ALL') params.set('status', filterStatus);
       if (filterPriority !== 'ALL') params.set('priority', filterPriority);
       if (filterAssignee !== 'ALL') params.set('assigneeType', filterAssignee);
@@ -247,6 +302,7 @@ export default function App() {
       const res = await fetch(`${API_URL}/api/issues?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
+        if (reqSeq !== fetchIssuesSeqRef.current) return;
         setIssues(data);
 
         if (selectedIssue) {
@@ -286,6 +342,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (!activeProject?.id) return;
     fetchIssues();
     fetchSprints();
     fetchGoals();
@@ -325,9 +382,12 @@ export default function App() {
             'project_updated',
           ].includes(data.type)
         ) {
-          fetchIssues();
-          fetchSprints();
-          fetchGoals();
+          setMyTasksRefreshKey((k) => k + 1);
+          if (activeProject?.id) {
+            fetchIssues();
+            fetchSprints();
+            fetchGoals();
+          }
           if (data.type === 'project_created' || data.type === 'project_updated') {
             fetchData();
           }
@@ -529,11 +589,15 @@ export default function App() {
   };
 
   const handleCreateProject = async (payload: any) => {
-    if (!canAdmin && !canEdit) return;
+    if (!canAdmin && (!canEdit || !allowSelfServiceBoardCreation)) return;
     try {
+      const token = localStorage.getItem('kanso_auth_token');
       const res = await fetch(`${API_URL}/api/projects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
@@ -742,23 +806,29 @@ export default function App() {
 
           {/* Project Breadcrumb with Styled Dropdown */}
           <div className="flex items-center gap-1.5">
-            <div className="relative flex items-center">
-              <select
-                value={activeProject?.id || ''}
-                onChange={(e) => {
-                  const found = projects.find((p) => p.id === e.target.value);
-                  if (found) setActiveProject(found);
-                }}
-                className="appearance-none bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 font-semibold text-xs py-1.5 pl-2.5 pr-7 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer transition shadow-2xs"
-              >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} [{p.key}]
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 pointer-events-none" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowWorkspaceExplorer(true)}
+              title="Organisationen, Projekte & Boards durchsuchen"
+              className="flex items-center gap-2 bg-zinc-50 hover:bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs py-1.5 px-2.5 rounded-lg transition shadow-2xs cursor-pointer max-w-[340px]"
+            >
+              <FolderGit2 className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+              <span className="truncate font-semibold">
+                {(() => {
+                  const tree = buildProjectTree(projects as any[]);
+                  const node = tree.find((n) => n.project.id === activeProject?.id);
+                  const wsName = workspaces.find((w) => w.id === (activeProject as any)?.workspaceId)?.name;
+                  if (!activeProject) return 'Projekt wählen...';
+                  return wsName ? `${wsName} / ${node?.pathLabel || activeProject.name}` : (node?.pathLabel || activeProject.name);
+                })()}
+              </span>
+              {activeProject && (
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-zinc-200 text-zinc-600 shrink-0">
+                  {activeProject.key}
+                </span>
+              )}
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            </button>
 
             {/* Project Quick Actions (Settings, Setup Wizard, Git, New Project) */}
             {canEdit && (
@@ -786,13 +856,15 @@ export default function App() {
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => setShowCreateProject(true)}
-                  title="Neues Projekt erstellen"
-                  className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+                {(canAdmin || allowSelfServiceBoardCreation) && (
+                  <button
+                    onClick={() => setShowCreateProject(true)}
+                    title="Neues Projekt / Board erstellen"
+                    className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1034,60 +1106,86 @@ export default function App() {
       {/* SECONDARY TOOLBAR & FILTER BAR                           */}
       {/* ======================================================== */}
       {!showProjectSettings && (
-      <section className="px-6 py-2 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
+      <section className="px-6 h-12 shrink-0 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex items-center justify-between gap-4 sticky top-14 z-20 text-xs">
         <div className="flex items-center gap-3">
           {/* View Toggle: Summary vs Board vs List */}
-          <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80">
+          <div className="flex items-center p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80 shrink-0">
             <button
               onClick={() => setViewMode('summary')}
               title="Projekt-Zusammenfassung"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'summary'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5" />
+              <BarChart3 className="w-3.5 h-3.5 shrink-0" />
               <span>Summary</span>
             </button>
 
             <button
               onClick={() => setViewMode('board')}
               title="Kanban Board (B)"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'board'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
               <span>Board</span>
             </button>
 
             <button
               onClick={() => setViewMode('list')}
               title="Table View (L)"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'list'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <Table className="w-3.5 h-3.5" />
+              <Table className="w-3.5 h-3.5 shrink-0" />
               <span>List</span>
             </button>
 
             <button
               onClick={() => setViewMode('calendar')}
               title="Kalender-Ansicht"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
                 viewMode === 'calendar'
                   ? 'bg-white text-zinc-900 shadow-2xs'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
+              <Calendar className="w-3.5 h-3.5 shrink-0" />
               <span>Kalender</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('roadmap')}
+              title="Timeline / Roadmap (Gantt)"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
+                viewMode === 'roadmap'
+                  ? 'bg-white text-zinc-900 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <GanttChart className="w-3.5 h-3.5 shrink-0" />
+              <span>Roadmap</span>
+            </button>
+
+            <button
+              onClick={() => setViewMode('my-tasks')}
+              title="Projektübergreifende Ansicht: Meine Aufgaben"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap shrink-0 transition ${
+                viewMode === 'my-tasks'
+                  ? 'bg-white text-teal-800 shadow-2xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <UserCheck className="w-3.5 h-3.5 shrink-0" />
+              <span>Meine Aufgaben</span>
             </button>
           </div>
 
@@ -1250,6 +1348,68 @@ export default function App() {
                 <span>Reset</span>
               </button>
             )}
+
+            {/* Save Current Filter as Quick-View */}
+            {viewMode !== 'my-tasks' && (
+              showSaveViewInput ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const trimmed = newViewName.trim();
+                    if (!trimmed || !activeProject) return;
+                    const created = {
+                      id: `view-${Date.now()}`,
+                      name: trimmed,
+                      projectId: activeProject.id,
+                      viewMode: viewMode === 'summary' ? 'board' : viewMode,
+                      status: filterStatus,
+                      priority: filterPriority,
+                      assignee: filterAssignee,
+                      sprint: filterSprint,
+                      goal: filterGoal,
+                      search: searchQuery,
+                    };
+                    const next = [...savedViews, created];
+                    setSavedViews(next);
+                    localStorage.setItem('kanso_saved_views_v1', JSON.stringify(next));
+                    setNewViewName('');
+                    setShowSaveViewInput(false);
+                  }}
+                  className="flex items-center gap-1"
+                >
+                  <input
+                    type="text"
+                    autoFocus
+                    value={newViewName}
+                    onChange={(e) => setNewViewName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setShowSaveViewInput(false);
+                        setNewViewName('');
+                      }
+                    }}
+                    placeholder="View-Name..."
+                    className="w-28 bg-white border border-teal-500 rounded-md px-2 py-0.5 text-[11px] text-zinc-800 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-2 py-0.5 rounded-md bg-teal-700 text-white text-[11px] font-semibold hover:bg-teal-800"
+                  >
+                    OK
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowSaveViewInput(true)}
+                  title="Aktuelle Filter als benannte Quick-View speichern"
+                  className="flex items-center gap-1 text-[11px] text-zinc-600 hover:text-teal-800 px-2 py-1 rounded-lg border border-zinc-200 bg-white hover:bg-teal-50/50 transition shadow-2xs"
+                >
+                  <BookmarkPlus className="w-3 h-3" />
+                  <span>View speichern</span>
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -1259,6 +1419,67 @@ export default function App() {
           <span>{issues.length} {issues.length === 1 ? 'ticket' : 'tickets'}</span>
         </div>
       </section>
+      )}
+
+      {/* Saved Quick-Views Bar */}
+      {!showProjectSettings && viewMode !== 'my-tasks' && activeProject && savedViews.some((v) => v.projectId === activeProject.id) && (
+        <div className="px-6 py-1.5 border-b border-zinc-200/70 bg-zinc-50/80 flex items-center gap-2 flex-wrap text-xs">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+            <Bookmark className="w-3 h-3" />
+            Quick-Views:
+          </span>
+          {savedViews
+            .filter((v) => v.projectId === activeProject.id)
+            .map((v) => {
+              const isMatch =
+                filterStatus === v.status &&
+                filterPriority === v.priority &&
+                filterAssignee === v.assignee &&
+                filterSprint === v.sprint &&
+                filterGoal === v.goal &&
+                searchQuery === v.search;
+              return (
+                <div
+                  key={v.id}
+                  className={`inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-0.5 text-[11px] font-medium transition ${
+                    isMatch
+                      ? 'bg-teal-700 text-white border-teal-700 shadow-2xs'
+                      : 'bg-white text-zinc-700 border-zinc-200 hover:border-teal-400'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode(v.viewMode);
+                      setFilterStatus(v.status);
+                      setFilterPriority(v.priority);
+                      setFilterAssignee(v.assignee);
+                      setFilterSprint(v.sprint);
+                      setFilterGoal(v.goal);
+                      setSearchQuery(v.search);
+                    }}
+                    className="cursor-pointer"
+                  >
+                    {v.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = savedViews.filter((item) => item.id !== v.id);
+                      setSavedViews(next);
+                      localStorage.setItem('kanso_saved_views_v1', JSON.stringify(next));
+                    }}
+                    title="Quick-View löschen"
+                    className={`rounded-full p-0.5 transition ${
+                      isMatch ? 'hover:bg-teal-600 text-teal-100' : 'hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700'
+                    }`}
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              );
+            })}
+        </div>
       )}
 
       {/* ======================================================== */}
@@ -1295,6 +1516,17 @@ export default function App() {
               <span>Onboarding starten</span>
             </button>
           </div>
+        ) : viewMode === 'my-tasks' ? (
+          <MyTasksView
+            apiUrl={API_URL}
+            currentUser={currentUser}
+            refreshKey={myTasksRefreshKey}
+            onSelectIssue={async (issue) => {
+              const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
+              if (res.ok) setSelectedIssue(await res.json());
+              else setSelectedIssue(issue);
+            }}
+          />
         ) : viewMode === 'summary' && activeProject ? (
           <SummaryView
             project={activeProject}
@@ -1326,6 +1558,29 @@ export default function App() {
             onOpenCreateInColumn={(colId) => {
               setCreateIssueDefaultStatus(colId);
               setShowCreateIssue(true);
+            }}
+          />
+        ) : viewMode === 'roadmap' ? (
+          <RoadmapView
+            goals={goals}
+            sprints={sprints}
+            issues={issues}
+            canEdit={canEdit}
+            onSelectIssue={async (issue) => {
+              const res = await fetch(`${API_URL}/api/issues/${issue.id}`);
+              if (res.ok) setSelectedIssue(await res.json());
+              else setSelectedIssue(issue);
+            }}
+            onUpdateGoal={async (goalId, data) => {
+              await fetch(`${API_URL}/api/goals/${goalId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+              });
+              await fetchGoals();
+            }}
+            onUpdateIssueDueDate={async (issueId, dueDate) => {
+              await handleUpdateIssue(issueId, { dueDate });
             }}
           />
         ) : viewMode === 'calendar' ? (
@@ -1496,13 +1751,39 @@ export default function App() {
         defaultStatus={createIssueDefaultStatus}
         projectId={activeProject?.id}
         goals={goals}
+        templates={activeProject?.issueTemplates}
         onCreate={handleCreateIssue}
+      />
+
+      {/* Workspace & Project Tree Explorer Modal */}
+      <WorkspaceExplorerModal
+        isOpen={showWorkspaceExplorer}
+        onClose={() => setShowWorkspaceExplorer(false)}
+        workspaces={workspaces}
+        projects={projects as any[]}
+        activeWorkspaceId={activeWorkspaceId}
+        activeProjectId={activeProject?.id || null}
+        canCreate={canAdmin || (canEdit && allowSelfServiceBoardCreation)}
+        onSelectWorkspace={(wsId) => setActiveWorkspaceId(wsId)}
+        onSelectProject={(proj) => setActiveProject(proj as any)}
+        onCreateProject={(wsId, parentId) => {
+          if (wsId !== undefined) setActiveWorkspaceId(wsId);
+          setCreateProjectParentId(parentId || null);
+          setShowCreateProject(true);
+        }}
       />
 
       {/* Create Project Modal */}
       <CreateProjectModal
         isOpen={showCreateProject}
-        onClose={() => setShowCreateProject(false)}
+        onClose={() => {
+          setShowCreateProject(false);
+          setCreateProjectParentId(null);
+        }}
+        workspaces={workspaces}
+        projects={projects}
+        activeWorkspaceId={activeWorkspaceId || null}
+        defaultParentId={createProjectParentId}
         onCreate={handleCreateProject}
       />
 
