@@ -6,6 +6,8 @@ import {
   CheckCircle2,
   Copy,
   FileSpreadsheet,
+  FolderGit2,
+  Layers,
   Link2,
   Loader2,
   RefreshCw,
@@ -26,6 +28,8 @@ interface ImportModalProps {
   projectId: string;
   projectName: string;
   columns: ColumnItem[];
+  defaultGitProvider?: string | null;
+  defaultGitRepo?: string | null;
   onImported: () => Promise<void> | void;
 }
 
@@ -92,10 +96,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   projectId,
   projectName,
   columns,
+  defaultGitProvider,
+  defaultGitRepo,
   onImported,
 }) => {
   const API_URL = import.meta.env.VITE_API_URL || '';
-  const [tab, setTab] = useState<'jira' | 'csv'>('jira');
+  const [tab, setTab] = useState<'jira' | 'git' | 'linear' | 'csv'>('jira');
 
   // Jira state
   const [baseUrl, setBaseUrl] = useState('');
@@ -136,6 +142,58 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   const [csvBusy, setCsvBusy] = useState(false);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [csvResult, setCsvResult] = useState<{ created: number; updated: number; total: number } | null>(null);
+
+  // GitHub / GitLab state
+  const [gitProvider, setGitProvider] = useState<'github' | 'gitlab'>(
+    defaultGitProvider?.toLowerCase() === 'gitlab' ? 'gitlab' : 'github'
+  );
+  const [gitRepo, setGitRepo] = useState(defaultGitRepo || '');
+  const [gitState, setGitState] = useState<'open' | 'closed' | 'all'>('open');
+  const [gitTokenOverride, setGitTokenOverride] = useState('');
+  const [gitInstanceUrl, setGitInstanceUrl] = useState('');
+  const [importMilestones, setImportMilestones] = useState(true);
+  const [includePullRequests, setIncludePullRequests] = useState(false);
+  const [gitPreview, setGitPreview] = useState<any[]>([]);
+  const [gitHasSavedToken, setGitHasSavedToken] = useState<boolean | null>(null);
+  const [gitBusy, setGitBusy] = useState<'preview' | 'sync' | null>(null);
+  const [gitError, setGitError] = useState<string | null>(null);
+  const [gitResult, setGitResult] = useState<{
+    created: number;
+    updated: number;
+    goalsCreated?: number;
+    goalsUpdated?: number;
+    total: number;
+  } | null>(null);
+
+  // Linear state
+  const [linearMode, setLinearMode] = useState<'api' | 'export'>('api');
+  const [linearApiKey, setLinearApiKey] = useState('');
+  const [linearTeamKey, setLinearTeamKey] = useState('');
+  const [linearIncludeCompleted, setLinearIncludeCompleted] = useState(true);
+  const [linearExportJson, setLinearExportJson] = useState('');
+  const [linearImportGoals, setLinearImportGoals] = useState(true);
+  const [linearPreview, setLinearPreview] = useState<any[]>([]);
+  const [linearBusy, setLinearBusy] = useState<'preview' | 'sync' | null>(null);
+  const [linearError, setLinearError] = useState<string | null>(null);
+  const [linearResult, setLinearResult] = useState<{
+    created: number;
+    updated: number;
+    goalsCreated?: number;
+    goalsUpdated?: number;
+    total: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setGitProvider(defaultGitProvider?.toLowerCase() === 'gitlab' ? 'gitlab' : 'github');
+    setGitRepo(defaultGitRepo || '');
+    setGitError(null);
+    setGitResult(null);
+    setGitPreview([]);
+    setLinearError(null);
+    setLinearResult(null);
+    setLinearPreview([]);
+  }, [isOpen, projectId, defaultGitProvider, defaultGitRepo]);
 
   useEffect(() => {
     if (!isOpen || !projectId) return;
@@ -352,6 +410,138 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     }
   };
 
+  const handleGitPreview = async () => {
+    if (!gitRepo.trim()) {
+      setGitError('Bitte Repository-Name (z. B. owner/repo) angeben.');
+      return;
+    }
+    setGitError(null);
+    setGitResult(null);
+    setGitBusy('preview');
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}/import/git/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: gitProvider,
+          repo: gitRepo.trim(),
+          state: gitState,
+          accessToken: gitTokenOverride.trim() || undefined,
+          instanceUrl: gitInstanceUrl.trim() || undefined,
+          includePullRequests,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Vorschau fehlgeschlagen');
+      setGitPreview(data.issues || []);
+      setGitHasSavedToken(Boolean(data.hasSavedToken));
+    } catch (err: any) {
+      setGitError(err.message || 'Vorschau fehlgeschlagen');
+    } finally {
+      setGitBusy(null);
+    }
+  };
+
+  const handleGitSync = async () => {
+    if (!gitRepo.trim()) {
+      setGitError('Bitte Repository-Name (z. B. owner/repo) angeben.');
+      return;
+    }
+    setGitError(null);
+    setGitResult(null);
+    setGitBusy('sync');
+    try {
+      const res = await fetch(`${API_URL}/api/projects/${projectId}/import/git/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: gitProvider,
+          repo: gitRepo.trim(),
+          state: gitState,
+          accessToken: gitTokenOverride.trim() || undefined,
+          instanceUrl: gitInstanceUrl.trim() || undefined,
+          includePullRequests,
+          importMilestonesAsGoals: importMilestones,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Git-Import fehlgeschlagen');
+      setGitResult(data);
+      await onImported();
+    } catch (err: any) {
+      setGitError(err.message || 'Git-Import fehlgeschlagen');
+    } finally {
+      setGitBusy(null);
+    }
+  };
+
+  const handleLinearFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      setLinearExportJson(text);
+      setLinearError(null);
+    } catch {
+      setLinearError('Linear-Export-Datei konnte nicht gelesen werden.');
+    }
+  };
+
+  const handleLinearPreview = async () => {
+    setLinearError(null);
+    setLinearResult(null);
+    setLinearBusy('preview');
+    try {
+      const body =
+        linearMode === 'api'
+          ? { apiKey: linearApiKey.trim(), teamKey: linearTeamKey.trim() || undefined, includeCompleted: linearIncludeCompleted }
+          : { exportJson: linearExportJson.trim() };
+      const res = await fetch(`${API_URL}/api/projects/${projectId}/import/linear/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Linear-Vorschau fehlgeschlagen');
+      setLinearPreview(data.issues || []);
+    } catch (err: any) {
+      setLinearError(err.message || 'Linear-Vorschau fehlgeschlagen');
+    } finally {
+      setLinearBusy(null);
+    }
+  };
+
+  const handleLinearSync = async () => {
+    setLinearError(null);
+    setLinearResult(null);
+    setLinearBusy('sync');
+    try {
+      const body =
+        linearMode === 'api'
+          ? {
+              apiKey: linearApiKey.trim(),
+              teamKey: linearTeamKey.trim() || undefined,
+              includeCompleted: linearIncludeCompleted,
+              importProjectsAsGoals: linearImportGoals,
+            }
+          : {
+              exportJson: linearExportJson.trim(),
+              importProjectsAsGoals: linearImportGoals,
+            };
+      const res = await fetch(`${API_URL}/api/projects/${projectId}/import/linear/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Linear-Import fehlgeschlagen');
+      setLinearResult(data);
+      await onImported();
+    } catch (err: any) {
+      setLinearError(err.message || 'Linear-Import fehlgeschlagen');
+    } finally {
+      setLinearBusy(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-zinc-900/40 backdrop-blur-[1px] flex items-center justify-center p-4">
       <div className="bg-white border border-zinc-200 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -366,7 +556,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 Tickets importieren & synchronisieren ({projectName})
               </h2>
               <p className="text-[11px] text-zinc-500">
-                Einfacher Umstieg aus Jira (inkl. Echtzeit-Webhook) oder beliebigen CSV-Exporten.
+                Einfacher Umstieg aus Jira, GitHub/GitLab Issues, Linear oder beliebigen CSV-Exporten.
               </p>
             </div>
           </div>
@@ -380,28 +570,52 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* Tabs */}
-        <div className="px-6 pt-3 border-b border-zinc-200 flex items-center gap-2 bg-zinc-50/60">
+        <div className="px-6 pt-3 border-b border-zinc-200 flex items-center gap-2 bg-zinc-50/60 overflow-x-auto">
           <button
             type="button"
             onClick={() => setTab('jira')}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition cursor-pointer whitespace-nowrap ${
               tab === 'jira'
                 ? 'border-teal-700 text-teal-800'
                 : 'border-transparent text-zinc-500 hover:text-zinc-800'
             }`}
           >
-            Jira Cloud / Server Sync
+            Jira Cloud / Server
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('git')}
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              tab === 'git'
+                ? 'border-teal-700 text-teal-800'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800'
+            }`}
+          >
+            <FolderGit2 className="w-3.5 h-3.5" />
+            <span>GitHub / GitLab Issues</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('linear')}
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+              tab === 'linear'
+                ? 'border-teal-700 text-teal-800'
+                : 'border-transparent text-zinc-500 hover:text-zinc-800'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Linear</span>
           </button>
           <button
             type="button"
             onClick={() => setTab('csv')}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition cursor-pointer whitespace-nowrap ${
               tab === 'csv'
                 ? 'border-teal-700 text-teal-800'
                 : 'border-transparent text-zinc-500 hover:text-zinc-800'
             }`}
           >
-            CSV-Import (Trello, Linear, Asana, Jira)
+            CSV-Import
           </button>
         </div>
 
@@ -622,6 +836,364 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 </div>
               </div>
             </>
+          ) : tab === 'git' ? (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 flex items-start gap-2.5">
+                <FolderGit2 className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-zinc-800">GitHub &amp; GitLab Issues Import:</span>{' '}
+                  Nutzt automatisch deinen hinterlegten Git-Token (OAuth/PAT aus der Versionskontrolle) oder ein optionales Token unten. Labels und Milestones (als Ziele) werden mitübernommen; Duplikate werden über{' '}
+                  <code className="font-mono text-[11px]">externalSource / externalKey</code> verhindert.
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                    Provider
+                  </label>
+                  <select
+                    value={gitProvider}
+                    onChange={(e) => setGitProvider(e.target.value as 'github' | 'gitlab')}
+                    className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                  >
+                    <option value="github">GitHub</option>
+                    <option value="gitlab">GitLab</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                    Repository ({gitProvider === 'github' ? 'owner/repo' : 'group/project'})
+                  </label>
+                  <input
+                    type="text"
+                    value={gitRepo}
+                    onChange={(e) => setGitRepo(e.target.value)}
+                    placeholder={gitProvider === 'github' ? 'z. B. mxw02/kanso' : 'z. B. team/backend-api'}
+                    className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                    Issue-Status
+                  </label>
+                  <select
+                    value={gitState}
+                    onChange={(e) => setGitState(e.target.value as 'open' | 'closed' | 'all')}
+                    className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                  >
+                    <option value="open">Nur offene Issues</option>
+                    <option value="closed">Nur geschlossene Issues</option>
+                    <option value="all">Alle (offen + geschlossen)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                    Token-Override (optional)
+                  </label>
+                  <input
+                    type="password"
+                    value={gitTokenOverride}
+                    onChange={(e) => setGitTokenOverride(e.target.value)}
+                    placeholder="Leer lassen = Git-Verbindung nutzen"
+                    className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                  />
+                </div>
+                {gitProvider === 'gitlab' && (
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                      GitLab Instanz-URL (optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={gitInstanceUrl}
+                      onChange={(e) => setGitInstanceUrl(e.target.value)}
+                      placeholder="https://gitlab.com"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-700">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={importMilestones}
+                    onChange={(e) => setImportMilestones(e.target.checked)}
+                    className="rounded border-zinc-300 text-teal-700 focus:ring-teal-600"
+                  />
+                  <span>Milestones als Kanso-Ziele importieren &amp; verknüpfen</span>
+                </label>
+                {gitProvider === 'github' && (
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includePullRequests}
+                      onChange={(e) => setIncludePullRequests(e.target.checked)}
+                      className="rounded border-zinc-300 text-teal-700 focus:ring-teal-600"
+                    />
+                    <span>Pull Requests mit einbeziehen</span>
+                  </label>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={gitBusy !== null}
+                  onClick={handleGitPreview}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 transition cursor-pointer disabled:opacity-50"
+                >
+                  {gitBusy === 'preview' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>Vorschau laden</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={gitBusy !== null}
+                  onClick={handleGitSync}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                >
+                  {gitBusy === 'sync' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowDownToLine className="w-3.5 h-3.5" />}
+                  <span>Issues importieren &amp; synchronisieren</span>
+                </button>
+                {gitHasSavedToken !== null && (
+                  <span className="text-[11px] text-zinc-500 ml-auto">
+                    {gitHasSavedToken ? 'Token aktiv (auch private Repos)' : 'Ohne Token (nur öffentliche Repos)'}
+                  </span>
+                )}
+              </div>
+
+              {gitError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{gitError}</span>
+                </div>
+              )}
+
+              {gitResult && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>
+                    Import abgeschlossen: <strong>{gitResult.created}</strong> neu erstellt,{' '}
+                    <strong>{gitResult.updated}</strong> aktualisiert (von {gitResult.total} Issues)
+                    {(gitResult.goalsCreated || 0) + (gitResult.goalsUpdated || 0) > 0 && (
+                      <> · Milestones/Ziele: <strong>{gitResult.goalsCreated || 0}</strong> neu, <strong>{gitResult.goalsUpdated || 0}</strong> aktualisiert</>
+                    )}.
+                  </span>
+                </div>
+              )}
+
+              {gitPreview.length > 0 && (
+                <div className="border border-zinc-200 rounded-xl overflow-hidden">
+                  <div className="px-3.5 py-2 bg-zinc-50 border-b border-zinc-200 text-[11px] font-semibold text-zinc-600">
+                    Vorschau: {gitPreview.length} gefundene Issues
+                  </div>
+                  <div className="max-h-56 overflow-y-auto divide-y divide-zinc-100 text-xs">
+                    {gitPreview.slice(0, 50).map((item) => (
+                      <div key={item.externalKey} className="px-3.5 py-2 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="font-mono text-[11px] text-zinc-500 mr-2">{item.externalKey}</span>
+                          <span className="font-medium text-zinc-800 truncate">{item.title}</span>
+                          {item.milestone && (
+                            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-200">
+                              {item.milestone}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {item.labels?.slice(0, 2).map((l: string) => (
+                            <span key={l} className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600">
+                              {l}
+                            </span>
+                          ))}
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-semibold">
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : tab === 'linear' ? (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-600 flex items-start gap-2.5">
+                <Layers className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-zinc-800">Linear Import (API-Key oder JSON-Export):</span>{' '}
+                  Importiert Issues inkl. Priorität, Status, Labels und Linear-Projekten (als Ziele). Duplikate werden beim erneuten Import über{' '}
+                  <code className="font-mono text-[11px]">externalSource=&quot;linear&quot;</code> + <code className="font-mono text-[11px]">externalKey</code> automatisch aktualisiert statt doppelt angelegt.
+                </div>
+              </div>
+
+              <div className="inline-flex p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setLinearMode('api')}
+                  className={`px-3 py-1 rounded-md font-semibold transition cursor-pointer ${
+                    linearMode === 'api' ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
+                >
+                  Via Linear API-Key
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLinearMode('export')}
+                  className={`px-3 py-1 rounded-md font-semibold transition cursor-pointer ${
+                    linearMode === 'export' ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
+                >
+                  Via JSON-Export
+                </button>
+              </div>
+
+              {linearMode === 'api' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                      Linear Personal API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={linearApiKey}
+                      onChange={(e) => setLinearApiKey(e.target.value)}
+                      placeholder="lin_api_xxxxxxxxxxxxxxxxxxxx"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                      Team-Key (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={linearTeamKey}
+                      onChange={(e) => setLinearTeamKey(e.target.value)}
+                      placeholder="z. B. ENG"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-zinc-300 rounded-xl bg-zinc-50/50 hover:bg-zinc-50 hover:border-teal-500 transition cursor-pointer text-xs font-semibold text-zinc-700">
+                    <Upload className="w-4 h-4 text-teal-700" />
+                    <span>Linear JSON-Datei laden</span>
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLinearFile(file);
+                      }}
+                    />
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={linearExportJson}
+                    onChange={(e) => setLinearExportJson(e.target.value)}
+                    placeholder='JSON-Array oder {"issues": [...]} aus Linear einfügen...'
+                    className="w-full px-3 py-2 text-xs font-mono bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-700">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={linearImportGoals}
+                    onChange={(e) => setLinearImportGoals(e.target.checked)}
+                    className="rounded border-zinc-300 text-teal-700 focus:ring-teal-600"
+                  />
+                  <span>Linear-Projekte als Kanso-Ziele übernehmen</span>
+                </label>
+                {linearMode === 'api' && (
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={linearIncludeCompleted}
+                      onChange={(e) => setLinearIncludeCompleted(e.target.checked)}
+                      className="rounded border-zinc-300 text-teal-700 focus:ring-teal-600"
+                    />
+                    <span>Abgeschlossene Issues mit importieren</span>
+                  </label>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={linearBusy !== null}
+                  onClick={handleLinearPreview}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-semibold text-zinc-700 transition cursor-pointer disabled:opacity-50"
+                >
+                  {linearBusy === 'preview' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  <span>Vorschau laden</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={linearBusy !== null}
+                  onClick={handleLinearSync}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                >
+                  {linearBusy === 'sync' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowDownToLine className="w-3.5 h-3.5" />}
+                  <span>Aus Linear importieren</span>
+                </button>
+              </div>
+
+              {linearError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{linearError}</span>
+                </div>
+              )}
+
+              {linearResult && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>
+                    Linear-Import abgeschlossen: <strong>{linearResult.created}</strong> neu erstellt,{' '}
+                    <strong>{linearResult.updated}</strong> aktualisiert (Duplikat-Schutz aktiv)
+                    {(linearResult.goalsCreated || 0) + (linearResult.goalsUpdated || 0) > 0 && (
+                      <> · Projekte/Ziele: <strong>{linearResult.goalsCreated || 0}</strong> neu, <strong>{linearResult.goalsUpdated || 0}</strong> aktualisiert</>
+                    )}.
+                  </span>
+                </div>
+              )}
+
+              {linearPreview.length > 0 && (
+                <div className="border border-zinc-200 rounded-xl overflow-hidden">
+                  <div className="px-3.5 py-2 bg-zinc-50 border-b border-zinc-200 text-[11px] font-semibold text-zinc-600">
+                    Vorschau: {linearPreview.length} gefundene Linear-Issues
+                  </div>
+                  <div className="max-h-56 overflow-y-auto divide-y divide-zinc-100 text-xs">
+                    {linearPreview.slice(0, 50).map((item) => (
+                      <div key={item.externalKey} className="px-3.5 py-2 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="font-mono text-[11px] text-indigo-600 mr-2">{item.externalKey}</span>
+                          <span className="font-medium text-zinc-800 truncate">{item.title}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-semibold">
+                            {item.status}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-100 text-zinc-600">
+                            {item.priority}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="space-y-4">
               <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-zinc-300 rounded-xl bg-zinc-50/50 hover:bg-zinc-50 hover:border-teal-500 transition cursor-pointer">

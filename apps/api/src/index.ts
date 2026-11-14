@@ -15,6 +15,7 @@ import {
 } from './agent-features';
 import { decryptSecret, encryptSecret } from './crypto';
 import { registerImportRoutes } from './jira-import';
+import { registerExternalImportRoutes } from './external-import';
 import { registerUploadRoutes } from './uploads';
 import { getMentionCandidates, resolveMentions } from './mentions';
 import {
@@ -2815,6 +2816,7 @@ async function buildServer(): Promise<FastifyInstance> {
 
   registerAgentFeatureRoutes(app, prisma, broadcastEvent);
   registerImportRoutes(app, prisma, broadcastEvent);
+  registerExternalImportRoutes(app, prisma, broadcastEvent);
   registerUploadRoutes(app);
   registerOidcAndRbacRoutes({
     app,

@@ -1673,6 +1673,8 @@ export default function App() {
           projectId={activeProject.id}
           projectName={activeProject.name}
           columns={activeColumns}
+          defaultGitProvider={activeProject.gitProvider}
+          defaultGitRepo={activeProject.gitRepo}
           onImported={async () => {
             await fetchGoals();
             await fetchIssues();
