@@ -2,12 +2,12 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { AssigneeType, GoalStatus, IssuePriority, IssueType, PrismaClient } from '@prisma/client';
 import { decryptSecret, encryptSecret } from './crypto';
 
-interface ProjectColumn {
+export interface ProjectColumn {
   id: string;
   title: string;
 }
 
-interface MappedExternalIssue {
+export interface MappedExternalIssue {
   externalSource: string;
   externalKey: string;
   externalUrl?: string | null;
@@ -48,7 +48,7 @@ function extractJiraDescription(raw: unknown): string | null {
   return text || null;
 }
 
-function mapJiraPriority(name?: string | null): IssuePriority {
+export function mapJiraPriority(name?: string | null): IssuePriority {
   const norm = (name || '').toLowerCase();
   if (norm.includes('highest') || norm.includes('blocker') || norm.includes('critical') || norm.includes('urgent')) {
     return IssuePriority.URGENT;
@@ -58,7 +58,7 @@ function mapJiraPriority(name?: string | null): IssuePriority {
   return IssuePriority.MEDIUM;
 }
 
-function mapJiraType(name?: string | null): IssueType {
+export function mapJiraType(name?: string | null): IssueType {
   const norm = (name || '').toLowerCase();
   if (norm.includes('bug') || norm.includes('fehler')) return IssueType.BUG;
   if (norm.includes('epic')) return IssueType.EPIC;
@@ -66,7 +66,7 @@ function mapJiraType(name?: string | null): IssueType {
   return IssueType.TASK;
 }
 
-function mapJiraStatus(
+export function mapJiraStatus(
   statusName: string | undefined,
   statusCategoryKey: string | undefined,
   customMapping: Record<string, string> | null | undefined,
@@ -109,7 +109,7 @@ function mapJiraStatus(
   return fallbackFirst;
 }
 
-function getProjectColumns(columnsJson: unknown): ProjectColumn[] {
+export function getProjectColumns(columnsJson: unknown): ProjectColumn[] {
   if (Array.isArray(columnsJson) && columnsJson.length > 0) {
     return columnsJson.map((c: any) => ({ id: String(c.id), title: String(c.title || c.id) }));
   }
@@ -311,7 +311,7 @@ function mapRawJiraIssue(
   };
 }
 
-async function upsertExternalIssue(
+export async function upsertExternalIssue(
   prisma: PrismaClient,
   project: { id: string; key: string },
   mapped: MappedExternalIssue,
