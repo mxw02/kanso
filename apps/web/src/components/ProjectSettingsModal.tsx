@@ -319,7 +319,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0">
+    <div className="flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0 h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]">
       {/* Page Header */}
       <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/60 shrink-0">
         <div className="flex items-center gap-3">
@@ -363,9 +363,9 @@ export const ProjectSettingsModal: React.FC<Props> = ({
       </div>
 
       {/* Body: Left Sidebar Tabs + Right Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Navigation Tabs */}
-          <aside className="w-64 border-r border-zinc-200 bg-zinc-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between">
+          <aside className="w-64 border-r border-zinc-200 bg-zinc-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between overflow-y-auto">
             <div className="space-y-1">
               <button
                 onClick={() => setActiveTab('general')}
