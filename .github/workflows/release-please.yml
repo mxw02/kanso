@@ -1,4 +1,4 @@
-name: Release Please
+name: Auto Release & Docker Publish
 
 on:
   push:
@@ -11,25 +11,85 @@ permissions:
   packages: write
 
 jobs:
-  release-please:
+  auto-release:
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - name: Run release-please
-        id: release
-        uses: googleapis/release-please-action@v4
+      - name: Checkout main (with full tags & history)
+        uses: actions/checkout@v4
         with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          fetch-depth: 0
+
+      - name: Restore develop branch if deleted by GitHub Auto-Delete
+        run: |
+          if ! git ls-remote --exit-code --heads origin develop >/dev/null 2>&1; then
+            echo "develop branch missing after PR merge; recreating at main ($GITHUB_SHA)..."
+            git push origin "${GITHUB_SHA}:refs/heads/develop"
+          else
+            echo "develop branch is present."
+          fi
+
+      - name: Compute next semver tag & create GitHub Release
+        id: release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING_TAG=$(git tag --points-at HEAD "v*" | head -n 1)
+          if [ -n "$EXISTING_TAG" ]; then
+            echo "HEAD already tagged with $EXISTING_TAG, skipping release."
+            echo "release_created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          LAST_TAG=$(git tag --list "v*" --sort=-v:refname | head -n 1)
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="v0.2.0"
+            COMMITS=$(git log -n 20 --pretty=format:"%s%n%b")
+          else
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s%n%b")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            echo "No new commits since $LAST_TAG, skipping release."
+            echo "release_created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          VERSION="${LAST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          MAJOR=${MAJOR:-0}
+          MINOR=${MINOR:-2}
+          PATCH=${PATCH:-0}
+
+          if echo "$COMMITS" | grep -qE "(BREAKING CHANGE|^[a-z]+(\([^)]+\))?!:)"; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif echo "$COMMITS" | grep -qiE "(^|\n)(feat|release)(\([^)]+\))?:"; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEXT_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "Creating release $NEXT_TAG (previous: $LAST_TAG)..."
+          gh release create "$NEXT_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$NEXT_TAG" \
+            --generate-notes
+
+          echo "release_created=true" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${NEXT_TAG}" >> "$GITHUB_OUTPUT"
 
   publish-release-images:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    needs: auto-release
+    if: ${{ needs.auto-release.outputs.release_created == 'true' }}
     permissions:
       contents: read
       packages: write
     uses: ./.github/workflows/docker-publish.yml
     with:
-      release_tag: ${{ needs.release-please.outputs.tag_name }}
+      release_tag: ${{ needs.auto-release.outputs.tag_name }}
