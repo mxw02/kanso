@@ -96,6 +96,7 @@ interface Props {
   canAdmin: boolean;
   embedded?: boolean;
   controlledTab?: ProjectSettingsTabKey;
+  onSaveStateChange?: (state: { isSaving: boolean; saveSuccess: boolean }) => void;
 }
 
 export type ProjectSettingsTabKey = 'general' | 'stages' | 'workflow' | 'templates' | 'agents' | 'git' | 'danger';
@@ -151,6 +152,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   canAdmin,
   embedded = false,
   controlledTab,
+  onSaveStateChange,
 }) => {
   const [internalTab, setInternalTab] = useState<TabKey>('general');
   const activeTab = controlledTab ?? internalTab;
@@ -189,6 +191,10 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    onSaveStateChange?.({ isSaving, saveSuccess });
+  }, [isSaving, saveSuccess, onSaveStateChange]);
   const [errorMsg, setErrorMsg] = useState('');
   const loadedProjectIdRef = React.useRef<string | null>(null);
   const lastSavedSnapshotRef = React.useRef<string>('');
@@ -417,10 +423,10 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
   return (
     <div className={embedded ? 'flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0' : 'flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0 h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]'}>
-      {/* Page Header */}
-      <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/60 shrink-0">
-        <div className="flex items-center gap-3">
-          {!embedded && (
+      {/* Page Header (only when standalone, not embedded inside SettingsPage) */}
+      {!embedded && (
+        <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/60 shrink-0">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -428,37 +434,37 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             >
               <span>← Zurück zum Board</span>
             </button>
-          )}
-          <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700">
-            <Settings className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-zinc-900">Projekteinstellungen</h2>
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-800 font-semibold border border-teal-100">
-                {project.key}
-              </span>
+            <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700">
+              <Settings className="w-4 h-4" />
             </div>
-            <p className="text-xs text-zinc-500">{project.name}</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-zinc-900">Projekteinstellungen</h2>
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-800 font-semibold border border-teal-100">
+                  {project.key}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500">{project.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isSaving ? (
+              <span className="text-zinc-500 text-xs font-medium flex items-center gap-1.5">
+                Speichert...
+              </span>
+            ) : saveSuccess ? (
+              <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5" />
+                Automatisch gespeichert
+              </span>
+            ) : canEdit && activeTab !== 'danger' ? (
+              <span className="text-[11px] text-zinc-400">
+                Änderungen werden automatisch gespeichert
+              </span>
+            ) : null}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {isSaving ? (
-            <span className="text-zinc-500 text-xs font-medium flex items-center gap-1.5">
-              Speichert...
-            </span>
-          ) : saveSuccess ? (
-            <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5" />
-              Automatisch gespeichert
-            </span>
-          ) : canEdit && activeTab !== 'danger' ? (
-            <span className="text-[11px] text-zinc-400">
-              Änderungen werden automatisch gespeichert
-            </span>
-          ) : null}
-        </div>
-      </div>
+      )}
 
       {/* Body: Left Sidebar Tabs + Right Content */}
         <div className="flex-1 flex overflow-hidden min-h-0">

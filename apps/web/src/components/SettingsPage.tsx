@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
+  Check,
   FileText,
   FolderGit2,
   GitBranch,
@@ -76,6 +77,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
     ? (activeTab as UserSettingsTabKey)
     : 'members';
 
+  const [saveState, setSaveState] = useState({ isSaving: false, saveSuccess: false });
+  const handleSaveStateChange = useCallback((next: { isSaving: boolean; saveSuccess: boolean }) => {
+    setSaveState(next);
+  }, []);
+
   const navItemClass = (isActive: boolean, danger = false) =>
     `w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition cursor-pointer ${
       danger
@@ -114,6 +120,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
             </p>
           </div>
         </div>
+        {isProjectTab && project && canEdit && resolvedProjectTab !== 'danger' && (
+          <div className="flex items-center gap-2 shrink-0">
+            {saveState.isSaving ? (
+              <span className="text-zinc-500 text-xs font-medium">Speichert...</span>
+            ) : saveState.saveSuccess ? (
+              <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5" />
+                Automatisch gespeichert
+              </span>
+            ) : (
+              <span className="hidden sm:inline text-[11px] text-zinc-400">
+                Änderungen werden automatisch gespeichert
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Body: Unified Left Sidebar + Right Content */}
@@ -253,6 +275,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
               isOpen
               embedded
               controlledTab={resolvedProjectTab}
+              onSaveStateChange={handleSaveStateChange}
               onClose={onClose}
               project={project}
               onUpdateProject={onUpdateProject}
