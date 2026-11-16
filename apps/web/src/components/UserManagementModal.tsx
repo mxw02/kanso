@@ -18,6 +18,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { SsoOrgAdminPanel } from './SsoOrgAdminPanel';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface UserItem {
   id: string;
@@ -839,10 +840,12 @@ export const UserManagementModal: React.FC<Props> = ({
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(newlyCreatedMcpToken.token);
-                        setCopiedMcpField('token');
-                        setTimeout(() => setCopiedMcpField(null), 2000);
+                      onClick={async () => {
+                        const ok = await copyToClipboard(newlyCreatedMcpToken.token);
+                        if (ok) {
+                          setCopiedMcpField('token');
+                          setTimeout(() => setCopiedMcpField(null), 2000);
+                        }
                       }}
                       className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-semibold cursor-pointer"
                     >
@@ -856,8 +859,8 @@ export const UserManagementModal: React.FC<Props> = ({
                     </code>
                     <button
                       type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
+                      onClick={async () => {
+                        const ok = await copyToClipboard(
                           JSON.stringify(
                             {
                               kanso: {
@@ -871,8 +874,10 @@ export const UserManagementModal: React.FC<Props> = ({
                             2
                           )
                         );
-                        setCopiedMcpField('config');
-                        setTimeout(() => setCopiedMcpField(null), 2000);
+                        if (ok) {
+                          setCopiedMcpField('config');
+                          setTimeout(() => setCopiedMcpField(null), 2000);
+                        }
                       }}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 text-[11px] font-medium shrink-0 cursor-pointer"
                     >
@@ -896,28 +901,7 @@ export const UserManagementModal: React.FC<Props> = ({
                     {mcpTokens.map((t) => {
                       const isRevoked = Boolean(t.revokedAt);
                       const isExpired = Boolean(t.expiresAt && new Date(t.expiresAt) <= new Date());
-                      if (embedded) {
-    return (
-      <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
-        <div className="max-w-5xl mx-auto space-y-5">
-          {errorMsg && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-          {successMsg && (
-            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
-              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-        </div>
-      </main>
-    );
-  }
-
-  return (
+                      return (
                         <div key={t.id} className="px-4 py-3 flex items-center justify-between gap-3 text-xs">
                           <div className="min-w-0 space-y-0.5">
                             <div className="flex items-center gap-2">

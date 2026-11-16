@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   X,
   Settings,
@@ -1464,11 +1465,13 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       <span className="text-xs font-semibold text-zinc-800">Kanso Webhook URL</span>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           const url = `http://localhost:4001/api/webhooks/git`;
-                          navigator.clipboard.writeText(url);
-                          setCopiedWebhook(true);
-                          setTimeout(() => setCopiedWebhook(false), 2000);
+                          const ok = await copyToClipboard(url);
+                          if (ok) {
+                            setCopiedWebhook(true);
+                            setTimeout(() => setCopiedWebhook(false), 2000);
+                          }
                         }}
                         className="flex items-center gap-1 text-[11px] text-teal-700 hover:text-teal-900 font-medium transition"
                       >
