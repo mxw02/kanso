@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   X,
   Settings,
@@ -94,9 +95,13 @@ interface Props {
   onDeleteProject: (projectId: string) => Promise<void>;
   canEdit: boolean;
   canAdmin: boolean;
+  embedded?: boolean;
+  controlledTab?: ProjectSettingsTabKey;
+  onSaveStateChange?: (state: { isSaving: boolean; saveSuccess: boolean }) => void;
 }
 
-type TabKey = 'general' | 'stages' | 'workflow' | 'templates' | 'agents' | 'git' | 'danger';
+export type ProjectSettingsTabKey = 'general' | 'stages' | 'workflow' | 'templates' | 'agents' | 'git' | 'danger';
+type TabKey = ProjectSettingsTabKey;
 
 const DEFAULT_STAGES: StatusColumn[] = [
   { id: 'BACKLOG', title: 'Backlog' },
@@ -146,8 +151,13 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   onDeleteProject,
   canEdit,
   canAdmin,
+  embedded = false,
+  controlledTab,
+  onSaveStateChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabKey>('general');
+  const [internalTab, setInternalTab] = useState<TabKey>('general');
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = setInternalTab;
   const [name, setName] = useState('');
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
@@ -182,32 +192,166 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (project && isOpen) {
-      setName(project.name || '');
-      setKey(project.key || '');
-      setDescription(project.description || '');
+    onSaveStateChange?.({ isSaving, saveSuccess });
+  }, [isSaving, saveSuccess, onSaveStateChange]);
+  const [errorMsg, setErrorMsg] = useState('');
+  const loadedProjectIdRef = React.useRef<string | null>(null);
+  const lastSavedSnapshotRef = React.useRef<string>('');
+
+  const buildPayload = (
+    vals: {
+      name: string;
+      key: string;
+      description: string;
+      columns: StatusColumn[];
+      stageAgents: Record<string, { agentName: string; autoAssign: boolean }>;
+      workflowName: string;
+      enforceStrictTransitions: boolean;
+      transitions: any[];
+      issueTemplates: IssueTemplate[];
+      gitProvider: 'GITHUB' | 'GITLAB';
+      gitRepo: string;
+      gitBranch: string;
+    }
+  ) => ({
+    name: vals.name.trim(),
+    key: vals.key.toUpperCase().trim(),
+    description: vals.description.trim(),
+    columns: vals.columns,
+    stageAgents: vals.stageAgents,
+    workflowRules: {
+      name: vals.workflowName.trim() || 'Custom Workflow',
+      enforceStrictTransitions: vals.enforceStrictTransitions,
+      transitions: vals.transitions,
+    },
+    issueTemplates: vals.issueTemplates,
+    gitProvider: vals.gitRepo.trim() ? vals.gitProvider : undefined,
+    gitRepo: vals.gitRepo.trim() || undefined,
+    gitBranch: vals.gitRepo.trim() ? (vals.gitBranch.trim() || 'main') : undefined,
+  });
+
+  useEffect(() => {
+    if (!isOpen) {
+      loadedProjectIdRef.current = null;
+      return;
+    }
+    if (project && loadedProjectIdRef.current !== project.id) {
+      loadedProjectIdRef.current = project.id;
+      const initName = project.name || '';
+      const initKey = project.key || '';
+      const initDesc = project.description || '';
       const cols = project.columns && project.columns.length > 0 ? [...project.columns] : [...DEFAULT_STAGES];
+      const initStageAgents = project.stageAgents ? { ...project.stageAgents } : {};
+      const initWfName = project.workflowRules?.name || 'Standard Agent-First Workflow';
+      const initStrict = Boolean(project.workflowRules?.enforceStrictTransitions);
+      const initTransitions = Array.isArray(project.workflowRules?.transitions) ? [...project.workflowRules!.transitions] : [];
+      const initTemplates = resolveProjectTemplates(project.issueTemplates).map((t) => ({
+        ...t,
+        labels: [...t.labels],
+        proofOfWorkChecks: [...t.proofOfWorkChecks],
+      }));
+      const initGitProvider = ((project.gitProvider as any) || 'GITHUB') as 'GITHUB' | 'GITLAB';
+      const initGitRepo = project.gitRepo || '';
+      const initGitBranch = project.gitBranch || 'main';
+
+      setName(initName);
+      setKey(initKey);
+      setDescription(initDesc);
       setColumns(cols);
-      setStageAgents(project.stageAgents ? { ...project.stageAgents } : {});
-      setWorkflowName(project.workflowRules?.name || 'Standard Agent-First Workflow');
-      setEnforceStrictTransitions(Boolean(project.workflowRules?.enforceStrictTransitions));
-      setTransitions(Array.isArray(project.workflowRules?.transitions) ? [...project.workflowRules!.transitions] : []);
-      setIssueTemplates(resolveProjectTemplates(project.issueTemplates).map((t) => ({ ...t, labels: [...t.labels], proofOfWorkChecks: [...t.proofOfWorkChecks] })));
+      setStageAgents(initStageAgents);
+      setWorkflowName(initWfName);
+      setEnforceStrictTransitions(initStrict);
+      setTransitions(initTransitions);
+      setIssueTemplates(initTemplates);
       setSelectedWorkflowStageId(cols[Math.min(1, cols.length - 1)]?.id || cols[0]?.id || '');
-      setGitProvider((project.gitProvider as any) || 'GITHUB');
-      setGitRepo(project.gitRepo || '');
-      setGitBranch(project.gitBranch || 'main');
+      setGitProvider(initGitProvider);
+      setGitRepo(initGitRepo);
+      setGitBranch(initGitBranch);
       setCopiedWebhook(false);
       setNewStageTitle('');
       setDeleteConfirmation('');
       setSaveSuccess(false);
       setErrorMsg('');
       setActiveTab('general');
+
+      lastSavedSnapshotRef.current = JSON.stringify(
+        buildPayload({
+          name: initName,
+          key: initKey,
+          description: initDesc,
+          columns: cols,
+          stageAgents: initStageAgents,
+          workflowName: initWfName,
+          enforceStrictTransitions: initStrict,
+          transitions: initTransitions,
+          issueTemplates: initTemplates,
+          gitProvider: initGitProvider,
+          gitRepo: initGitRepo,
+          gitBranch: initGitBranch,
+        })
+      );
     }
   }, [project, isOpen]);
+
+  // Auto-save project settings with 600ms debounce
+  useEffect(() => {
+    if (!isOpen || !project || !canEdit) return;
+    if (loadedProjectIdRef.current !== project.id) return;
+
+    const payload = buildPayload({
+      name,
+      key,
+      description,
+      columns,
+      stageAgents,
+      workflowName,
+      enforceStrictTransitions,
+      transitions,
+      issueTemplates,
+      gitProvider,
+      gitRepo,
+      gitBranch,
+    });
+    const serialized = JSON.stringify(payload);
+    if (serialized === lastSavedSnapshotRef.current) return;
+
+    if (!payload.name || !payload.key) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setIsSaving(true);
+        setErrorMsg('');
+        await onUpdateProject(project.id, payload);
+        lastSavedSnapshotRef.current = serialized;
+        setSaveSuccess(true);
+        window.setTimeout(() => setSaveSuccess(false), 2000);
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Fehler beim Speichern der Einstellungen.');
+      } finally {
+        setIsSaving(false);
+      }
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isOpen,
+    project,
+    canEdit,
+    name,
+    key,
+    description,
+    columns,
+    stageAgents,
+    workflowName,
+    enforceStrictTransitions,
+    transitions,
+    issueTemplates,
+    gitProvider,
+    gitRepo,
+    gitBranch,
+  ]);
 
   if (!isOpen || !project) return null;
 
@@ -259,46 +403,6 @@ export const ProjectSettingsModal: React.FC<Props> = ({
     }
   };
 
-  // Save Settings
-  const handleSave = async () => {
-    if (!canEdit) return;
-    if (!name.trim()) {
-      setErrorMsg('Projektname darf nicht leer sein.');
-      return;
-    }
-    if (!key.trim()) {
-      setErrorMsg('Projekt-Kürzel darf nicht leer sein.');
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      setErrorMsg('');
-      await onUpdateProject(project.id, {
-        name: name.trim(),
-        key: key.toUpperCase().trim(),
-        description: description.trim(),
-        columns,
-        stageAgents,
-        workflowRules: {
-          name: workflowName.trim() || 'Custom Workflow',
-          enforceStrictTransitions,
-          transitions,
-        },
-        issueTemplates,
-        gitProvider: gitRepo.trim() ? gitProvider : undefined,
-        gitRepo: gitRepo.trim() || undefined,
-        gitBranch: gitRepo.trim() ? (gitBranch.trim() || 'main') : undefined,
-      });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Fehler beim Speichern der Einstellungen.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Delete Project
   const handleDelete = async () => {
     if (!canAdmin) return;
@@ -319,53 +423,55 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0 h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]">
-      {/* Page Header */}
-      <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/60 shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition"
-          >
-            <span>← Zurück zum Board</span>
-          </button>
-          <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700">
-            <Settings className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-zinc-900">Projekteinstellungen</h2>
-              <span className="font-mono text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-800 font-semibold border border-teal-100">
-                {project.key}
-              </span>
-            </div>
-            <p className="text-xs text-zinc-500">{project.name}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {saveSuccess && (
-            <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5 mr-2">
-              <Check className="w-3.5 h-3.5" />
-              Gespeichert
-            </span>
-          )}
-          {canEdit && activeTab !== 'danger' && (
+    <div className={embedded ? 'flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0' : 'flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0 h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]'}>
+      {/* Page Header (only when standalone, not embedded inside SettingsPage) */}
+      {!embedded && (
+        <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/60 shrink-0">
+          <div className="flex items-center gap-3">
             <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5"
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition"
             >
-              {isSaving ? 'Speichern...' : 'Änderungen speichern'}
+              <span>← Zurück zum Board</span>
             </button>
-          )}
+            <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700">
+              <Settings className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-zinc-900">Projekteinstellungen</h2>
+                <span className="font-mono text-xs px-2 py-0.5 rounded bg-teal-50 text-teal-800 font-semibold border border-teal-100">
+                  {project.key}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500">{project.name}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isSaving ? (
+              <span className="text-zinc-500 text-xs font-medium flex items-center gap-1.5">
+                Speichert...
+              </span>
+            ) : saveSuccess ? (
+              <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5" />
+                Automatisch gespeichert
+              </span>
+            ) : canEdit && activeTab !== 'danger' ? (
+              <span className="text-[11px] text-zinc-400">
+                Änderungen werden automatisch gespeichert
+              </span>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Body: Left Sidebar Tabs + Right Content */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Navigation Tabs */}
-          <aside className="w-64 border-r border-zinc-200 bg-zinc-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between overflow-y-auto">
+          {!embedded && (
+            <aside className="w-64 border-r border-zinc-200 bg-zinc-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between overflow-y-auto">
             <div className="space-y-1">
               <button
                 onClick={() => setActiveTab('general')}
@@ -455,12 +561,14 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 </button>
               </div>
             )}
-          </aside>
+            </aside>
+          )}
 
           {/* Right Content Area */}
-          <main className="flex-1 overflow-y-auto p-6 bg-white">
+          <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
+            <div className="max-w-5xl mx-auto space-y-5">
             {errorMsg && (
-              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
@@ -468,7 +576,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB 1: ALLGEMEIN */}
             {activeTab === 'general' && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900">Projekt-Stammdaten</h3>
                   <p className="text-xs text-zinc-500 mt-0.5">
@@ -581,7 +689,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 )}
 
                 {/* Stages List */}
-                <div className="space-y-2 max-w-2xl">
+                <div className="space-y-2">
                   {columns.map((col, index) => (
                     <div
                       key={col.id || index}
@@ -755,7 +863,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
               }
 
               return (
-                <div className="space-y-5 max-w-4xl">
+                <div className="space-y-5">
                   {/* Header + Presets */}
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -1117,7 +1225,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             })()}
 
             {activeTab === 'agents' && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900">Autonome KI-Agenten & MCP</h3>
                   <p className="text-xs text-zinc-500 mt-0.5">
@@ -1277,7 +1385,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB: GIT & WEBHOOKS */}
             {activeTab === 'git' && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900">Git-Repository & Webhooks</h3>
                   <p className="text-xs text-zinc-500 mt-0.5">
@@ -1357,11 +1465,13 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                       <span className="text-xs font-semibold text-zinc-800">Kanso Webhook URL</span>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           const url = `http://localhost:4001/api/webhooks/git`;
-                          navigator.clipboard.writeText(url);
-                          setCopiedWebhook(true);
-                          setTimeout(() => setCopiedWebhook(false), 2000);
+                          const ok = await copyToClipboard(url);
+                          if (ok) {
+                            setCopiedWebhook(true);
+                            setTimeout(() => setCopiedWebhook(false), 2000);
+                          }
                         }}
                         className="flex items-center gap-1 text-[11px] text-teal-700 hover:text-teal-900 font-medium transition"
                       >
@@ -1390,7 +1500,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB: TICKET-VORLAGEN */}
             {activeTab === 'templates' && (
-              <div className="space-y-5 max-w-2xl">
+              <div className="space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-bold text-zinc-900">Ticket-Vorlagen (Templates)</h3>
@@ -1587,7 +1697,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB 4: GEFAHRENZONE */}
             {activeTab === 'danger' && canAdmin && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-red-600 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4" />
@@ -1628,6 +1738,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 </div>
               </div>
             )}
+            </div>
           </main>
         </div>
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   Bot,
   User,
@@ -258,10 +259,12 @@ export const IssueDetailModal: React.FC<Props> = ({
     .replace(/^-|-$/g, '')
     .slice(0, 36)}`;
 
-  const handleCopyBranch = () => {
-    navigator.clipboard.writeText(`git checkout -b ${branchName}`);
-    setCopiedBranch(true);
-    setTimeout(() => setCopiedBranch(false), 2000);
+  const handleCopyBranch = async () => {
+    const ok = await copyToClipboard(`git checkout -b ${branchName}`);
+    if (ok) {
+      setCopiedBranch(true);
+      setTimeout(() => setCopiedBranch(false), 2000);
+    }
   };
 
   const handleSaveDescription = async () => {

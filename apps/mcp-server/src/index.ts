@@ -10,6 +10,7 @@ import {
   GetPromptRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import express, { Request, Response } from 'express';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -17,6 +18,50 @@ dotenv.config();
 const API_BASE_URL = process.env.KANSO_API_URL || process.env.API_BASE_URL || 'http://localhost:4000';
 const MCP_PORT = parseInt(process.env.MCP_PORT || '3001', 10);
 const MCP_TRANSPORT = process.env.MCP_TRANSPORT || 'sse'; // 'sse' or 'stdio'
+const MCP_BEARER_TOKEN = (process.env.MCP_BEARER_TOKEN || process.env.KANSO_MCP_TOKEN || '').trim();
+const KANSO_API_TOKEN = (process.env.KANSO_API_TOKEN || process.env.API_TOKEN || '').trim();
+
+function tokensMatch(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(provided, 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+async function verifyBearerAuth(req: Request, res: Response): Promise<boolean> {
+  const authHeader = req.headers.authorization || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  const provided = match ? match[1].trim() : '';
+
+  if (MCP_BEARER_TOKEN && provided && tokensMatch(MCP_BEARER_TOKEN, provided)) {
+    return true;
+  }
+
+  // Also check UI-managed tokens stored in the Kanso API database
+  if (!MCP_BEARER_TOKEN || provided) {
+    try {
+      const verifyRes = await fetch(`${API_BASE_URL}/api/mcp/verify-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: provided || undefined }),
+      });
+      if (verifyRes.ok) {
+        const data = (await verifyRes.json()) as { valid?: boolean; authRequired?: boolean };
+        if (data.valid) {
+          // If MCP_BEARER_TOKEN is configured in env, still require an explicit token
+          if (!MCP_BEARER_TOKEN || provided) return true;
+        }
+      }
+    } catch {
+      // If API is unreachable and no env token is required, allow local dev fallback
+      if (!MCP_BEARER_TOKEN && !provided) return true;
+    }
+  }
+
+  res.setHeader('WWW-Authenticate', 'Bearer realm="kanso-mcp-server"');
+  res.status(401).json({ error: 'Unauthorized: invalid or missing Bearer token' });
+  return false;
+}
 
 // Helper for making API calls to Kanso backend
 async function fetchApi(path: string, options: RequestInit = {}) {
@@ -26,6 +71,7 @@ async function fetchApi(path: string, options: RequestInit = {}) {
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      ...(KANSO_API_TOKEN ? { Authorization: `Bearer ${KANSO_API_TOKEN}` } : {}),
       ...(options.headers || {}),
     },
   });
@@ -732,7 +778,7 @@ async function main() {
     app.use((req, res, next) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       if (req.method === 'OPTIONS') {
         res.sendStatus(200);
         return;
@@ -746,12 +792,14 @@ async function main() {
         service: 'kanso-mcp-server',
         transport: 'sse',
         backendUrl: API_BASE_URL,
+        authEnabled: Boolean(MCP_BEARER_TOKEN),
       });
     });
 
     const transports = new Map<string, SSEServerTransport>();
 
     app.get('/sse', async (req: Request, res: Response) => {
+      if (!(await verifyBearerAuth(req, res))) return;
       console.log('🔗 Client connected to MCP SSE transport');
       const transport = new SSEServerTransport('/messages', res);
       transports.set(transport.sessionId, transport);
@@ -763,6 +811,7 @@ async function main() {
     });
 
     app.post('/messages', async (req: Request, res: Response) => {
+      if (!(await verifyBearerAuth(req, res))) return;
       const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : '';
       const transport = transports.get(sessionId);
       if (transport) {
@@ -773,7 +822,9 @@ async function main() {
     });
 
     app.listen(MCP_PORT, '0.0.0.0', () => {
-      console.log(`🤖 Kanso MCP Server listening on SSE port http://0.0.0.0:${MCP_PORT}/sse`);
+      console.log(
+        `🤖 Kanso MCP Server listening on SSE port http://0.0.0.0:${MCP_PORT}/sse (Bearer Auth: ${MCP_BEARER_TOKEN ? 'enabled' : 'disabled'})`
+      );
     });
   }
 }

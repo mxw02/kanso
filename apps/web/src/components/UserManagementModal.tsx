@@ -14,8 +14,11 @@ import {
   KeyRound,
   Sparkles,
   Building2,
+  Copy,
+  Plus,
 } from 'lucide-react';
 import { SsoOrgAdminPanel } from './SsoOrgAdminPanel';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface UserItem {
   id: string;
@@ -28,12 +31,16 @@ interface UserItem {
   createdAt?: string;
 }
 
+export type UserSettingsTabKey = 'members' | 'invite' | 'permissions' | 'sso' | 'orgs' | 'mcp';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserItem;
   onUserUpdated?: () => void;
   apiBaseUrl?: string;
+  embedded?: boolean;
+  controlledTab?: UserSettingsTabKey;
 }
 
 export const UserManagementModal: React.FC<Props> = ({
@@ -42,12 +49,32 @@ export const UserManagementModal: React.FC<Props> = ({
   currentUser,
   onUserUpdated,
   apiBaseUrl = 'http://localhost:4001',
+  embedded = false,
+  controlledTab,
 }) => {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'MEMBER' | 'VIEWER'>('ALL');
-  const [activeTab, setActiveTab] = useState<'members' | 'invite' | 'permissions' | 'sso' | 'orgs'>('members');
+  const [internalTab, setInternalTab] = useState<UserSettingsTabKey>('members');
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = setInternalTab;
+
+  // MCP Tokens state
+  const [mcpTokens, setMcpTokens] = useState<Array<{
+    id: string;
+    name: string;
+    prefix: string;
+    lastUsedAt?: string | null;
+    expiresAt?: string | null;
+    revokedAt?: string | null;
+    createdAt: string;
+  }>>([]);
+  const [mcpTokenName, setMcpTokenName] = useState('');
+  const [mcpExpiresDays, setMcpExpiresDays] = useState<string>('');
+  const [mcpCreating, setMcpCreating] = useState(false);
+  const [newlyCreatedMcpToken, setNewlyCreatedMcpToken] = useState<{ name: string; token: string } | null>(null);
+  const [copiedMcpField, setCopiedMcpField] = useState<'token' | 'config' | null>(null);
 
   // Invite Form state
   const [inviteName, setInviteName] = useState('');
@@ -64,8 +91,65 @@ export const UserManagementModal: React.FC<Props> = ({
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
+      if (isAdmin) {
+        fetchMcpTokens();
+      }
     }
   }, [isOpen]);
+
+  const fetchMcpTokens = async () => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/mcp/tokens`);
+      if (res.ok) {
+        const data = await res.json();
+        setMcpTokens(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCreateMcpToken = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mcpTokenName.trim()) return;
+    setMcpCreating(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/mcp/tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: mcpTokenName.trim(),
+          expiresInDays: mcpExpiresDays ? Number(mcpExpiresDays) : null,
+          createdById: currentUser.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Token konnte nicht erstellt werden.');
+      setNewlyCreatedMcpToken({ name: data.name, token: data.token });
+      setMcpTokenName('');
+      setMcpExpiresDays('');
+      await fetchMcpTokens();
+      setSuccessMsg(`MCP Bearer Token "${data.name}" erstellt.`);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Token konnte nicht erstellt werden.');
+    } finally {
+      setMcpCreating(false);
+    }
+  };
+
+  const handleRevokeMcpToken = async (id: string, name: string, alreadyRevoked: boolean) => {
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/mcp/tokens/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Fehler beim Widerrufen des Tokens.');
+      await fetchMcpTokens();
+      setSuccessMsg(alreadyRevoked ? `Token "${name}" gelöscht.` : `Token "${name}" widerrufen.`);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Fehler beim Widerrufen des Tokens.');
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -197,120 +281,153 @@ export const UserManagementModal: React.FC<Props> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-zinc-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-200 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/70">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 shadow-2xs">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-zinc-800">Nutzerverwaltung</h2>
-                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-zinc-200/70 text-zinc-700">
-                  {users.length} {users.length === 1 ? 'Mitglied' : 'Mitglieder'}
-                </span>
-              </div>
-              <p className="text-xs text-zinc-500">
-                Team-Mitglieder, Rollenberechtigungen und autorisierte Git-Identitäten
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-200/60 transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="px-6 border-b border-zinc-100 flex items-center gap-6 bg-white text-xs font-medium text-zinc-500">
+    <div className={embedded ? 'flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-white' : 'fixed inset-0 z-50 bg-white flex flex-col overflow-hidden animate-in fade-in duration-150'}>
+      {/* Page Header */}
+      {!embedded && (
+        <div className="px-4 sm:px-6 py-3.5 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/70 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
-            onClick={() => setActiveTab('members')}
-            className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'members'
-                ? 'border-teal-700 text-teal-700 font-semibold'
-                : 'border-transparent hover:text-zinc-800'
-            }`}
+            onClick={onClose}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition cursor-pointer shrink-0"
           >
-            <Users className="w-3.5 h-3.5" />
-            Mitgliederliste
+            <span>← Zurück zum Board</span>
           </button>
-          {isAdmin && (
+          <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 shrink-0">
+            <Users className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold text-zinc-900 truncate">Nutzerverwaltung &amp; Admin</h2>
+              <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-zinc-200/70 text-zinc-700 shrink-0">
+                {users.length} {users.length === 1 ? 'Mitglied' : 'Mitglieder'}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 truncate">
+              Team-Mitglieder, Rollenberechtigungen, SSO &amp; MCP Tokens
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          title="Schließen"
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-200/60 transition cursor-pointer shrink-0"
+        >
+          <X className="w-4 h-4" />
+        </button>
+        </div>
+      )}
+
+      {/* Body: Left Sidebar + Right Content */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+        {/* Sidebar Navigation */}
+        {!embedded && (
+          <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-zinc-200 bg-zinc-50/70 p-3 md:p-4 shrink-0 flex md:flex-col justify-between gap-2 overflow-x-auto md:overflow-y-auto">
+          <div className="flex md:flex-col gap-1 min-w-0">
             <button
               type="button"
-              onClick={() => setActiveTab('invite')}
-              className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                activeTab === 'invite'
-                  ? 'border-teal-700 text-teal-700 font-semibold'
-                  : 'border-transparent hover:text-zinc-800'
+              onClick={() => setActiveTab('members')}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition cursor-pointer ${
+                activeTab === 'members'
+                  ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
               }`}
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              Nutzer autorisieren
+              <Users className="w-4 h-4 text-zinc-400 shrink-0" />
+              <span>Mitgliederliste</span>
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setActiveTab('permissions')}
-            className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'permissions'
-                ? 'border-teal-700 text-teal-700 font-semibold'
-                : 'border-transparent hover:text-zinc-800'
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5" />
-            Berechtigungsmatrix
-          </button>
-          {isAdmin && (
-            <>
+            {isAdmin && (
               <button
                 type="button"
-                onClick={() => setActiveTab('sso')}
-                className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                  activeTab === 'sso'
-                    ? 'border-teal-700 text-teal-700 font-semibold'
-                    : 'border-transparent hover:text-zinc-800'
+                onClick={() => setActiveTab('invite')}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition cursor-pointer ${
+                  activeTab === 'invite'
+                    ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >
-                <KeyRound className="w-3.5 h-3.5" />
-                SSO & OIDC
+                <UserPlus className="w-4 h-4 text-zinc-400 shrink-0" />
+                <span>Nutzer autorisieren</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('orgs')}
-                className={`py-3 border-b-2 font-medium transition cursor-pointer flex items-center gap-1.5 ${
-                  activeTab === 'orgs'
-                    ? 'border-teal-700 text-teal-700 font-semibold'
-                    : 'border-transparent hover:text-zinc-800'
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                Orgs & Boards
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Feedback Alerts */}
-        {errorMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{errorMsg}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => setActiveTab('permissions')}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition cursor-pointer ${
+                activeTab === 'permissions'
+                  ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+              }`}
+            >
+              <Shield className="w-4 h-4 text-zinc-400 shrink-0" />
+              <span>Berechtigungsmatrix</span>
+            </button>
+            {isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('sso')}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition cursor-pointer ${
+                    activeTab === 'sso'
+                      ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                  }`}
+                >
+                  <KeyRound className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <span>SSO &amp; OIDC</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('orgs')}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition cursor-pointer ${
+                    activeTab === 'orgs'
+                      ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <span>Orgs &amp; Boards</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('mcp')}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition cursor-pointer ${
+                    activeTab === 'mcp'
+                      ? 'bg-white text-teal-800 shadow-xs border border-zinc-200/80 font-semibold'
+                      : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <span>MCP Tokens ({mcpTokens.filter((t) => !t.revokedAt).length})</span>
+                </button>
+              </>
+            )}
           </div>
-        )}
-        {successMsg && (
-          <div className="mx-6 mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{successMsg}</span>
+
+          <div className="hidden md:flex items-center gap-2 pt-3 border-t border-zinc-200 text-[11px] text-zinc-400">
+            <KeyRound className="w-3.5 h-3.5 shrink-0" />
+            <span>Git OAuth Authentifizierung aktiv</span>
           </div>
+          </aside>
         )}
 
-        {/* Tab Content */}
-        <div className="p-6 overflow-y-auto flex-1">
+        {/* Right Content Area */}
+        <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
+          <div className="max-w-5xl mx-auto space-y-5">
+            {/* Feedback Alerts */}
+            {errorMsg && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+            {successMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
           {activeTab === 'members' && (
             <div className="space-y-4">
               {/* Search & Filter Bar */}
@@ -364,7 +481,28 @@ export const UserManagementModal: React.FC<Props> = ({
                     ) : (
                       filteredUsers.map((u) => {
                         const isSelf = u.id === currentUser.id;
-                        return (
+                        if (embedded) {
+    return (
+      <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
+        <div className="max-w-5xl mx-auto space-y-5">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+          {successMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  return (
                           <tr key={u.id} className="hover:bg-zinc-50/70 transition">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
@@ -637,22 +775,178 @@ export const UserManagementModal: React.FC<Props> = ({
               onChanged={onUserUpdated}
             />
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
-          <div className="flex items-center gap-2">
-            <KeyRound className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Git OAuth Authentifizierung aktiv</span>
+          {activeTab === 'mcp' && isAdmin && (
+            <div className="space-y-5">
+              <div className="p-4 rounded-xl bg-teal-50/70 border border-teal-200/80 text-xs text-teal-900">
+                <strong>MCP Bearer Tokens:</strong> Erstelle hier Zugriffstokens für KI-Agenten (z. B. Antigravity, Claude Desktop, CI), damit sich Clients per{' '}
+                <code className="font-mono bg-white/80 px-1.5 py-0.5 rounded border border-teal-200">Authorization: Bearer &lt;token&gt;</code> am Kanso MCP-Server (<code className="font-mono">/sse</code>) authentifizieren können. Sobald mindestens ein aktiver Token existiert, ist der Zugriff geschützt.
+              </div>
+
+              <form onSubmit={handleCreateMcpToken} className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/60 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                      Token-Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={mcpTokenName}
+                      onChange={(e) => setMcpTokenName(e.target.value)}
+                      placeholder="z. B. Antigravity Agent, Claude Desktop, GitHub Actions"
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">
+                      Gültigkeit
+                    </label>
+                    <select
+                      value={mcpExpiresDays}
+                      onChange={(e) => setMcpExpiresDays(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-teal-600"
+                    >
+                      <option value="">Unbegrenzt</option>
+                      <option value="30">30 Tage</option>
+                      <option value="90">90 Tage</option>
+                      <option value="365">365 Tage</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={mcpCreating || !mcpTokenName.trim()}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{mcpCreating ? 'Wird erstellt...' : 'Bearer Token erstellen'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {newlyCreatedMcpToken && (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-2.5 text-xs">
+                  <div className="font-semibold text-amber-900">
+                    Token für „{newlyCreatedMcpToken.name}“ erstellt (wird nur einmal im Klartext angezeigt):
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={newlyCreatedMcpToken.token}
+                      className="flex-1 px-3 py-1.5 font-mono text-[11px] bg-white border border-amber-300 rounded-lg text-zinc-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await copyToClipboard(newlyCreatedMcpToken.token);
+                        if (ok) {
+                          setCopiedMcpField('token');
+                          setTimeout(() => setCopiedMcpField(null), 2000);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 font-semibold cursor-pointer"
+                    >
+                      {copiedMcpField === 'token' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedMcpField === 'token' ? 'Kopiert' : 'Token kopieren'}</span>
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <code className="text-[11px] font-mono text-amber-900/80 truncate">
+                      {`"headers": { "Authorization": "Bearer ${newlyCreatedMcpToken.token}" }`}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await copyToClipboard(
+                          JSON.stringify(
+                            {
+                              kanso: {
+                                serverUrl: `${window.location.protocol}//${window.location.hostname}:3001/sse`,
+                                headers: {
+                                  Authorization: `Bearer ${newlyCreatedMcpToken.token}`,
+                                },
+                              },
+                            },
+                            null,
+                            2
+                          )
+                        );
+                        if (ok) {
+                          setCopiedMcpField('config');
+                          setTimeout(() => setCopiedMcpField(null), 2000);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 text-[11px] font-medium shrink-0 cursor-pointer"
+                    >
+                      {copiedMcpField === 'config' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedMcpField === 'config' ? 'Config kopiert' : 'MCP-Config kopieren'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="border border-zinc-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 text-[11px] font-semibold text-zinc-600">
+                  Vorhandene MCP Tokens ({mcpTokens.length})
+                </div>
+                {mcpTokens.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-zinc-400">
+                    Noch keine MCP Bearer Tokens erstellt.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-zinc-100">
+                    {mcpTokens.map((t) => {
+                      const isRevoked = Boolean(t.revokedAt);
+                      const isExpired = Boolean(t.expiresAt && new Date(t.expiresAt) <= new Date());
+                      return (
+                        <div key={t.id} className="px-4 py-3 flex items-center justify-between gap-3 text-xs">
+                          <div className="min-w-0 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-zinc-800">{t.name}</span>
+                              <span className="font-mono text-[11px] text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">
+                                {t.prefix}
+                              </span>
+                              {isRevoked ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-semibold">
+                                  Widerrufen
+                                </span>
+                              ) : isExpired ? (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                                  Abgelaufen
+                                </span>
+                              ) : (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
+                                  Aktiv
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-zinc-400">
+                              Erstellt: {new Date(t.createdAt).toLocaleDateString('de-DE')}
+                              {t.lastUsedAt && ` · Zuletzt genutzt: ${new Date(t.lastUsedAt).toLocaleString('de-DE')}`}
+                              {t.expiresAt && ` · Läuft ab: ${new Date(t.expiresAt).toLocaleDateString('de-DE')}`}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRevokeMcpToken(t.id, t.name, isRevoked)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-[11px] font-semibold transition cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{isRevoked ? 'Löschen' : 'Widerrufen'}</span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 text-zinc-700 font-medium transition cursor-pointer text-xs"
-          >
-            Schließen
-          </button>
-        </div>
+        </main>
       </div>
     </div>
   );
