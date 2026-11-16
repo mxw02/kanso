@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -823,10 +824,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(webhookUrl);
-                      setCopiedWebhook(true);
-                      setTimeout(() => setCopiedWebhook(false), 2000);
+                    onClick={async () => {
+                      const ok = await copyToClipboard(webhookUrl);
+                      if (ok) {
+                        setCopiedWebhook(true);
+                        setTimeout(() => setCopiedWebhook(false), 2000);
+                      }
                     }}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-xs font-medium text-zinc-700"
                   >
