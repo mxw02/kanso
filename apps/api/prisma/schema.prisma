@@ -474,3 +474,17 @@ model SystemAuthSettings {
 
   @@map("system_auth_settings")
 }
+
+model McpToken {
+  id          String    @id @default(uuid())
+  name        String
+  tokenHash   String    @unique
+  prefix      String
+  createdById String?
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("mcp_tokens")
+}
