@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   X,
   GitBranch,
@@ -883,10 +884,13 @@ export const GitIntegrationModal: React.FC<Props> = ({
                     {webhookUrl}
                   </code>
                   <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(webhookUrl);
-                      setCopiedWebhook(true);
-                      setTimeout(() => setCopiedWebhook(false), 2000);
+                    type="button"
+                    onClick={async () => {
+                      const ok = await copyToClipboard(webhookUrl);
+                      if (ok) {
+                        setCopiedWebhook(true);
+                        setTimeout(() => setCopiedWebhook(false), 2000);
+                      }
                     }}
                     className="px-3 py-1.5 bg-white hover:bg-zinc-100 border border-zinc-200 rounded-lg font-semibold text-zinc-700 flex items-center gap-1 shadow-xs transition"
                   >

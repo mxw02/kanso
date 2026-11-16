@@ -70,6 +70,8 @@ services:
       MCP_PORT: 3001
       MCP_TRANSPORT: sse
       KANSO_API_URL: http://api:4000
+      MCP_BEARER_TOKEN: ${MCP_BEARER_TOKEN:-}
+      KANSO_API_TOKEN: ${KANSO_API_TOKEN:-}
 
   web:
     image: ghcr.io/mxw02/kanso-web:${KANSO_VERSION:-latest}

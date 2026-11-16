@@ -40,10 +40,9 @@ import { CreateProjectModal } from './components/CreateProjectModal';
 import { CommandPalette } from './components/CommandPalette';
 import { ShortcutsModal } from './components/ShortcutsModal';
 import { OnboardingWizard } from './components/OnboardingWizard';
-import { ProjectSettingsModal } from './components/ProjectSettingsModal';
+import { SettingsPage, UnifiedSettingsTab } from './components/SettingsPage';
 import { SprintModal } from './components/SprintModal';
 import { GitIntegrationModal } from './components/GitIntegrationModal';
-import { UserManagementModal } from './components/UserManagementModal';
 import { AuthScreen } from './components/AuthScreen';
 import { buildProjectTree } from './utils/projectTree';
 import { WorkspaceExplorerModal } from './components/WorkspaceExplorerModal';
@@ -144,13 +143,50 @@ export default function App() {
   const [createProjectParentId, setCreateProjectParentId] = useState<string | null>(null);
   const [showWorkspaceExplorer, setShowWorkspaceExplorer] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showSettingsPage, setShowSettingsPage] = useState(() => window.location.pathname === '/einstellungen');
+  const [settingsTab, setSettingsTab] = useState<UnifiedSettingsTab>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab');
+    return (t as UnifiedSettingsTab) || 'general';
+  });
   const [showSprintModal, setShowSprintModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
-  const [showUserManagement, setShowUserManagement] = useState(false);
   const [oauthToast, setOauthToast] = useState<string | null>(null);
+
+  const openSettings = (tab: UnifiedSettingsTab = 'general') => {
+    setSettingsTab(tab);
+    setShowSettingsPage(true);
+    const targetUrl = `/einstellungen?tab=${encodeURIComponent(tab)}`;
+    if (`${window.location.pathname}${window.location.search}` !== targetUrl) {
+      window.history.pushState({}, '', targetUrl);
+    }
+  };
+
+  const selectSettingsTab = (tab: UnifiedSettingsTab) => {
+    setSettingsTab(tab);
+    window.history.replaceState({}, '', `/einstellungen?tab=${encodeURIComponent(tab)}`);
+  };
+
+  const closeSettings = () => {
+    setShowSettingsPage(false);
+    if (window.location.pathname === '/einstellungen') {
+      window.history.pushState({}, '', '/');
+    }
+  };
+
+  useEffect(() => {
+    const onPopState = () => {
+      const isSettings = window.location.pathname === '/einstellungen';
+      setShowSettingsPage(isSettings);
+      if (isSettings) {
+        const t = new URLSearchParams(window.location.search).get('tab');
+        setSettingsTab((t as UnifiedSettingsTab) || 'general');
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   const [sprints, setSprints] = useState<any[]>([]);
   const [goals, setGoals] = useState<GoalItem[]>([]);
   const [focusedIssueIndex, setFocusedIssueIndex] = useState<number>(-1);
@@ -457,7 +493,7 @@ export default function App() {
         setShowCommandPalette(false);
         setShowShortcuts(false);
         setShowSprintModal(false);
-        setShowProjectSettings(false);
+        closeSettings();
         setSelectedIssue(null);
       }
     };
@@ -830,18 +866,9 @@ export default function App() {
               <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             </button>
 
-            {/* Project Quick Actions (Settings, Setup Wizard, Git, New Project) */}
+            {/* Project Quick Actions (Setup Wizard, Git, New Project) */}
             {canEdit && (
               <div className="flex items-center gap-0.5 text-zinc-400">
-                {activeProject && (
-                  <button
-                    onClick={() => setShowProjectSettings(true)}
-                    title="Projekteinstellungen"
-                    className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                )}
                 <button
                   onClick={() => setShowGitModal(true)}
                   title="Git-Integration & Versionskontrolle"
@@ -963,11 +990,11 @@ export default function App() {
               <div className="space-y-0.5">
                 <button
                   type="button"
-                  onClick={() => setShowUserManagement(true)}
+                  onClick={() => openSettings(activeProject ? 'general' : 'members')}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-teal-700 transition cursor-pointer"
                 >
-                  <Users className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Nutzerverwaltung & Rollen</span>
+                  <Settings className="w-3.5 h-3.5 text-zinc-500" />
+                  <span>Einstellungen</span>
                 </button>
 
                 <button
@@ -978,17 +1005,6 @@ export default function App() {
                   <FolderGit2 className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Git-Integration & Repos</span>
                 </button>
-
-                {canAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setShowProjectSettings(true)}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-teal-700 transition cursor-pointer"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-zinc-500" />
-                    <span>Projekteinstellungen</span>
-                  </button>
-                )}
               </div>
 
               {/* Persona Switcher (Multi-User testing) */}
@@ -1105,7 +1121,7 @@ export default function App() {
       {/* ======================================================== */}
       {/* SECONDARY TOOLBAR & FILTER BAR                           */}
       {/* ======================================================== */}
-      {!showProjectSettings && (
+      {!showSettingsPage && (
       <section className="px-4 sm:px-6 min-h-12 py-1.5 w-full max-w-full min-w-0 shrink-0 border-b border-zinc-200/80 bg-white/70 backdrop-blur-sm flex flex-wrap items-center justify-between gap-x-4 gap-y-2 sticky top-14 z-20 text-xs">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 min-w-0 max-w-full">
           {/* View Toggle: Summary vs Board vs List */}
@@ -1422,7 +1438,7 @@ export default function App() {
       )}
 
       {/* Saved Quick-Views Bar */}
-      {!showProjectSettings && viewMode !== 'my-tasks' && activeProject && savedViews.some((v) => v.projectId === activeProject.id) && (
+      {!showSettingsPage && viewMode !== 'my-tasks' && activeProject && savedViews.some((v) => v.projectId === activeProject.id) && (
         <div className="px-6 py-1.5 border-b border-zinc-200/70 bg-zinc-50/80 flex items-center gap-2 flex-wrap text-xs">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
             <Bookmark className="w-3 h-3" />
@@ -1485,16 +1501,20 @@ export default function App() {
       {/* ======================================================== */}
       {/* MAIN VIEW CONTENT                                        */}
       {/* ======================================================== */}
-      <main className={showProjectSettings && activeProject ? 'flex-1 w-full min-w-0 overflow-hidden flex flex-col' : 'flex-1 w-full min-w-0 p-4 sm:p-6 overflow-hidden flex flex-col'}>
-        {showProjectSettings && activeProject ? (
-          <ProjectSettingsModal
-            isOpen={showProjectSettings}
-            onClose={() => setShowProjectSettings(false)}
+      <main className={showSettingsPage ? 'flex-1 w-full min-w-0 overflow-hidden flex flex-col' : 'flex-1 w-full min-w-0 p-4 sm:p-6 overflow-hidden flex flex-col'}>
+        {showSettingsPage ? (
+          <SettingsPage
+            activeTab={settingsTab}
+            onSelectTab={selectSettingsTab}
+            onClose={closeSettings}
             project={activeProject}
             onUpdateProject={handleUpdateProject}
             onDeleteProject={handleDeleteProject}
             canEdit={canEdit}
             canAdmin={canAdmin}
+            currentUser={currentUser}
+            onUserUpdated={fetchData}
+            apiBaseUrl={API_URL}
           />
         ) : projects.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center max-w-md mx-auto py-12">
@@ -1634,8 +1654,8 @@ export default function App() {
         onOpenCreateProject={() => setShowCreateProject(true)}
         onOpenOnboarding={() => setShowOnboarding(true)}
         onOpenGitIntegration={() => setShowGitModal(true)}
-        onOpenUserManagement={() => setShowUserManagement(true)}
-        onOpenProjectSettings={() => setShowProjectSettings(true)}
+        onOpenUserManagement={() => openSettings('members')}
+        onOpenProjectSettings={() => openSettings('general')}
         onOpenSprintManager={() => setShowSprintModal(true)}
         onFilterSprint={(sId) => setFilterSprint(sId)}
         onSetView={(v) => setViewMode(v)}
@@ -1799,15 +1819,6 @@ export default function App() {
           setActiveProject(newProject);
           fetchIssues();
         }}
-      />
-
-      {/* User Management & Roles Modal */}
-      <UserManagementModal
-        isOpen={showUserManagement}
-        onClose={() => setShowUserManagement(false)}
-        currentUser={currentUser}
-        onUserUpdated={fetchData}
-        apiBaseUrl={API_URL}
       />
 
       {/* 1B: HITL Decision Inbox Modal */}
