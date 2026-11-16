@@ -564,9 +564,10 @@ export const ProjectSettingsModal: React.FC<Props> = ({
           )}
 
           {/* Right Content Area */}
-          <main className="flex-1 overflow-y-auto p-6 bg-white">
+          <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
+            <div className="max-w-5xl mx-auto space-y-5">
             {errorMsg && (
-              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
@@ -574,7 +575,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB 1: ALLGEMEIN */}
             {activeTab === 'general' && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900">Projekt-Stammdaten</h3>
                   <p className="text-xs text-zinc-500 mt-0.5">
@@ -687,7 +688,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 )}
 
                 {/* Stages List */}
-                <div className="space-y-2 max-w-2xl">
+                <div className="space-y-2">
                   {columns.map((col, index) => (
                     <div
                       key={col.id || index}
@@ -861,7 +862,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
               }
 
               return (
-                <div className="space-y-5 max-w-4xl">
+                <div className="space-y-5">
                   {/* Header + Presets */}
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -1223,7 +1224,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
             })()}
 
             {activeTab === 'agents' && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900">Autonome KI-Agenten & MCP</h3>
                   <p className="text-xs text-zinc-500 mt-0.5">
@@ -1383,7 +1384,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB: GIT & WEBHOOKS */}
             {activeTab === 'git' && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-zinc-900">Git-Repository & Webhooks</h3>
                   <p className="text-xs text-zinc-500 mt-0.5">
@@ -1496,7 +1497,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB: TICKET-VORLAGEN */}
             {activeTab === 'templates' && (
-              <div className="space-y-5 max-w-2xl">
+              <div className="space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h3 className="text-sm font-bold text-zinc-900">Ticket-Vorlagen (Templates)</h3>
@@ -1693,7 +1694,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
 
             {/* TAB 4: GEFAHRENZONE */}
             {activeTab === 'danger' && canAdmin && (
-              <div className="space-y-6 max-w-xl">
+              <div className="space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-red-600 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4" />
@@ -1734,6 +1735,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 </div>
               </div>
             )}
+            </div>
           </main>
         </div>
     </div>
