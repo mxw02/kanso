@@ -94,9 +94,12 @@ interface Props {
   onDeleteProject: (projectId: string) => Promise<void>;
   canEdit: boolean;
   canAdmin: boolean;
+  embedded?: boolean;
+  controlledTab?: ProjectSettingsTabKey;
 }
 
-type TabKey = 'general' | 'stages' | 'workflow' | 'templates' | 'agents' | 'git' | 'danger';
+export type ProjectSettingsTabKey = 'general' | 'stages' | 'workflow' | 'templates' | 'agents' | 'git' | 'danger';
+type TabKey = ProjectSettingsTabKey;
 
 const DEFAULT_STAGES: StatusColumn[] = [
   { id: 'BACKLOG', title: 'Backlog' },
@@ -146,8 +149,12 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   onDeleteProject,
   canEdit,
   canAdmin,
+  embedded = false,
+  controlledTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabKey>('general');
+  const [internalTab, setInternalTab] = useState<TabKey>('general');
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = setInternalTab;
   const [name, setName] = useState('');
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
@@ -319,17 +326,19 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0 h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]">
+    <div className={embedded ? 'flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0' : 'flex-1 flex flex-col w-full bg-white overflow-hidden min-h-0 h-[calc(100vh-3.5rem)] max-h-[calc(100vh-3.5rem)]'}>
       {/* Page Header */}
       <div className="px-6 py-4 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/60 shrink-0">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition"
-          >
-            <span>← Zurück zum Board</span>
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 transition"
+            >
+              <span>← Zurück zum Board</span>
+            </button>
+          )}
           <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700">
             <Settings className="w-4 h-4" />
           </div>
@@ -365,7 +374,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
       {/* Body: Left Sidebar Tabs + Right Content */}
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* Navigation Tabs */}
-          <aside className="w-64 border-r border-zinc-200 bg-zinc-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between overflow-y-auto">
+          {!embedded && (
+            <aside className="w-64 border-r border-zinc-200 bg-zinc-50/70 p-4 space-y-1 shrink-0 flex flex-col justify-between overflow-y-auto">
             <div className="space-y-1">
               <button
                 onClick={() => setActiveTab('general')}
@@ -455,7 +465,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({
                 </button>
               </div>
             )}
-          </aside>
+            </aside>
+          )}
 
           {/* Right Content Area */}
           <main className="flex-1 overflow-y-auto p-6 bg-white">

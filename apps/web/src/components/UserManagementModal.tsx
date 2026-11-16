@@ -30,12 +30,16 @@ interface UserItem {
   createdAt?: string;
 }
 
+export type UserSettingsTabKey = 'members' | 'invite' | 'permissions' | 'sso' | 'orgs' | 'mcp';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   currentUser: UserItem;
   onUserUpdated?: () => void;
   apiBaseUrl?: string;
+  embedded?: boolean;
+  controlledTab?: UserSettingsTabKey;
 }
 
 export const UserManagementModal: React.FC<Props> = ({
@@ -44,12 +48,16 @@ export const UserManagementModal: React.FC<Props> = ({
   currentUser,
   onUserUpdated,
   apiBaseUrl = 'http://localhost:4001',
+  embedded = false,
+  controlledTab,
 }) => {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'MEMBER' | 'VIEWER'>('ALL');
-  const [activeTab, setActiveTab] = useState<'members' | 'invite' | 'permissions' | 'sso' | 'orgs' | 'mcp'>('members');
+  const [internalTab, setInternalTab] = useState<UserSettingsTabKey>('members');
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = setInternalTab;
 
   // MCP Tokens state
   const [mcpTokens, setMcpTokens] = useState<Array<{
@@ -272,9 +280,10 @@ export const UserManagementModal: React.FC<Props> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col overflow-hidden animate-in fade-in duration-150">
+    <div className={embedded ? 'flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-white' : 'fixed inset-0 z-50 bg-white flex flex-col overflow-hidden animate-in fade-in duration-150'}>
       {/* Page Header */}
-      <div className="px-4 sm:px-6 py-3.5 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/70 shrink-0">
+      {!embedded && (
+        <div className="px-4 sm:px-6 py-3.5 border-b border-zinc-200 flex items-center justify-between bg-zinc-50/70 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
@@ -306,12 +315,14 @@ export const UserManagementModal: React.FC<Props> = ({
         >
           <X className="w-4 h-4" />
         </button>
-      </div>
+        </div>
+      )}
 
       {/* Body: Left Sidebar + Right Content */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
         {/* Sidebar Navigation */}
-        <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-zinc-200 bg-zinc-50/70 p-3 md:p-4 shrink-0 flex md:flex-col justify-between gap-2 overflow-x-auto md:overflow-y-auto">
+        {!embedded && (
+          <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-zinc-200 bg-zinc-50/70 p-3 md:p-4 shrink-0 flex md:flex-col justify-between gap-2 overflow-x-auto md:overflow-y-auto">
           <div className="flex md:flex-col gap-1 min-w-0">
             <button
               type="button"
@@ -397,7 +408,8 @@ export const UserManagementModal: React.FC<Props> = ({
             <KeyRound className="w-3.5 h-3.5 shrink-0" />
             <span>Git OAuth Authentifizierung aktiv</span>
           </div>
-        </aside>
+          </aside>
+        )}
 
         {/* Right Content Area */}
         <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
@@ -468,7 +480,28 @@ export const UserManagementModal: React.FC<Props> = ({
                     ) : (
                       filteredUsers.map((u) => {
                         const isSelf = u.id === currentUser.id;
-                        return (
+                        if (embedded) {
+    return (
+      <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
+        <div className="max-w-5xl mx-auto space-y-5">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+          {successMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  return (
                           <tr key={u.id} className="hover:bg-zinc-50/70 transition">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-3">
@@ -863,7 +896,28 @@ export const UserManagementModal: React.FC<Props> = ({
                     {mcpTokens.map((t) => {
                       const isRevoked = Boolean(t.revokedAt);
                       const isExpired = Boolean(t.expiresAt && new Date(t.expiresAt) <= new Date());
-                      return (
+                      if (embedded) {
+    return (
+      <main className="flex-1 overflow-y-auto p-6 bg-white min-w-0">
+        <div className="max-w-5xl mx-auto space-y-5">
+          {errorMsg && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+          {successMsg && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  return (
                         <div key={t.id} className="px-4 py-3 flex items-center justify-between gap-3 text-xs">
                           <div className="min-w-0 space-y-0.5">
                             <div className="flex items-center gap-2">
