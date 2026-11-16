@@ -866,18 +866,9 @@ export default function App() {
               <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             </button>
 
-            {/* Project Quick Actions (Settings, Setup Wizard, Git, New Project) */}
+            {/* Project Quick Actions (Setup Wizard, Git, New Project) */}
             {canEdit && (
               <div className="flex items-center gap-0.5 text-zinc-400">
-                {activeProject && (
-                  <button
-                    onClick={() => openSettings('general')}
-                    title="Einstellungen (/einstellungen)"
-                    className="p-1.5 rounded-lg hover:bg-zinc-100 hover:text-zinc-700 transition"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </button>
-                )}
                 <button
                   onClick={() => setShowGitModal(true)}
                   title="Git-Integration & Versionskontrolle"
@@ -999,11 +990,11 @@ export default function App() {
               <div className="space-y-0.5">
                 <button
                   type="button"
-                  onClick={() => openSettings('members')}
+                  onClick={() => openSettings(activeProject ? 'general' : 'members')}
                   className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-teal-700 transition cursor-pointer"
                 >
-                  <Users className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Einstellungen &amp; Rechte</span>
+                  <Settings className="w-3.5 h-3.5 text-zinc-500" />
+                  <span>Einstellungen</span>
                 </button>
 
                 <button
@@ -1014,17 +1005,6 @@ export default function App() {
                   <FolderGit2 className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Git-Integration & Repos</span>
                 </button>
-
-                {canAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => openSettings('general')}
-                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-teal-700 transition cursor-pointer"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-zinc-500" />
-                    <span>Projekteinstellungen</span>
-                  </button>
-                )}
               </div>
 
               {/* Persona Switcher (Multi-User testing) */}
