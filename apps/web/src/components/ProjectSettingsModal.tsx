@@ -190,31 +190,161 @@ export const ProjectSettingsModal: React.FC<Props> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const loadedProjectIdRef = React.useRef<string | null>(null);
+  const lastSavedSnapshotRef = React.useRef<string>('');
+
+  const buildPayload = (
+    vals: {
+      name: string;
+      key: string;
+      description: string;
+      columns: StatusColumn[];
+      stageAgents: Record<string, { agentName: string; autoAssign: boolean }>;
+      workflowName: string;
+      enforceStrictTransitions: boolean;
+      transitions: any[];
+      issueTemplates: IssueTemplate[];
+      gitProvider: 'GITHUB' | 'GITLAB';
+      gitRepo: string;
+      gitBranch: string;
+    }
+  ) => ({
+    name: vals.name.trim(),
+    key: vals.key.toUpperCase().trim(),
+    description: vals.description.trim(),
+    columns: vals.columns,
+    stageAgents: vals.stageAgents,
+    workflowRules: {
+      name: vals.workflowName.trim() || 'Custom Workflow',
+      enforceStrictTransitions: vals.enforceStrictTransitions,
+      transitions: vals.transitions,
+    },
+    issueTemplates: vals.issueTemplates,
+    gitProvider: vals.gitRepo.trim() ? vals.gitProvider : undefined,
+    gitRepo: vals.gitRepo.trim() || undefined,
+    gitBranch: vals.gitRepo.trim() ? (vals.gitBranch.trim() || 'main') : undefined,
+  });
 
   useEffect(() => {
-    if (project && isOpen) {
-      setName(project.name || '');
-      setKey(project.key || '');
-      setDescription(project.description || '');
+    if (!isOpen) {
+      loadedProjectIdRef.current = null;
+      return;
+    }
+    if (project && loadedProjectIdRef.current !== project.id) {
+      loadedProjectIdRef.current = project.id;
+      const initName = project.name || '';
+      const initKey = project.key || '';
+      const initDesc = project.description || '';
       const cols = project.columns && project.columns.length > 0 ? [...project.columns] : [...DEFAULT_STAGES];
+      const initStageAgents = project.stageAgents ? { ...project.stageAgents } : {};
+      const initWfName = project.workflowRules?.name || 'Standard Agent-First Workflow';
+      const initStrict = Boolean(project.workflowRules?.enforceStrictTransitions);
+      const initTransitions = Array.isArray(project.workflowRules?.transitions) ? [...project.workflowRules!.transitions] : [];
+      const initTemplates = resolveProjectTemplates(project.issueTemplates).map((t) => ({
+        ...t,
+        labels: [...t.labels],
+        proofOfWorkChecks: [...t.proofOfWorkChecks],
+      }));
+      const initGitProvider = ((project.gitProvider as any) || 'GITHUB') as 'GITHUB' | 'GITLAB';
+      const initGitRepo = project.gitRepo || '';
+      const initGitBranch = project.gitBranch || 'main';
+
+      setName(initName);
+      setKey(initKey);
+      setDescription(initDesc);
       setColumns(cols);
-      setStageAgents(project.stageAgents ? { ...project.stageAgents } : {});
-      setWorkflowName(project.workflowRules?.name || 'Standard Agent-First Workflow');
-      setEnforceStrictTransitions(Boolean(project.workflowRules?.enforceStrictTransitions));
-      setTransitions(Array.isArray(project.workflowRules?.transitions) ? [...project.workflowRules!.transitions] : []);
-      setIssueTemplates(resolveProjectTemplates(project.issueTemplates).map((t) => ({ ...t, labels: [...t.labels], proofOfWorkChecks: [...t.proofOfWorkChecks] })));
+      setStageAgents(initStageAgents);
+      setWorkflowName(initWfName);
+      setEnforceStrictTransitions(initStrict);
+      setTransitions(initTransitions);
+      setIssueTemplates(initTemplates);
       setSelectedWorkflowStageId(cols[Math.min(1, cols.length - 1)]?.id || cols[0]?.id || '');
-      setGitProvider((project.gitProvider as any) || 'GITHUB');
-      setGitRepo(project.gitRepo || '');
-      setGitBranch(project.gitBranch || 'main');
+      setGitProvider(initGitProvider);
+      setGitRepo(initGitRepo);
+      setGitBranch(initGitBranch);
       setCopiedWebhook(false);
       setNewStageTitle('');
       setDeleteConfirmation('');
       setSaveSuccess(false);
       setErrorMsg('');
       setActiveTab('general');
+
+      lastSavedSnapshotRef.current = JSON.stringify(
+        buildPayload({
+          name: initName,
+          key: initKey,
+          description: initDesc,
+          columns: cols,
+          stageAgents: initStageAgents,
+          workflowName: initWfName,
+          enforceStrictTransitions: initStrict,
+          transitions: initTransitions,
+          issueTemplates: initTemplates,
+          gitProvider: initGitProvider,
+          gitRepo: initGitRepo,
+          gitBranch: initGitBranch,
+        })
+      );
     }
   }, [project, isOpen]);
+
+  // Auto-save project settings with 600ms debounce
+  useEffect(() => {
+    if (!isOpen || !project || !canEdit) return;
+    if (loadedProjectIdRef.current !== project.id) return;
+
+    const payload = buildPayload({
+      name,
+      key,
+      description,
+      columns,
+      stageAgents,
+      workflowName,
+      enforceStrictTransitions,
+      transitions,
+      issueTemplates,
+      gitProvider,
+      gitRepo,
+      gitBranch,
+    });
+    const serialized = JSON.stringify(payload);
+    if (serialized === lastSavedSnapshotRef.current) return;
+
+    if (!payload.name || !payload.key) return;
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setIsSaving(true);
+        setErrorMsg('');
+        await onUpdateProject(project.id, payload);
+        lastSavedSnapshotRef.current = serialized;
+        setSaveSuccess(true);
+        window.setTimeout(() => setSaveSuccess(false), 2000);
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Fehler beim Speichern der Einstellungen.');
+      } finally {
+        setIsSaving(false);
+      }
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isOpen,
+    project,
+    canEdit,
+    name,
+    key,
+    description,
+    columns,
+    stageAgents,
+    workflowName,
+    enforceStrictTransitions,
+    transitions,
+    issueTemplates,
+    gitProvider,
+    gitRepo,
+    gitBranch,
+  ]);
 
   if (!isOpen || !project) return null;
 
@@ -266,46 +396,6 @@ export const ProjectSettingsModal: React.FC<Props> = ({
     }
   };
 
-  // Save Settings
-  const handleSave = async () => {
-    if (!canEdit) return;
-    if (!name.trim()) {
-      setErrorMsg('Projektname darf nicht leer sein.');
-      return;
-    }
-    if (!key.trim()) {
-      setErrorMsg('Projekt-Kürzel darf nicht leer sein.');
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      setErrorMsg('');
-      await onUpdateProject(project.id, {
-        name: name.trim(),
-        key: key.toUpperCase().trim(),
-        description: description.trim(),
-        columns,
-        stageAgents,
-        workflowRules: {
-          name: workflowName.trim() || 'Custom Workflow',
-          enforceStrictTransitions,
-          transitions,
-        },
-        issueTemplates,
-        gitProvider: gitRepo.trim() ? gitProvider : undefined,
-        gitRepo: gitRepo.trim() || undefined,
-        gitBranch: gitRepo.trim() ? (gitBranch.trim() || 'main') : undefined,
-      });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Fehler beim Speichern der Einstellungen.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Delete Project
   const handleDelete = async () => {
     if (!canAdmin) return;
@@ -353,21 +443,20 @@ export const ProjectSettingsModal: React.FC<Props> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {saveSuccess && (
-            <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5 mr-2">
-              <Check className="w-3.5 h-3.5" />
-              Gespeichert
+          {isSaving ? (
+            <span className="text-zinc-500 text-xs font-medium flex items-center gap-1.5">
+              Speichert...
             </span>
-          )}
-          {canEdit && activeTab !== 'danger' && (
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="px-4 py-1.5 text-xs font-semibold text-white bg-teal-700 hover:bg-teal-800 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-1.5"
-            >
-              {isSaving ? 'Speichern...' : 'Änderungen speichern'}
-            </button>
-          )}
+          ) : saveSuccess ? (
+            <span className="text-emerald-600 text-xs font-semibold flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5" />
+              Automatisch gespeichert
+            </span>
+          ) : canEdit && activeTab !== 'danger' ? (
+            <span className="text-[11px] text-zinc-400">
+              Änderungen werden automatisch gespeichert
+            </span>
+          ) : null}
         </div>
       </div>
 
