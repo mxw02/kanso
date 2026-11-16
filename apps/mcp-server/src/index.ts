@@ -28,17 +28,39 @@ function tokensMatch(expected: string, provided: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-function verifyBearerAuth(req: Request, res: Response): boolean {
-  if (!MCP_BEARER_TOKEN) return true;
+async function verifyBearerAuth(req: Request, res: Response): Promise<boolean> {
   const authHeader = req.headers.authorization || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   const provided = match ? match[1].trim() : '';
-  if (!provided || !tokensMatch(MCP_BEARER_TOKEN, provided)) {
-    res.setHeader('WWW-Authenticate', 'Bearer realm="kanso-mcp-server"');
-    res.status(401).json({ error: 'Unauthorized: invalid or missing Bearer token' });
-    return false;
+
+  if (MCP_BEARER_TOKEN && provided && tokensMatch(MCP_BEARER_TOKEN, provided)) {
+    return true;
   }
-  return true;
+
+  // Also check UI-managed tokens stored in the Kanso API database
+  if (!MCP_BEARER_TOKEN || provided) {
+    try {
+      const verifyRes = await fetch(`${API_BASE_URL}/api/mcp/verify-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: provided || undefined }),
+      });
+      if (verifyRes.ok) {
+        const data = (await verifyRes.json()) as { valid?: boolean; authRequired?: boolean };
+        if (data.valid) {
+          // If MCP_BEARER_TOKEN is configured in env, still require an explicit token
+          if (!MCP_BEARER_TOKEN || provided) return true;
+        }
+      }
+    } catch {
+      // If API is unreachable and no env token is required, allow local dev fallback
+      if (!MCP_BEARER_TOKEN && !provided) return true;
+    }
+  }
+
+  res.setHeader('WWW-Authenticate', 'Bearer realm="kanso-mcp-server"');
+  res.status(401).json({ error: 'Unauthorized: invalid or missing Bearer token' });
+  return false;
 }
 
 // Helper for making API calls to Kanso backend
@@ -777,7 +799,7 @@ async function main() {
     const transports = new Map<string, SSEServerTransport>();
 
     app.get('/sse', async (req: Request, res: Response) => {
-      if (!verifyBearerAuth(req, res)) return;
+      if (!(await verifyBearerAuth(req, res))) return;
       console.log('🔗 Client connected to MCP SSE transport');
       const transport = new SSEServerTransport('/messages', res);
       transports.set(transport.sessionId, transport);
@@ -789,7 +811,7 @@ async function main() {
     });
 
     app.post('/messages', async (req: Request, res: Response) => {
-      if (!verifyBearerAuth(req, res)) return;
+      if (!(await verifyBearerAuth(req, res))) return;
       const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId : '';
       const transport = transports.get(sessionId);
       if (transport) {
