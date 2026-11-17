@@ -13,6 +13,7 @@ import {
   Target,
   Paperclip,
   Loader2,
+  Bug,
 } from 'lucide-react';
 import { computeReadiness } from '../utils/readiness';
 import type { GoalItem } from './GoalsModal';
@@ -20,6 +21,12 @@ import { extractFilesFromClipboard, insertMarkdownAtCursor, uploadFileToKanso } 
 import { AttachmentPreviewStrip } from './AttachmentPreviewStrip';
 import { MentionTextarea } from './MentionTextarea';
 import { IssueTemplate, resolveProjectTemplates } from '../utils/issueTemplates';
+import {
+  BugIntakeState,
+  StructuredBugForm,
+  buildStructuredBugMarkdown,
+  createDefaultBugIntakeState,
+} from './StructuredBugForm';
 
 interface Column {
   id: string;
@@ -69,6 +76,8 @@ export const CreateIssueModal: React.FC<Props> = ({
   const availableTemplates = resolveProjectTemplates(templates);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [issueType, setIssueType] = useState<'TASK' | 'BUG' | 'FEATURE' | 'EPIC'>('TASK');
+  const [bugFormMode, setBugFormMode] = useState(true);
+  const [bugState, setBugState] = useState<BugIntakeState>(() => createDefaultBugIntakeState());
   const [proofOfWorkChecks, setProofOfWorkChecks] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -128,6 +137,8 @@ export const CreateIssueModal: React.FC<Props> = ({
     if (isOpen) {
       setSelectedTemplateId('');
       setIssueType('TASK');
+      setBugFormMode(true);
+      setBugState(createDefaultBugIntakeState());
       setProofOfWorkChecks([]);
       setTitle('');
       setDescription('');
@@ -172,6 +183,10 @@ export const CreateIssueModal: React.FC<Props> = ({
 
     setSelectedTemplateId(tpl.id);
     setIssueType(tpl.type || 'TASK');
+    if (tpl.type === 'BUG') {
+      setBugFormMode(true);
+      setBugState(createDefaultBugIntakeState());
+    }
     setPriority(tpl.priority || 'MEDIUM');
     setSelectedLabels(tpl.labels || []);
     setProofOfWorkChecks(tpl.proofOfWorkChecks || []);
@@ -206,10 +221,15 @@ export const CreateIssueModal: React.FC<Props> = ({
 
     setIsSubmitting(true);
     try {
+      const finalDescription =
+        issueType === 'BUG' && bugFormMode
+          ? buildStructuredBugMarkdown(bugState)
+          : description.trim();
+
       const payload: any = {
         projectId,
         title: title.trim(),
-        description: description.trim(),
+        description: finalDescription,
         status,
         priority,
         type: issueType,
@@ -339,7 +359,65 @@ export const CreateIssueModal: React.FC<Props> = ({
             className="w-full bg-transparent text-lg font-semibold text-zinc-900 placeholder:text-zinc-300 focus:outline-none leading-snug"
           />
 
-          {/* Description Input */}
+          {/* Bug Intake Mode Toggle (when type === BUG) */}
+          {issueType === 'BUG' && (
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="inline-flex p-0.5 rounded-lg bg-zinc-100 border border-zinc-200/80 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setBugFormMode(true)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+                    bugFormMode
+                      ? 'bg-white text-rose-700 shadow-2xs'
+                      : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
+                >
+                  <Bug className="w-3 h-3" />
+                  <span>Strukturiertes Bug-Formular</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (bugFormMode) {
+                      setDescription(buildStructuredBugMarkdown(bugState));
+                    }
+                    setBugFormMode(false);
+                  }}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition cursor-pointer ${
+                    !bugFormMode
+                      ? 'bg-white text-zinc-900 shadow-2xs'
+                      : 'text-zinc-500 hover:text-zinc-800'
+                  }`}
+                >
+                  Freitext-Markdown
+                </button>
+              </div>
+              <span className="text-[11px] text-zinc-400">
+                Geführte Erfassung für hohe Ticket-Readiness
+              </span>
+            </div>
+          )}
+
+          {/* Description Input (Structured Bug Form OR Freeform Markdown) */}
+          {issueType === 'BUG' && bugFormMode ? (
+            <div className="space-y-2">
+              <StructuredBugForm
+                value={bugState}
+                onChange={setBugState}
+                apiUrl={API_URL}
+              />
+              {proofOfWorkChecks.length > 0 && (
+                <div className="px-2.5 py-1.5 rounded-lg bg-teal-50/70 border border-teal-200/80 text-[11px] text-teal-900 flex flex-wrap items-center gap-1.5">
+                  <span className="font-semibold">Proof-of-Work-Checks aus Vorlage:</span>
+                  {proofOfWorkChecks.map((c, idx) => (
+                    <span key={idx} className="px-1.5 py-0.2 rounded bg-white border border-teal-200 text-[10px]">
+                      • {c}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
           <div
             onDragOver={(e) => {
               if (e.dataTransfer?.types.includes('Files')) {
@@ -413,6 +491,7 @@ export const CreateIssueModal: React.FC<Props> = ({
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* Selected Labels Pill Bar (if any selected) */}
@@ -439,6 +518,29 @@ export const CreateIssueModal: React.FC<Props> = ({
           className="px-6 py-3 border-t border-zinc-100 bg-zinc-50/60 flex items-center gap-2 flex-wrap text-xs"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Issue Type Selector */}
+          <select
+            value={issueType}
+            onChange={(e) => {
+              const nextType = e.target.value as 'TASK' | 'BUG' | 'FEATURE' | 'EPIC';
+              setIssueType(nextType);
+              if (nextType === 'BUG') {
+                setBugFormMode(true);
+              }
+            }}
+            title="Ticket-Typ"
+            className={`px-2.5 py-1.5 rounded-lg border font-medium shadow-2xs transition cursor-pointer focus:outline-none ${
+              issueType === 'BUG'
+                ? 'bg-rose-50 border-rose-200 text-rose-700'
+                : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300'
+            }`}
+          >
+            <option value="TASK">Typ: Task</option>
+            <option value="BUG">Typ: Bug</option>
+            <option value="FEATURE">Typ: Feature</option>
+            <option value="EPIC">Typ: Epic</option>
+          </select>
+
           {/* Status Pill */}
           <div className="relative">
             <button
