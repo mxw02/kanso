@@ -6,6 +6,7 @@ import {
   FileText,
   FolderGit2,
   GitBranch,
+  HardDrive,
   KeyRound,
   Layers,
   Settings,
@@ -21,8 +22,9 @@ import {
   ProjectSettingsTabKey,
 } from './ProjectSettingsModal';
 import { UserManagementModal, UserSettingsTabKey } from './UserManagementModal';
+import { BackupSettingsPanel } from './BackupSettingsPanel';
 
-export type UnifiedSettingsTab = ProjectSettingsTabKey | UserSettingsTabKey;
+export type UnifiedSettingsTab = ProjectSettingsTabKey | UserSettingsTabKey | 'backups';
 
 const PROJECT_TABS: ReadonlySet<string> = new Set([
   'general',
@@ -258,10 +260,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
                 <button
                   type="button"
                   onClick={() => onSelectTab('mcp')}
-                  className={navItemClass(!isProjectTab && resolvedUserTab === 'mcp')}
+                  className={navItemClass(!isProjectTab && activeTab === 'mcp')}
                 >
                   <Sparkles className="w-4 h-4 text-zinc-400 shrink-0" />
                   <span>MCP Tokens</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectTab('backups')}
+                  className={navItemClass(activeTab === 'backups')}
+                >
+                  <HardDrive className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <span>Backups &amp; Strategie</span>
                 </button>
               </>
             )}
@@ -270,7 +280,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({
 
         {/* Right Active Section */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-          {isProjectTab && project ? (
+          {activeTab === 'backups' && canAdmin ? (
+            <BackupSettingsPanel apiBaseUrl={apiBaseUrl} />
+          ) : isProjectTab && project ? (
             <ProjectSettingsModal
               isOpen
               embedded

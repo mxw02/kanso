@@ -488,3 +488,34 @@ model McpToken {
 
   @@map("mcp_tokens")
 }
+
+model BackupSettings {
+  id             String    @id @default("default")
+  enabled        Boolean   @default(false)
+  schedule       String    @default("DAILY") // MANUAL | HOURLY | DAILY | WEEKLY
+  runAtHour      Int       @default(3)
+  runAtWeekday   Int       @default(0) // 0 = Sunday .. 6 = Saturday
+  retentionCount Int       @default(7)
+  includeUploads Boolean   @default(true)
+  targetPath     String    @default("/app/backups")
+  lastRunAt      DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@map("backup_settings")
+}
+
+model BackupRun {
+  id             String    @id @default(uuid())
+  filename       String
+  filePath       String
+  sizeBytes      Int       @default(0)
+  status         String    @default("RUNNING") // RUNNING | SUCCESS | FAILED
+  trigger        String    @default("MANUAL") // MANUAL | SCHEDULED
+  includeDb      Boolean   @default(true)
+  includeUploads Boolean   @default(true)
+  errorMessage   String?   @db.Text
+  createdAt      DateTime  @default(now())
+  completedAt    DateTime?
+
+  @@map("backup_runs")
+}

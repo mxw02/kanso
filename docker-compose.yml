@@ -52,8 +52,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-kanso-super-secret-jwt-key-change-in-production-2026}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
       UPLOAD_DIR: /app/apps/api/uploads
+      BACKUP_DIR: /app/backups
     volumes:
       - uploads_data:/app/apps/api/uploads
+      - ./backups:/app/backups
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health | grep -q 'ok' || exit 1"]
       interval: 5s

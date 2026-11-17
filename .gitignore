@@ -39,3 +39,4 @@ docker/data/
 
 # Prisma
 apps/api/prisma/migrations/
+backups/
