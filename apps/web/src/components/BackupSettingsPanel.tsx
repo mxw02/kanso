@@ -72,7 +72,11 @@ export const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ apiBas
   const [savedFlag, setSavedFlag] = useState(false);
   const [runningBackup, setRunningBackup] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [createdBackup, setCreatedBackup] = useState<{
+    id: string;
+    filename: string;
+    sizeBytes: number;
+  } | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -120,14 +124,18 @@ export const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ apiBas
   const handleRunBackup = async () => {
     setRunningBackup(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
+    setCreatedBackup(null);
     try {
       const res = await fetch(`${apiBaseUrl}/api/backups/run`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok || data.status === 'FAILED') {
         throw new Error(data.errorMessage || data.error || 'Backup fehlgeschlagen.');
       }
-      setSuccessMsg(`Backup "${data.filename}" (${formatBytes(data.sizeBytes)}) erfolgreich erstellt.`);
+      setCreatedBackup({
+        id: data.id,
+        filename: data.filename,
+        sizeBytes: data.sizeBytes,
+      });
       await fetchAll();
     } catch (err: any) {
       setErrorMsg(err.message || 'Backup konnte nicht ausgeführt werden.');
@@ -195,10 +203,22 @@ export const BackupSettingsPanel: React.FC<BackupSettingsPanelProps> = ({ apiBas
             <span>{errorMsg}</span>
           </div>
         )}
-        {successMsg && (
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{successMsg}</span>
+        {createdBackup && (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                Backup <strong>&quot;{createdBackup.filename}&quot;</strong> ({formatBytes(createdBackup.sizeBytes)}) erfolgreich erstellt.
+              </span>
+            </div>
+            <a
+              href={`${apiBaseUrl}/api/backups/${createdBackup.id}/download`}
+              download={createdBackup.filename}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100/70 text-emerald-800 text-[11px] font-semibold transition shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Direkt herunterladen</span>
+            </a>
           </div>
         )}
 
