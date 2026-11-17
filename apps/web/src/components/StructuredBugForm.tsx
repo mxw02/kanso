@@ -25,14 +25,6 @@ export interface BugIntakeState {
   extraNotes: string;
 }
 
-const GENERIC_AREA_SUGGESTIONS = [
-  'UI / Frontend',
-  'Backend / API',
-  'Auth',
-  'Datenbank',
-  'Performance',
-];
-
 export function detectBrowserContext(): { browser: string; viewport: string; activeUrl: string } {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return { browser: 'Unbekannt', viewport: '1280×800', activeUrl: '/' };
@@ -94,7 +86,7 @@ export function buildStructuredBugMarkdown(state: BugIntakeState): string {
 
   const lines: string[] = [
     '### Betroffener Bereich & Auswirkung',
-    `- **Bereich / Komponente:** ${state.area.trim() || '_nicht angegeben_'}`,
+    ...(state.area.trim() ? [`- **Bereich / Komponente:** ${state.area.trim()}`] : []),
     `- **Severity:** ${SEVERITY_LABEL[state.severity] || state.severity}`,
     '',
     '### Schritte zur Reproduktion',
@@ -220,34 +212,15 @@ export const StructuredBugForm: React.FC<StructuredBugFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold text-zinc-700">
-              Betroffener Bereich / Komponente
+              Betroffener Bereich / Komponente <span className="font-normal text-zinc-400">(optional)</span>
             </label>
             <input
               type="text"
               value={value.area}
               onChange={(e) => onChange({ ...value, area: e.target.value })}
-              placeholder="z. B. Login, Checkout, Dashboard, API..."
+              placeholder="z. B. Screen, Modul, Workflow oder Funktion..."
               className="w-full px-3 py-1.5 text-xs bg-zinc-50/70 border border-zinc-200 rounded-lg focus:outline-none focus:bg-white focus:border-teal-600"
             />
-            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-              {GENERIC_AREA_SUGGESTIONS.map((chip) => {
-                const active = value.area.trim().toLowerCase() === chip.toLowerCase();
-                return (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() => onChange({ ...value, area: chip })}
-                    className={`px-2 py-0.5 rounded-md text-[11px] border transition cursor-pointer ${
-                      active
-                        ? 'bg-teal-50 text-teal-800 border-teal-300 font-semibold'
-                        : 'bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:text-zinc-700'
-                    }`}
-                  >
-                    {chip}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
           <div className="space-y-1.5">
