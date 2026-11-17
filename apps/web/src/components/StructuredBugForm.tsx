@@ -18,16 +18,14 @@ export interface BugIntakeState {
   steps: string[];
   expectedBehavior: string;
   actualBehavior: string;
-  browser: string;
-  viewport: string;
-  activeUrl: string;
+  environment: string;
   attachmentsMarkdown: string;
   extraNotes: string;
 }
 
-export function detectBrowserContext(): { browser: string; viewport: string; activeUrl: string } {
+export function detectBrowserContext(): string {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return { browser: 'Unbekannt', viewport: '1280×800', activeUrl: '/' };
+    return '';
   }
   const ua = navigator.userAgent;
   let browserName = 'Browser';
@@ -44,20 +42,17 @@ export function detectBrowserContext(): { browser: string; viewport: string; act
   const browser = os ? `${browserName} (${os})` : browserName;
   const viewport = `${window.innerWidth}×${window.innerHeight}`;
   const activeUrl = `${window.location.pathname}${window.location.search}`;
-  return { browser, viewport, activeUrl };
+  return `${browser} · Viewport ${viewport} · ${activeUrl}`;
 }
 
 export function createDefaultBugIntakeState(): BugIntakeState {
-  const ctx = detectBrowserContext();
   return {
     area: '',
     severity: 'MEDIUM',
     steps: ['', ''],
     expectedBehavior: '',
     actualBehavior: '',
-    browser: ctx.browser,
-    viewport: ctx.viewport,
-    activeUrl: ctx.activeUrl,
+    environment: '',
     attachmentsMarkdown: '',
     extraNotes: '',
   };
@@ -95,12 +90,11 @@ export function buildStructuredBugMarkdown(state: BugIntakeState): string {
     '### Erwartetes vs. aktuelles Verhalten',
     `- **Erwartet:** ${state.expectedBehavior.trim() || '_nicht angegeben_'}`,
     `- **Aktuell:** ${state.actualBehavior.trim() || '_nicht angegeben_'}`,
-    '',
-    '### Umgebung & Kontext',
-    `- **Browser:** ${state.browser.trim() || 'Unbekannt'}`,
-    `- **Viewport:** \`${state.viewport.trim() || 'unbekannt'}\``,
-    `- **URL / View:** \`${state.activeUrl.trim() || '/'}\``,
   ];
+
+  if (state.environment.trim()) {
+    lines.push('', '### Umgebung & Kontext', state.environment.trim());
+  }
 
   if (state.extraNotes.trim()) {
     lines.push('', '### Weitere Hinweise', state.extraNotes.trim());
@@ -148,13 +142,12 @@ export const StructuredBugForm: React.FC<StructuredBugFormProps> = ({
     }
   };
 
-  const handleRefreshContext = () => {
+  const handleInsertBrowserContext = () => {
     const ctx = detectBrowserContext();
+    if (!ctx) return;
     onChange({
       ...value,
-      browser: ctx.browser,
-      viewport: ctx.viewport,
-      activeUrl: ctx.activeUrl,
+      environment: value.environment.trim() ? `${value.environment.trim()}\n${ctx}` : ctx,
     });
   };
 
@@ -335,50 +328,28 @@ export const StructuredBugForm: React.FC<StructuredBugFormProps> = ({
 
       {/* Section 3: Environment & Screenshots */}
       <div className="p-4 rounded-xl border border-zinc-200 bg-white space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
             <Monitor className="w-3.5 h-3.5 text-teal-700" />
-            <span>3. Umgebung &amp; Screenshots</span>
+            <span>3. Umgebung &amp; Screenshots <span className="font-normal normal-case">(optional)</span></span>
           </span>
           <button
             type="button"
-            onClick={handleRefreshContext}
+            onClick={handleInsertBrowserContext}
             className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-700 hover:text-teal-900 cursor-pointer"
           >
             <RefreshCw className="w-3 h-3" />
-            <span>Kontext neu erfassen</span>
+            <span>Browser-Kontext einfügen</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <div>
-            <label className="block text-[10px] font-semibold text-zinc-400 mb-1">Browser / OS</label>
-            <input
-              type="text"
-              value={value.browser}
-              onChange={(e) => onChange({ ...value, browser: e.target.value })}
-              className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:bg-white focus:border-teal-600"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-zinc-400 mb-1">Viewport</label>
-            <input
-              type="text"
-              value={value.viewport}
-              onChange={(e) => onChange({ ...value, viewport: e.target.value })}
-              className="w-full px-2.5 py-1.5 text-xs font-mono bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:bg-white focus:border-teal-600"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-semibold text-zinc-400 mb-1">URL / View</label>
-            <input
-              type="text"
-              value={value.activeUrl}
-              onChange={(e) => onChange({ ...value, activeUrl: e.target.value })}
-              className="w-full px-2.5 py-1.5 text-xs font-mono bg-zinc-50 border border-zinc-200 rounded-lg focus:outline-none focus:bg-white focus:border-teal-600"
-            />
-          </div>
-        </div>
+        <input
+          type="text"
+          value={value.environment}
+          onChange={(e) => onChange({ ...value, environment: e.target.value })}
+          placeholder="z. B. iOS 18, Prod API v2.1, Staging, Docker, Chrome..."
+          className="w-full px-3 py-1.5 text-xs bg-zinc-50/70 border border-zinc-200 rounded-lg focus:outline-none focus:bg-white focus:border-teal-600"
+        />
 
         <AttachmentPreviewStrip
           markdown={value.attachmentsMarkdown}
